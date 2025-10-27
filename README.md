@@ -1,0 +1,1 @@
+# V.3-Lovable-POS-kxauidotesbcuypuokal
