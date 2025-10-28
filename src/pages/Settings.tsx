@@ -303,54 +303,55 @@ export default function Settings() {
 
     setLoading(true);
     try {
-      // 1. Create auth user
-      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+      // 1. Create auth user with regular signUp (will trigger handle_new_user)
+      const { data: authData, error: authError } = await supabase.auth.signUp({
         email: newUser.email.trim(),
         password: newUser.password,
-        email_confirm: true, // Auto-confirm email (bypass verification)
-        user_metadata: {
-          full_name: newUser.fullName.trim(),
-          phone: newUser.phone.trim(),
-          address: newUser.address.trim(),
+        options: {
+          data: {
+            full_name: newUser.fullName.trim(),
+            phone: newUser.phone.trim(),
+            address: newUser.address.trim(),
+          },
         },
       });
 
       if (authError) throw authError;
       if (!authData.user) throw new Error("Gagal membuat akun pengguna");
 
-      // 2. Create profile manually (more reliable than trigger)
+      // 2. Create profile manually (sebagai backup jika trigger gagal)
       const { error: profileError } = await supabase
         .from("profiles")
-        .insert({
+        .upsert({
           user_id: authData.user.id,
           full_name: newUser.fullName.trim(),
           phone: newUser.phone.trim(),
           address: newUser.address.trim(),
+        }, {
+          onConflict: 'user_id'
         });
 
       if (profileError) {
         console.error("Profile creation error:", profileError);
-        // Try to cleanup auth user if profile fails
-        await supabase.auth.admin.deleteUser(authData.user.id);
         throw new Error("Gagal membuat profile: " + profileError.message);
       }
 
-      // 3. Assign rider role manually
+      // 3. Assign rider role manually (sebagai backup jika trigger gagal)
       const { error: roleError } = await supabase
         .from("user_roles")
-        .insert({
+        .upsert({
           user_id: authData.user.id,
           role: "rider",
+        }, {
+          onConflict: 'user_id,role'
         });
 
       if (roleError) {
         console.error("Role assignment error:", roleError);
-        // Try to cleanup
-        await supabase.auth.admin.deleteUser(authData.user.id);
         throw new Error("Gagal assign role: " + roleError.message);
       }
 
-      toast.success("Berhasil menambahkan pengguna baru");
+      toast.success("Berhasil menambahkan pengguna baru. Email verifikasi telah dikirim.");
       setIsAddingUser(false);
 
       // Reload users list to get fresh data from database
