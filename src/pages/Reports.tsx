@@ -4,7 +4,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { StatsCard } from "@/components/StatsCard";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { BarChart3, DollarSign, ShoppingCart, TrendingUp, Calendar, Download, Filter } from "lucide-react";
+import { BarChart3, DollarSign, ShoppingCart, TrendingUp, Calendar, Download, Filter, ChevronDown, Users } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format, startOfMonth, endOfMonth, startOfDay, endOfDay } from "date-fns";
@@ -14,6 +14,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 
@@ -138,6 +139,46 @@ export default function Reports() {
     });
     return acc;
   }, [])?.sort((a, b) => b.total - a.total).slice(0, 5) || [];
+
+  // Rider Performance - Group transactions by rider
+  const riderPerformance = transactions?.reduce((acc: any[], transaction) => {
+    const riderId = transaction.rider_id;
+    const existing = acc.find(r => r.riderId === riderId);
+    
+    if (existing) {
+      existing.totalSales += Number(transaction.total_amount);
+      existing.totalTransactions += 1;
+    } else {
+      acc.push({
+        riderId: riderId,
+        riderName: transaction.rider?.full_name || "Unknown",
+        totalSales: Number(transaction.total_amount),
+        totalTransactions: 1
+      });
+    }
+    return acc;
+  }, [])?.sort((a, b) => b.totalSales - a.totalSales) || [];
+
+  // Group transactions by rider for accordion
+  const transactionsByRider = transactions?.reduce((acc: any, transaction) => {
+    const riderId = transaction.rider_id;
+    const riderName = transaction.rider?.full_name || "Unknown";
+    
+    if (!acc[riderId]) {
+      acc[riderId] = {
+        riderName,
+        transactions: [],
+        totalSales: 0,
+        totalTransactions: 0
+      };
+    }
+    
+    acc[riderId].transactions.push(transaction);
+    acc[riderId].totalSales += Number(transaction.total_amount);
+    acc[riderId].totalTransactions += 1;
+    
+    return acc;
+  }, {} as Record<string, any>);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("id-ID", {
@@ -673,94 +714,121 @@ export default function Reports() {
           </CardContent>
         </Card>
 
-        {/* Top Products */}
+        {/* Rider Performance Chart */}
         <Card>
           <CardHeader>
-            <CardTitle>Produk Terlaris</CardTitle>
-            <CardDescription>5 produk dengan penjualan tertinggi</CardDescription>
+            <CardTitle>Performance per Rider</CardTitle>
+            <CardDescription>Tingkat penjualan dari masing-masing rider</CardDescription>
           </CardHeader>
           <CardContent>
-            {topProducts.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={topProducts}>
+            {riderPerformance && riderPerformance.length > 0 ? (
+              <ResponsiveContainer width="100%" height={isMobile ? 300 : 350}>
+                <BarChart data={riderPerformance} margin={{ bottom: isMobile ? 60 : 20 }}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis dataKey="name" className="text-xs" />
+                  <XAxis 
+                    dataKey="riderName" 
+                    className="text-xs"
+                    angle={isMobile ? -45 : 0}
+                    textAnchor={isMobile ? "end" : "middle"}
+                    height={isMobile ? 80 : 30}
+                  />
                   <YAxis className="text-xs" />
                   <Tooltip
-                    formatter={(value: any) => formatCurrency(value)}
+                    formatter={(value: any, name: string) => {
+                      if (name === "Total Penjualan") return formatCurrency(value);
+                      return value;
+                    }}
                     contentStyle={{ 
                       backgroundColor: "hsl(var(--card))",
                       border: "1px solid hsl(var(--border))",
                       borderRadius: "var(--radius)"
                     }}
+                    labelStyle={{ color: "hsl(var(--foreground))" }}
                   />
-                  <Bar dataKey="total" fill="hsl(var(--primary))" name="Total Penjualan" />
+                  <Bar dataKey="totalSales" fill="hsl(var(--primary))" name="Total Penjualan" />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
               <div className="text-center py-12 text-muted-foreground">
-                <ShoppingCart className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                <p>Tidak ada data produk</p>
+                <Users className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                <p>Tidak ada data rider</p>
               </div>
             )}
           </CardContent>
         </Card>
 
-        {/* Transaction History */}
+        {/* Transaction History - Grouped by Rider */}
         <Card>
           <CardHeader>
-            <CardTitle>Riwayat Transaksi</CardTitle>
-            <CardDescription>Daftar transaksi dalam periode terpilih</CardDescription>
+            <CardTitle>Riwayat Transaksi per Rider</CardTitle>
+            <CardDescription>Daftar transaksi dikelompokkan berdasarkan rider</CardDescription>
           </CardHeader>
           <CardContent>
             {isLoading ? (
               <div className="text-center py-8 text-muted-foreground">Memuat data...</div>
-            ) : transactions && transactions.length > 0 ? (
-              <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className={isMobile ? "w-[60%]" : "w-[45%]"}>Info Transaksi</TableHead>
-                        {!isMobile && (
-                          <>
-                            <TableHead>Metode</TableHead>
-                            <TableHead className="text-right">Subtotal</TableHead>
-                            <TableHead className="text-right">Pajak</TableHead>
-                          </>
-                        )}
-                        <TableHead className="text-right">Total</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {transactions.map((transaction) => (
-                        <TableRow key={transaction.id}>
-                          <TableCell>
-                            <div className="space-y-1">
-                              <div>{format(new Date(transaction.created_at), "dd MMM yyyy HH:mm", { locale: idLocale })}</div>
-                              {isMobile && (
-                                <>
-                                  <div className="text-sm text-muted-foreground">{transaction.rider?.full_name || "-"}</div>
-                                  <div className="text-sm text-muted-foreground capitalize">{transaction.payment_method || "-"}</div>
-                                </>
-                              )}
+            ) : transactionsByRider && Object.keys(transactionsByRider).length > 0 ? (
+              <Accordion type="single" collapsible className="w-full">
+                {Object.entries(transactionsByRider)
+                  .sort(([, a]: any, [, b]: any) => b.totalSales - a.totalSales)
+                  .map(([riderId, riderData]: any) => (
+                  <AccordionItem key={riderId} value={riderId}>
+                    <AccordionTrigger className="hover:no-underline">
+                      <div className="flex items-center justify-between w-full pr-4">
+                        <div className="flex items-center gap-2">
+                          <Users className="w-4 h-4" />
+                          <span className="font-semibold">{riderData.riderName}</span>
+                        </div>
+                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                          <span>{riderData.totalTransactions} transaksi</span>
+                          <span className="font-semibold text-foreground">
+                            {formatCurrency(riderData.totalSales)}
+                          </span>
+                        </div>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <div className="space-y-2 pt-2">
+                        {riderData.transactions.map((transaction: any) => (
+                          <div 
+                            key={transaction.id} 
+                            className="border rounded-lg p-3 hover:bg-muted/50 transition-colors"
+                          >
+                            <div className="flex justify-between items-start">
+                              <div className="space-y-1">
+                                <div className="text-sm font-medium">
+                                  {format(new Date(transaction.created_at), "dd MMM yyyy HH:mm", { locale: idLocale })}
+                                </div>
+                                <div className="text-xs text-muted-foreground capitalize">
+                                  {transaction.payment_method || "-"}
+                                </div>
+                                {transaction.transaction_items && transaction.transaction_items.length > 0 && (
+                                  <div className="text-xs text-muted-foreground mt-2">
+                                    {transaction.transaction_items.map((item: any, idx: number) => (
+                                      <div key={idx}>
+                                        • {item.products?.name || "Product"} x{item.quantity}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="text-right">
+                                <div className="font-semibold">
+                                  {formatCurrency(Number(transaction.total_amount))}
+                                </div>
+                                {!isMobile && (
+                                  <div className="text-xs text-muted-foreground mt-1">
+                                    Subtotal: {formatCurrency(Number(transaction.subtotal))}
+                                  </div>
+                                )}
+                              </div>
                             </div>
-                          </TableCell>
-                          {!isMobile && (
-                            <>
-                              <TableCell>{transaction.rider?.full_name || "-"}</TableCell>
-                              <TableCell className="capitalize">{transaction.payment_method || "-"}</TableCell>
-                              <TableCell className="text-right">{formatCurrency(Number(transaction.subtotal))}</TableCell>
-                              <TableCell className="text-right">{formatCurrency(Number(transaction.tax_amount))}</TableCell>
-                            </>
-                          )}
-                          <TableCell className="text-right font-semibold">
-                            {formatCurrency(Number(transaction.total_amount))}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                  </TableBody>
-                </Table>
-              </div>
+                          </div>
+                        ))}
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
             ) : (
               <div className="text-center py-12 text-muted-foreground">
                 <Calendar className="w-12 h-12 mx-auto mb-2 opacity-50" />
