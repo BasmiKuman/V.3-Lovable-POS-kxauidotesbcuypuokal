@@ -62,72 +62,23 @@ Ini akan:
 
 ---
 
-## ☁️ Cara via GitHub Actions (Paling Mudah!)
+## 🚀 GitHub Actions (Otomatis)
 
-### **Setup GitHub Actions:**
+Setiap kali Anda push ke branch `main`, GitHub Actions akan otomatis:
+1. Build APK dengan Java 17 (kompatibilitas penuh)
+2. Upload sebagai artifact
+3. Simpan selama 30 hari
 
-1. **Buat file** `.github/workflows/build-apk.yml`:
+**Download APK:**
+1. Buka: https://github.com/BasmiKuman/V.3-Lovable-POS-kxauidotesbcuypuokal/actions
+2. Klik workflow run terbaru (tunggu ~5 menit)
+3. Download artifact `BK-POS-Debug-v1.0.0`
 
-```yaml
-name: Build APK
-
-on:
-  push:
-    branches: [ main ]
-  workflow_dispatch:
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Setup Node
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20'
-        
-    - name: Setup JDK
-      uses: actions/setup-java@v4
-      with:
-        distribution: 'temurin'
-        java-version: '17'
-        
-    - name: Install dependencies
-      run: npm ci
-      
-    - name: Build web
-      run: npm run build
-      
-    - name: Sync Capacitor
-      run: npx cap sync android
-      
-    - name: Build APK
-      run: |
-        cd android
-        chmod +x gradlew
-        ./gradlew assembleDebug
-        
-    - name: Upload APK
-      uses: actions/upload-artifact@v4
-      with:
-        name: BK-POS-Debug
-        path: android/app/build/outputs/apk/debug/app-debug.apk
-```
-
-2. **Commit & Push:**
-```bash
-git add .
-git commit -m "Add APK build workflow"
-git push
-```
-
-3. **Download APK:**
-   - Buka GitHub repo
-   - Tab `Actions`
-   - Pilih workflow run terbaru
-   - Download artifact `BK-POS-Debug`
+**⚠️ Java Version Fix:**
+Jika build gagal dengan error "invalid source release: 21", sudah diperbaiki dengan:
+- Global Java 17 configuration untuk semua subprojects
+- `afterEvaluate` untuk Capacitor modules
+- `configureEach` untuk semua compile tasks
 
 ---
 
