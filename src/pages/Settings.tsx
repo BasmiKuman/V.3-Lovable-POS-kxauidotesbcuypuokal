@@ -303,7 +303,8 @@ export default function Settings() {
 
     setLoading(true);
     try {
-      // 1. Create auth user
+      // Create auth user with metadata
+      // Trigger handle_new_user() will auto-create profile and assign role
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: newUser.email.trim(),
         password: newUser.password,
@@ -319,35 +320,8 @@ export default function Settings() {
       if (authError) throw authError;
       if (!authData.user) throw new Error("Gagal membuat akun pengguna");
 
-      // 2. Create profile
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .insert({
-          user_id: authData.user.id,
-          full_name: newUser.fullName.trim(),
-          phone: newUser.phone.trim(),
-          address: newUser.address.trim(),
-        });
-
-      if (profileError) {
-        // Cleanup: Remove auth user if profile creation fails
-        await supabase.auth.admin.deleteUser(authData.user.id);
-        throw profileError;
-      }
-
-      // 3. Assign rider role
-      const { error: roleError } = await supabase
-        .from("user_roles")
-        .insert({
-          user_id: authData.user.id,
-          role: "rider",
-        });
-
-      if (roleError) {
-        // Cleanup: Remove auth user and profile if role assignment fails
-        await supabase.auth.admin.deleteUser(authData.user.id);
-        throw roleError;
-      }
+      // Profile and role are automatically created by trigger handle_new_user()
+      // No need to manually INSERT into profiles or user_roles
 
       toast.success("Berhasil menambahkan pengguna baru");
       setIsAddingUser(false);
