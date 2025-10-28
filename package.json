@@ -1,12 +1,14 @@
 {
   "name": "vite_react_shadcn_ts",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "node bump-version.mjs && vite build",
     "build:dev": "vite build --mode development",
+    "build:no-bump": "vite build",
+    "version:bump": "node bump-version.mjs",
     "lint": "eslint .",
     "preview": "vite preview",
     "android": "npm run build && npx cap sync android && npx cap open android",
