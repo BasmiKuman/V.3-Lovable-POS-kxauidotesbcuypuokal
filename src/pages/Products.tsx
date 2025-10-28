@@ -4,17 +4,17 @@ import { BottomNav } from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Package, Undo2 } from "lucide-react";
+import { Plus, Package, Undo2, Tag, Edit, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 
 interface Product {
   id: string;
@@ -23,6 +23,8 @@ interface Product {
   stock_in_warehouse: number;
   description: string | null;
   image_url: string | null;
+  sku: string | null;
+  category_id: string | null;
   categories: { name: string } | null;
 }
 
@@ -67,12 +69,29 @@ export default function Products() {
   const [productRiderStocks, setProductRiderStocks] = useState<Record<string, ProductRiderStock[]>>({});
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [selectedProductForEdit, setSelectedProductForEdit] = useState<Product | null>(null);
+  const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
   const [returnDialogOpen, setReturnDialogOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<RiderStock | null>(null);
   const [returnQuantity, setReturnQuantity] = useState("");
   const [returnNotes, setReturnNotes] = useState("");
 
   const form = useForm<z.infer<typeof productSchema>>({
+    resolver: zodResolver(productSchema),
+    defaultValues: {
+      name: "",
+      description: "",
+      price: "",
+      stock_in_warehouse: "",
+      category_id: "",
+      sku: "",
+      image_url: "",
+    },
+  });
+
+  const editForm = useForm<z.infer<typeof productSchema>>({
     resolver: zodResolver(productSchema),
     defaultValues: {
       name: "",
@@ -215,6 +234,54 @@ export default function Products() {
     fetchProductRiderStocks();
   }, []);
 
+  const refreshCategories = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("categories")
+        .select("id, name")
+        .order("name");
+
+      if (error) throw error;
+      setCategories(data || []);
+    } catch (error: any) {
+      console.error("Gagal memuat kategori:", error);
+    }
+  };
+
+  const handleAddCategory = async () => {
+    if (!newCategoryName.trim()) {
+      toast.error("Nama kategori tidak boleh kosong");
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from("categories")
+        .insert({ name: newCategoryName.trim() })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      toast.success("Kategori berhasil ditambahkan");
+      setNewCategoryName("");
+      setCategoryDialogOpen(false);
+      
+      // Refresh categories and auto-select the new one
+      await refreshCategories();
+      if (data) {
+        form.setValue("category_id", data.id);
+      }
+    } catch (error: any) {
+      if (error.code === '23505') {
+        toast.error("Kategori dengan nama ini sudah ada");
+      } else {
+        toast.error("Gagal menambahkan kategori");
+      }
+      console.error(error);
+    }
+  };
+
   const onSubmit = async (values: z.infer<typeof productSchema>) => {
     try {
       const { error } = await supabase.from("products").insert({
@@ -245,6 +312,58 @@ export default function Products() {
       setProducts(data || []);
     } catch (error: any) {
       toast.error("Gagal menambahkan produk");
+      console.error(error);
+    }
+  };
+
+  const handleEditProduct = (product: Product) => {
+    setSelectedProductForEdit(product);
+    editForm.setValue("name", product.name);
+    editForm.setValue("description", product.description || "");
+    editForm.setValue("price", product.price.toString());
+    editForm.setValue("stock_in_warehouse", product.stock_in_warehouse.toString());
+    editForm.setValue("category_id", product.category_id || "");
+    editForm.setValue("sku", product.sku || "");
+    editForm.setValue("image_url", product.image_url || "");
+    setEditDialogOpen(true);
+  };
+
+  const onEditSubmit = async (values: z.infer<typeof productSchema>) => {
+    if (!selectedProductForEdit) return;
+
+    try {
+      const { error } = await supabase
+        .from("products")
+        .update({
+          name: values.name,
+          description: values.description || null,
+          price: parseFloat(values.price),
+          stock_in_warehouse: parseInt(values.stock_in_warehouse),
+          category_id: values.category_id || null,
+          sku: values.sku || null,
+          image_url: values.image_url || null,
+        })
+        .eq("id", selectedProductForEdit.id);
+
+      if (error) throw error;
+
+      toast.success("Produk berhasil diupdate");
+      setEditDialogOpen(false);
+      setSelectedProductForEdit(null);
+      editForm.reset();
+
+      // Refresh products
+      const { data } = await supabase
+        .from("products")
+        .select(`
+          *,
+          categories (name)
+        `)
+        .order("created_at", { ascending: false });
+      
+      setProducts(data || []);
+    } catch (error: any) {
+      toast.error("Gagal mengupdate produk");
       console.error(error);
     }
   };
@@ -393,13 +512,25 @@ export default function Products() {
                       />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-4">
                       <FormField
                         control={form.control}
                         name="category_id"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Kategori</FormLabel>
+                            <div className="flex items-center justify-between">
+                              <FormLabel>Kategori</FormLabel>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setCategoryDialogOpen(true)}
+                                className="h-auto p-1 text-xs"
+                              >
+                                <Plus className="w-3 h-3 mr-1" />
+                                Tambah Kategori
+                              </Button>
+                            </div>
                             <Select onValueChange={field.onChange} value={field.value}>
                               <FormControl>
                                 <SelectTrigger>
@@ -407,18 +538,26 @@ export default function Products() {
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                {categories.map((cat) => (
-                                  <SelectItem key={cat.id} value={cat.id}>
-                                    {cat.name}
-                                  </SelectItem>
-                                ))}
+                                {categories.length === 0 ? (
+                                  <div className="p-2 text-sm text-muted-foreground text-center">
+                                    Belum ada kategori. Klik "Tambah Kategori" di atas.
+                                  </div>
+                                ) : (
+                                  categories.map((cat) => (
+                                    <SelectItem key={cat.id} value={cat.id}>
+                                      {cat.name}
+                                    </SelectItem>
+                                  ))
+                                )}
                               </SelectContent>
                             </Select>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
+                    </div>
 
+                    <div className="grid grid-cols-2 gap-4">
                       <FormField
                         control={form.control}
                         name="sku"
@@ -432,21 +571,21 @@ export default function Products() {
                           </FormItem>
                         )}
                       />
-                    </div>
 
-                    <FormField
-                      control={form.control}
-                      name="image_url"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>URL Gambar</FormLabel>
-                          <FormControl>
-                            <Input placeholder="https://example.com/image.jpg" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                      <FormField
+                        control={form.control}
+                        name="image_url"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>URL Gambar</FormLabel>
+                            <FormControl>
+                              <Input placeholder="https://example.com/image.jpg" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
 
                     <div className="flex justify-end gap-2 pt-4">
                       <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
@@ -460,6 +599,194 @@ export default function Products() {
             </Dialog>
           )}
         </div>
+
+        {/* Edit Product Dialog */}
+        <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Edit Produk</DialogTitle>
+            </DialogHeader>
+            <Form {...editForm}>
+              <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4">
+                <FormField
+                  control={editForm.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nama Produk *</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Masukkan nama produk" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={editForm.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Deskripsi</FormLabel>
+                      <FormControl>
+                        <Textarea placeholder="Masukkan deskripsi produk" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={editForm.control}
+                    name="price"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Harga (Rp) *</FormLabel>
+                        <FormControl>
+                          <Input type="text" placeholder="10000" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={editForm.control}
+                    name="stock_in_warehouse"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Stok di Gudang *</FormLabel>
+                        <FormControl>
+                          <Input type="text" placeholder="100" {...field} />
+                        </FormControl>
+                        <FormDescription className="text-xs">
+                          Tambah stok saat produksi baru
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="space-y-4">
+                  <FormField
+                    control={editForm.control}
+                    name="category_id"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Kategori</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Pilih kategori" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {categories.length === 0 ? (
+                              <div className="p-2 text-sm text-muted-foreground text-center">
+                                Belum ada kategori
+                              </div>
+                            ) : (
+                              categories.map((cat) => (
+                                <SelectItem key={cat.id} value={cat.id}>
+                                  {cat.name}
+                                </SelectItem>
+                              ))
+                            )}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={editForm.control}
+                    name="sku"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>SKU</FormLabel>
+                        <FormControl>
+                          <Input placeholder="SKU-001" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={editForm.control}
+                    name="image_url"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>URL Gambar</FormLabel>
+                        <FormControl>
+                          <Input placeholder="https://example.com/image.jpg" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="flex justify-end gap-2 pt-4">
+                  <Button type="button" variant="outline" onClick={() => setEditDialogOpen(false)}>
+                    Batal
+                  </Button>
+                  <Button type="submit">Update Produk</Button>
+                </div>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Quick Add Category Dialog */}
+        <Dialog open={categoryDialogOpen} onOpenChange={setCategoryDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Tambah Kategori Baru</DialogTitle>
+              <DialogDescription>
+                Kategori yang ditambahkan akan otomatis dipilih di form produk
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="category-name">Nama Kategori *</Label>
+                <Input
+                  id="category-name"
+                  placeholder="Contoh: Makanan, Minuman, Snack"
+                  value={newCategoryName}
+                  onChange={(e) => setNewCategoryName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddCategory();
+                    }
+                  }}
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setCategoryDialogOpen(false);
+                    setNewCategoryName("");
+                  }}
+                >
+                  Batal
+                </Button>
+                <Button type="button" onClick={handleAddCategory}>
+                  <Tag className="w-4 h-4 mr-2" />
+                  Simpan Kategori
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* Rider Stock Section */}
         {!isAdmin && riderStock.length > 0 && (
@@ -530,8 +857,8 @@ export default function Products() {
             {products.map((product) => (
               <Card key={product.id} className="overflow-hidden hover:shadow-lg transition-shadow">
                 <CardContent className="p-4">
-                  <div className="flex items-start space-x-4">
-                    <div className="w-16 h-16 rounded-lg bg-muted flex items-center justify-center">
+                  <div className="flex items-start gap-4">
+                    <div className="w-16 h-16 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
                       {product.image_url ? (
                         <img
                           src={product.image_url}
@@ -542,36 +869,47 @@ export default function Products() {
                         <Package className="w-8 h-8 text-muted-foreground" />
                       )}
                     </div>
-                    <div className="flex-1 space-y-1">
-                      <h3 className="font-semibold text-foreground">{product.name}</h3>
+                    <div className="flex-1 min-w-0 space-y-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <h3 className="font-semibold text-foreground">{product.name}</h3>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="flex-shrink-0 h-8 w-8"
+                          onClick={() => handleEditProduct(product)}
+                        >
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                      </div>
+                      {product.sku && (
+                        <p className="text-xs text-muted-foreground">SKU: {product.sku}</p>
+                      )}
                       <p className="text-sm text-muted-foreground line-clamp-2">
                         {product.description || "Tidak ada deskripsi"}
                       </p>
-                      <div className="flex items-center justify-between pt-2">
-                        <div>
-                          <p className="text-lg font-bold text-primary">
-                            Rp {Number(product.price).toLocaleString("id-ID")}
-                          </p>
-                          <div className="flex gap-2 mt-1">
-                            <Badge variant={product.stock_in_warehouse < 10 ? "destructive" : "default"}>
-                              Gudang: {product.stock_in_warehouse}
-                            </Badge>
-                            {productRiderStocks[product.id] && productRiderStocks[product.id].length > 0 && (
-                              <Badge variant="outline">
-                                Di Rider: {productRiderStocks[product.id].reduce((sum, s) => sum + s.quantity, 0)}
-                              </Badge>
-                            )}
-                          </div>
+                      <div className="pt-2">
+                        <p className="text-lg font-bold text-primary">
+                          Rp {Number(product.price).toLocaleString("id-ID")}
+                        </p>
+                        <div className="flex gap-2 mt-1 flex-wrap">
+                          <Badge variant={product.stock_in_warehouse < 10 ? "destructive" : "default"}>
+                            Gudang: {product.stock_in_warehouse}
+                          </Badge>
                           {productRiderStocks[product.id] && productRiderStocks[product.id].length > 0 && (
-                            <div className="mt-2 text-xs text-muted-foreground">
-                              {productRiderStocks[product.id].map((stock, idx) => (
-                                <div key={stock.rider_id}>
-                                  • {stock.profiles.full_name}: {stock.quantity} unit
-                                </div>
-                              ))}
-                            </div>
+                            <Badge variant="outline">
+                              Di Rider: {productRiderStocks[product.id].reduce((sum, s) => sum + s.quantity, 0)}
+                            </Badge>
                           )}
                         </div>
+                        {productRiderStocks[product.id] && productRiderStocks[product.id].length > 0 && (
+                          <div className="mt-2 text-xs text-muted-foreground">
+                            {productRiderStocks[product.id].map((stock) => (
+                              <div key={stock.rider_id}>
+                                • {stock.profiles.full_name}: {stock.quantity} unit
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>

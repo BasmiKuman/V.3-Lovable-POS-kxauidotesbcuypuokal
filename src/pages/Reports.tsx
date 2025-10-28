@@ -156,57 +156,194 @@ export default function Reports() {
     const workbook = XLSX.utils.book_new();
 
     if (selectedRider === "all") {
-      // Laporan Keseluruhan Rider
-      
-      // 1. Rangkuman Per Rider
-      const riderSummary = riders.map(rider => {
+      // ========================================
+      // LAPORAN KESELURUHAN RIDER
+      // ========================================
+
+      // 1. RINGKASAN KESELURUHAN
+      const totalCupsSold = transactions.reduce((sum, t) => {
+        return sum + (t.transaction_items?.reduce((itemSum: number, item: any) => 
+          itemSum + item.quantity, 0) || 0);
+      }, 0);
+
+      const overallSummary = [
+        { "": "RINGKASAN KESELURUHAN PENJUALAN" },
+        { "": "" },
+        { "Deskripsi": "Periode Laporan", "Nilai": `${format(dateRange.start, "dd MMM yyyy")} - ${format(dateRange.end, "dd MMM yyyy")}` },
+        { "Deskripsi": "Total Cup/Produk Terjual", "Nilai": totalCupsSold },
+        { "Deskripsi": "Total Transaksi", "Nilai": stats.totalTransactions },
+        { "Deskripsi": "Total Penjualan (Rp)", "Nilai": stats.totalSales },
+        { "Deskripsi": "Total Pajak (Rp)", "Nilai": stats.totalTax },
+        { "Deskripsi": "Rata-rata per Transaksi (Rp)", "Nilai": Math.round(stats.avgTransaction) },
+        { "": "" },
+        { "": "Detail per Rider:" }
+      ];
+
+      // Add rider summary to overall
+      riders.forEach(rider => {
         const riderTransactions = transactions.filter(t => t.rider_id === rider.user_id);
+        const riderCups = riderTransactions.reduce((sum, t) => {
+          return sum + (t.transaction_items?.reduce((itemSum: number, item: any) => 
+            itemSum + item.quantity, 0) || 0);
+        }, 0);
         const totalSales = riderTransactions.reduce((sum, t) => sum + Number(t.total_amount), 0);
-        const totalTransactions = riderTransactions.length;
-        const totalTax = riderTransactions.reduce((sum, t) => sum + Number(t.tax_amount), 0);
         
-        return {
-          "Nama Rider": rider.full_name,
-          "Total Transaksi": totalTransactions,
-          "Total Penjualan": totalSales,
-          "Total Pajak": totalTax,
-          "Rata-rata per Transaksi": totalTransactions > 0 ? totalSales / totalTransactions : 0
-        };
+        overallSummary.push({
+          "Deskripsi": `  • ${rider.full_name}`,
+          "Nilai": `${riderCups} cup | Rp ${totalSales.toLocaleString('id-ID')}`
+        });
       });
 
-      const summarySheet = XLSX.utils.json_to_sheet(riderSummary);
-      XLSX.utils.book_append_sheet(workbook, summarySheet, "Rangkuman Per Rider");
+      const summarySheet = XLSX.utils.json_to_sheet(overallSummary);
+      summarySheet['!cols'] = [{ wch: 35 }, { wch: 40 }];
+      XLSX.utils.book_append_sheet(workbook, summarySheet, "Ringkasan Keseluruhan");
 
-      // 2. Total Keseluruhan
-      const overallData = [
-        { "Deskripsi": "Total Penjualan Keseluruhan", "Nilai": stats.totalSales },
-        { "Deskripsi": "Total Transaksi Keseluruhan", "Nilai": stats.totalTransactions },
-        { "Deskripsi": "Rata-rata Transaksi", "Nilai": stats.avgTransaction },
-        { "Deskripsi": "Total Pajak Keseluruhan", "Nilai": stats.totalTax }
-      ];
-      const overallSheet = XLSX.utils.json_to_sheet(overallData);
-      XLSX.utils.book_append_sheet(workbook, overallSheet, "Total Keseluruhan");
+      // 2. DETAIL PRODUK KESELURUHAN (Akumulasi Cup Terjual)
+      const productSummary = transactions.reduce((acc: any, transaction) => {
+        transaction.transaction_items?.forEach((item: any) => {
+          const productName = item.products?.name || "Unknown";
+          const existing = acc.find((p: any) => p.product === productName);
+          
+          if (existing) {
+            existing.quantity += item.quantity;
+            existing.total += Number(item.subtotal);
+          } else {
+            acc.push({
+              product: productName,
+              sku: item.products?.sku || "-",
+              quantity: item.quantity,
+              price: Number(item.price),
+              total: Number(item.subtotal)
+            });
+          }
+        });
+        return acc;
+      }, []);
 
-      // 3. Rincian Semua Transaksi
-      const detailData = transactions.map(t => ({
-        "Tanggal": format(new Date(t.created_at), "dd/MM/yyyy HH:mm", { locale: idLocale }),
-        "Kasir": t.rider?.full_name || "-",
+      const productData = productSummary
+        .sort((a: any, b: any) => b.quantity - a.quantity)
+        .map((p: any) => ({
+          "Nama Produk": p.product,
+          "SKU": p.sku,
+          "Total Cup Terjual": p.quantity,
+          "Harga Satuan (Rp)": p.price,
+          "Total Penjualan (Rp)": p.total
+        }));
+
+      if (productData.length > 0) {
+        const productSheet = XLSX.utils.json_to_sheet(productData);
+        productSheet['!cols'] = [{ wch: 30 }, { wch: 15 }, { wch: 18 }, { wch: 18 }, { wch: 20 }];
+        XLSX.utils.book_append_sheet(workbook, productSheet, "Akumulasi Produk");
+      }
+
+      // 3. DETAIL PER RIDER
+      riders.forEach(rider => {
+        const riderTransactions = transactions.filter(t => t.rider_id === rider.user_id);
+        
+        if (riderTransactions.length === 0) return;
+
+        const riderData: any[] = [];
+        
+        // Header info
+        riderData.push({ "": `LAPORAN RIDER: ${rider.full_name.toUpperCase()}` });
+        riderData.push({ "": "" });
+
+        // Rider stats
+        const riderTotalSales = riderTransactions.reduce((sum, t) => sum + Number(t.total_amount), 0);
+        const riderTotalTax = riderTransactions.reduce((sum, t) => sum + Number(t.tax_amount), 0);
+        const riderTotalCups = riderTransactions.reduce((sum, t) => {
+          return sum + (t.transaction_items?.reduce((itemSum: number, item: any) => 
+            itemSum + item.quantity, 0) || 0);
+        }, 0);
+
+        riderData.push({ "Statistik": "Total Transaksi", "Nilai": riderTransactions.length });
+        riderData.push({ "Statistik": "Total Cup Terjual", "Nilai": riderTotalCups });
+        riderData.push({ "Statistik": "Total Penjualan (Rp)", "Nilai": riderTotalSales });
+        riderData.push({ "Statistik": "Total Pajak (Rp)", "Nilai": riderTotalTax });
+        riderData.push({ "": "" });
+        riderData.push({ "": "PRODUK YANG TERJUAL:" });
+        riderData.push({ "": "" });
+
+        // Product breakdown for this rider
+        const riderProducts = riderTransactions.reduce((acc: any[], transaction) => {
+          transaction.transaction_items?.forEach((item: any) => {
+            const productName = item.products?.name || "Unknown";
+            const existing = acc.find(p => p.name === productName);
+            
+            if (existing) {
+              existing.quantity += item.quantity;
+              existing.total += Number(item.subtotal);
+            } else {
+              acc.push({
+                name: productName,
+                sku: item.products?.sku || "-",
+                quantity: item.quantity,
+                price: Number(item.price),
+                total: Number(item.subtotal)
+              });
+            }
+          });
+          return acc;
+        }, []);
+
+        riderProducts
+          .sort((a, b) => b.quantity - a.quantity)
+          .forEach(product => {
+            riderData.push({
+              "Produk": product.name,
+              "SKU": product.sku,
+              "Jumlah": product.quantity,
+              "Harga": product.price,
+              "Total (Rp)": product.total
+            });
+          });
+
+        riderData.push({ "": "" });
+        riderData.push({ "": "RINCIAN TRANSAKSI:" });
+        riderData.push({ "": "" });
+
+        // Transaction details
+        riderTransactions.forEach(t => {
+          riderData.push({
+            "Tanggal": format(new Date(t.created_at), "dd/MM/yyyy HH:mm"),
+            "Metode": t.payment_method || "-",
+            "Subtotal": Number(t.subtotal),
+            "Pajak": Number(t.tax_amount),
+            "Total": Number(t.total_amount),
+            "Catatan": t.notes || "-"
+          });
+        });
+
+        const riderSheet = XLSX.utils.json_to_sheet(riderData);
+        riderSheet['!cols'] = [{ wch: 25 }, { wch: 15 }, { wch: 12 }, { wch: 15 }, { wch: 18 }, { wch: 20 }];
+        
+        // Sanitize sheet name (max 31 chars, no special chars)
+        const sheetName = rider.full_name.substring(0, 28);
+        XLSX.utils.book_append_sheet(workbook, riderSheet, sheetName);
+      });
+
+      // 4. SEMUA TRANSAKSI (Raw Data)
+      const allTransactionsData = transactions.map(t => ({
+        "Tanggal": format(new Date(t.created_at), "dd/MM/yyyy HH:mm"),
+        "Rider": t.rider?.full_name || "-",
         "Metode Pembayaran": t.payment_method || "-",
         "Subtotal": Number(t.subtotal),
         "Pajak": Number(t.tax_amount),
         "Total": Number(t.total_amount),
         "Catatan": t.notes || "-"
       }));
-      const detailSheet = XLSX.utils.json_to_sheet(detailData);
-      XLSX.utils.book_append_sheet(workbook, detailSheet, "Rincian Transaksi");
+      
+      const allTransactionsSheet = XLSX.utils.json_to_sheet(allTransactionsData);
+      allTransactionsSheet['!cols'] = [{ wch: 18 }, { wch: 20 }, { wch: 18 }, { wch: 15 }, { wch: 12 }, { wch: 15 }, { wch: 25 }];
+      XLSX.utils.book_append_sheet(workbook, allTransactionsSheet, "Semua Transaksi");
 
-      // 4. Detail Item per Transaksi
-      const itemsData: any[] = [];
+      // 5. DETAIL ITEM SEMUA TRANSAKSI
+      const allItemsData: any[] = [];
       transactions.forEach(t => {
         t.transaction_items?.forEach((item: any) => {
-          itemsData.push({
-            "Tanggal Transaksi": format(new Date(t.created_at), "dd/MM/yyyy HH:mm", { locale: idLocale }),
-            "Kasir": t.rider?.full_name || "-",
+          allItemsData.push({
+            "Tanggal": format(new Date(t.created_at), "dd/MM/yyyy HH:mm"),
+            "Rider": t.rider?.full_name || "-",
             "Produk": item.products?.name || "-",
             "SKU": item.products?.sku || "-",
             "Jumlah": item.quantity,
@@ -215,82 +352,145 @@ export default function Reports() {
           });
         });
       });
-      if (itemsData.length > 0) {
-        const itemsSheet = XLSX.utils.json_to_sheet(itemsData);
+      
+      if (allItemsData.length > 0) {
+        const itemsSheet = XLSX.utils.json_to_sheet(allItemsData);
+        itemsSheet['!cols'] = [{ wch: 18 }, { wch: 20 }, { wch: 25 }, { wch: 15 }, { wch: 10 }, { wch: 15 }, { wch: 15 }];
         XLSX.utils.book_append_sheet(workbook, itemsSheet, "Detail Item");
       }
 
-      // 5. Produk Terlaris
-      if (topProducts.length > 0) {
-        const topProductsData = topProducts.map(p => ({
-          "Nama Produk": p.name,
-          "Total Terjual": p.quantity,
-          "Total Penjualan": p.total
-        }));
-        const topProductsSheet = XLSX.utils.json_to_sheet(topProductsData);
-        XLSX.utils.book_append_sheet(workbook, topProductsSheet, "Produk Terlaris");
-      }
+      const fileName = `Laporan-Keseluruhan-${format(dateRange.start, "yyyyMMdd")}-${format(dateRange.end, "yyyyMMdd")}.xlsx`;
+      XLSX.writeFile(workbook, fileName);
 
-      XLSX.writeFile(workbook, `Laporan-Keseluruhan-${format(new Date(), "yyyyMMdd-HHmmss")}.xlsx`);
     } else {
-      // Laporan Per Rider
+      // ========================================
+      // LAPORAN PER RIDER
+      // ========================================
+      
       const riderName = riders.find(r => r.user_id === selectedRider)?.full_name || "Rider";
       
-      // 1. Ringkasan Rider
-      const riderStats = [
+      // Calculate rider stats
+      const riderTotalCups = transactions.reduce((sum, t) => {
+        return sum + (t.transaction_items?.reduce((itemSum: number, item: any) => 
+          itemSum + item.quantity, 0) || 0);
+      }, 0);
+
+      // 1. RINGKASAN RIDER
+      const riderSummary = [
+        { "": "LAPORAN PENJUALAN RIDER" },
+        { "": "" },
         { "Deskripsi": "Nama Rider", "Nilai": riderName },
         { "Deskripsi": "Periode", "Nilai": `${format(dateRange.start, "dd MMM yyyy")} - ${format(dateRange.end, "dd MMM yyyy")}` },
-        { "Deskripsi": "Total Penjualan", "Nilai": stats.totalSales },
+        { "": "" },
+        { "": "STATISTIK PENJUALAN:" },
+        { "Deskripsi": "Total Cup/Produk Terjual", "Nilai": riderTotalCups },
         { "Deskripsi": "Total Transaksi", "Nilai": stats.totalTransactions },
-        { "Deskripsi": "Rata-rata Transaksi", "Nilai": stats.avgTransaction },
-        { "Deskripsi": "Total Pajak", "Nilai": stats.totalTax }
+        { "Deskripsi": "Total Penjualan (Rp)", "Nilai": stats.totalSales },
+        { "Deskripsi": "Total Pajak (Rp)", "Nilai": stats.totalTax },
+        { "Deskripsi": "Rata-rata per Transaksi (Rp)", "Nilai": Math.round(stats.avgTransaction) }
       ];
-      const statsSheet = XLSX.utils.json_to_sheet(riderStats);
-      XLSX.utils.book_append_sheet(workbook, statsSheet, "Ringkasan");
+      
+      const summarySheet = XLSX.utils.json_to_sheet(riderSummary);
+      summarySheet['!cols'] = [{ wch: 30 }, { wch: 35 }];
+      XLSX.utils.book_append_sheet(workbook, summarySheet, "Ringkasan");
 
-      // 2. Rincian Transaksi
+      // 2. PRODUK YANG TERJUAL
+      const productsData = transactions.reduce((acc: any[], transaction) => {
+        transaction.transaction_items?.forEach((item: any) => {
+          const productName = item.products?.name || "Unknown";
+          const existing = acc.find(p => p.name === productName);
+          
+          if (existing) {
+            existing.quantity += item.quantity;
+            existing.total += Number(item.subtotal);
+            existing.transactions += 1;
+          } else {
+            acc.push({
+              name: productName,
+              sku: item.products?.sku || "-",
+              quantity: item.quantity,
+              price: Number(item.price),
+              total: Number(item.subtotal),
+              transactions: 1
+            });
+          }
+        });
+        return acc;
+      }, []);
+
+      const productsSheet = XLSX.utils.json_to_sheet(
+        productsData
+          .sort((a, b) => b.quantity - a.quantity)
+          .map(p => ({
+            "Nama Produk": p.name,
+            "SKU": p.sku,
+            "Total Cup Terjual": p.quantity,
+            "Harga Satuan (Rp)": p.price,
+            "Total Penjualan (Rp)": p.total,
+            "Jumlah Transaksi": p.transactions
+          }))
+      );
+      productsSheet['!cols'] = [{ wch: 30 }, { wch: 15 }, { wch: 18 }, { wch: 18 }, { wch: 20 }, { wch: 18 }];
+      XLSX.utils.book_append_sheet(workbook, productsSheet, "Produk Terjual");
+
+      // 3. RINCIAN TRANSAKSI
       const transactionData = transactions.map(t => ({
-        "Tanggal": format(new Date(t.created_at), "dd/MM/yyyy HH:mm", { locale: idLocale }),
+        "Tanggal": format(new Date(t.created_at), "dd/MM/yyyy HH:mm"),
         "Metode Pembayaran": t.payment_method || "-",
-        "Subtotal": Number(t.subtotal),
-        "Pajak": Number(t.tax_amount),
-        "Total": Number(t.total_amount),
+        "Jumlah Item": t.transaction_items?.reduce((sum: number, item: any) => sum + item.quantity, 0) || 0,
+        "Subtotal (Rp)": Number(t.subtotal),
+        "Pajak (Rp)": Number(t.tax_amount),
+        "Total (Rp)": Number(t.total_amount),
         "Catatan": t.notes || "-"
       }));
+      
       const transactionSheet = XLSX.utils.json_to_sheet(transactionData);
-      XLSX.utils.book_append_sheet(workbook, transactionSheet, "Transaksi");
+      transactionSheet['!cols'] = [{ wch: 18 }, { wch: 18 }, { wch: 12 }, { wch: 15 }, { wch: 12 }, { wch: 15 }, { wch: 25 }];
+      XLSX.utils.book_append_sheet(workbook, transactionSheet, "Rincian Transaksi");
 
-      // 3. Detail Item
+      // 4. DETAIL ITEM PER TRANSAKSI
       const itemsData: any[] = [];
       transactions.forEach(t => {
         t.transaction_items?.forEach((item: any) => {
           itemsData.push({
-            "Tanggal": format(new Date(t.created_at), "dd/MM/yyyy HH:mm", { locale: idLocale }),
+            "Tanggal": format(new Date(t.created_at), "dd/MM/yyyy HH:mm"),
             "Produk": item.products?.name || "-",
             "SKU": item.products?.sku || "-",
             "Jumlah": item.quantity,
-            "Harga Satuan": Number(item.price),
-            "Subtotal": Number(item.subtotal)
+            "Harga Satuan (Rp)": Number(item.price),
+            "Subtotal (Rp)": Number(item.subtotal)
           });
         });
       });
+      
       if (itemsData.length > 0) {
         const itemsSheet = XLSX.utils.json_to_sheet(itemsData);
+        itemsSheet['!cols'] = [{ wch: 18 }, { wch: 25 }, { wch: 15 }, { wch: 10 }, { wch: 18 }, { wch: 15 }];
         XLSX.utils.book_append_sheet(workbook, itemsSheet, "Detail Item");
       }
 
-      // 4. Produk Terlaris
-      if (topProducts.length > 0) {
-        const topProductsData = topProducts.map(p => ({
-          "Nama Produk": p.name,
-          "Total Terjual": p.quantity,
-          "Total Penjualan": p.total
-        }));
-        const topProductsSheet = XLSX.utils.json_to_sheet(topProductsData);
-        XLSX.utils.book_append_sheet(workbook, topProductsSheet, "Produk Terlaris");
-      }
+      // 5. TOTAL KESELURUHAN PER PERIODE
+      const periodSummary = [
+        { "": "TOTAL KESELURUHAN PER PERIODE" },
+        { "": "" },
+        { "Metrik": "Total Cup/Produk Terjual", "Jumlah": riderTotalCups, "Satuan": "cup" },
+        { "Metrik": "Total Transaksi", "Jumlah": stats.totalTransactions, "Satuan": "transaksi" },
+        { "Metrik": "Total Penjualan", "Jumlah": stats.totalSales, "Satuan": "Rp" },
+        { "Metrik": "Total Pajak", "Jumlah": stats.totalTax, "Satuan": "Rp" },
+        { "Metrik": "Rata-rata per Transaksi", "Jumlah": Math.round(stats.avgTransaction), "Satuan": "Rp" },
+        { "": "" },
+        { "": "Periode Waktu:" },
+        { "Metrik": "Tanggal Mulai", "Jumlah": format(dateRange.start, "dd MMMM yyyy", { locale: idLocale }), "Satuan": "" },
+        { "Metrik": "Tanggal Selesai", "Jumlah": format(dateRange.end, "dd MMMM yyyy", { locale: idLocale }), "Satuan": "" },
+        { "Metrik": "Durasi", "Jumlah": Math.ceil((dateRange.end.getTime() - dateRange.start.getTime()) / (1000 * 60 * 60 * 24)), "Satuan": "hari" }
+      ];
+      
+      const periodSheet = XLSX.utils.json_to_sheet(periodSummary);
+      periodSheet['!cols'] = [{ wch: 30 }, { wch: 25 }, { wch: 10 }];
+      XLSX.utils.book_append_sheet(workbook, periodSheet, "Total Periode");
 
-      XLSX.writeFile(workbook, `Laporan-${riderName}-${format(new Date(), "yyyyMMdd-HHmmss")}.xlsx`);
+      const fileName = `Laporan-${riderName.replace(/\s+/g, '-')}-${format(dateRange.start, "yyyyMMdd")}-${format(dateRange.end, "yyyyMMdd")}.xlsx`;
+      XLSX.writeFile(workbook, fileName);
     }
 
     toast.success("Laporan berhasil diunduh dalam format Excel");

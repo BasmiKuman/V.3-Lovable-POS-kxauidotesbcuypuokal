@@ -10,9 +10,10 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { LogOut, User, UserPlus } from "lucide-react";
+import { LogOut, User, UserPlus, Camera, Upload } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { useRef } from "react";
 
 import { User as AuthUser } from "@supabase/supabase-js";
 
@@ -32,8 +33,10 @@ export default function Settings() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
   const [users, setUsers] = useState<Profile[]>([]);
   const [isAddingUser, setIsAddingUser] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [newUser, setNewUser] = useState({
     email: "",
     password: "",
@@ -146,7 +149,80 @@ export default function Settings() {
     loadData();
   }, []);
 
-  
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    try {
+      const file = event.target.files?.[0];
+      if (!file) return;
+
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        toast.error('File harus berupa gambar');
+        return;
+      }
+
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error('Ukuran file maksimal 5MB');
+        return;
+      }
+
+      setUploading(true);
+
+      // Get current user
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError) throw userError;
+      if (!user) throw new Error('User not authenticated');
+
+      // Create file path: userId/avatar.extension
+      const fileExt = file.name.split('.').pop();
+      const filePath = `${user.id}/avatar.${fileExt}`;
+
+      // Delete old avatar if exists
+      if (profile?.avatar_url) {
+        const oldPath = profile.avatar_url.split('/').slice(-2).join('/');
+        await supabase.storage.from('avatars').remove([oldPath]);
+      }
+
+      // Upload new avatar
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      // Update profile with new avatar URL
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: publicUrl })
+        .eq('user_id', user.id);
+
+      if (updateError) throw updateError;
+
+      // Update local state
+      setProfile(prev => prev ? { ...prev, avatar_url: publicUrl } : null);
+      
+      toast.success('Foto profil berhasil diupdate!');
+    } catch (error: any) {
+      console.error('Error uploading avatar:', error);
+      
+      // If bucket doesn't exist, create it
+      if (error.message?.includes('Bucket not found')) {
+        toast.error('Storage belum dikonfigurasi. Hubungi administrator.');
+      } else {
+        toast.error('Gagal mengupload foto: ' + error.message);
+      }
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
 
   const handleRoleChange = async (userId: string, currentRole: string) => {
     try {
@@ -321,12 +397,34 @@ export default function Settings() {
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="flex items-center space-x-4">
-              <Avatar className="w-20 h-20">
-                <AvatarImage src={profile?.avatar_url} alt={profile?.full_name} />
-                <AvatarFallback className="bg-primary text-primary-foreground text-2xl">
-                  {profile?.full_name?.charAt(0)?.toUpperCase() || "U"}
-                </AvatarFallback>
-              </Avatar>
+              <div className="relative">
+                <Avatar className="w-20 h-20">
+                  <AvatarImage src={profile?.avatar_url || undefined} alt={profile?.full_name} />
+                  <AvatarFallback className="bg-primary text-primary-foreground text-2xl">
+                    {profile?.full_name?.charAt(0)?.toUpperCase() || "U"}
+                  </AvatarFallback>
+                </Avatar>
+                <Button
+                  size="icon"
+                  variant="secondary"
+                  className="absolute -bottom-1 -right-1 rounded-full w-8 h-8 shadow-lg"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                >
+                  {uploading ? (
+                    <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <Camera className="w-4 h-4" />
+                  )}
+                </Button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleAvatarUpload}
+                />
+              </div>
               <div className="space-y-1">
                 <h3 className="text-xl font-semibold">{profile?.full_name}</h3>
                 <p className="text-sm text-muted-foreground">
