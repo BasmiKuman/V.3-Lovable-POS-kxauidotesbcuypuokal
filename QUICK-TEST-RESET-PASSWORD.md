@@ -51,7 +51,25 @@ Klik tombol **"Save"** di bawah!
 
 ---
 
-## 📱 LANGKAH 2: Build & Install APK
+## � FIXED: Deep Link Routing
+
+### Masalah Sebelumnya:
+- ❌ Link reset password buka aplikasi tapi muncul halaman login
+- ❌ Tidak redirect ke halaman reset password
+
+### Solusi (Sudah Diperbaiki):
+✅ `main.tsx` sekarang detect tipe link:
+- `type=recovery` → Redirect ke `/reset-password` (Reset Password)
+- `type=signup` → Redirect ke `/email-verified` (Email Verification)
+
+✅ `Auth.tsx` sekarang detect recovery token dan redirect ke `/reset-password`
+
+### Build Terbaru:
+Commit: `5c3dd93` - "fix: Deep link routing untuk reset password & email verification"
+
+---
+
+## �📱 LANGKAH 2: Build & Install APK
 
 ### Option A: Via GitHub Actions (Recommended)
 
