@@ -286,3 +286,104 @@ ALTER TABLE profiles ADD COLUMN IF NOT EXISTS address TEXT;
 - ✅ Copyright & credits
 
 **Produced by BasmiKuman** 🎉
+
+---
+
+## 🎨 Android App Icons & Splash Screens (New!)
+
+### **App Icon Generation**
+Script `generate-icons.sh` created to automatically generate all required Android assets from BK logo.
+
+**Generated Icons:**
+- Launcher icons (square & round)
+- Adaptive icons (foreground layer)  
+- All density variants (mdpi to xxxhdpi)
+- White background for consistency
+
+**Icon Sizes:**
+```
+mdpi:     48x48 px    (108x108 foreground)
+hdpi:     72x72 px    (162x162 foreground)
+xhdpi:    96x96 px    (216x216 foreground)
+xxhdpi:   144x144 px  (324x324 foreground)
+xxxhdpi:  192x192 px  (432x432 foreground)
+```
+
+### **Splash Screens**
+Logo BK centered on white background for all orientations and densities.
+
+**Portrait:**
+```
+mdpi:     320x470 px
+hdpi:     480x640 px
+xhdpi:    720x960 px
+xxhdpi:   1080x1440 px
+xxxhdpi:  1440x1920 px
+```
+
+**Landscape:**
+```
+mdpi:     470x320 px
+hdpi:     640x480 px
+xhdpi:    960x720 px
+xxhdpi:   1440x1080 px
+xxxhdpi:  1920x1440 px
+```
+
+**Default:** 2732x2732 px (Capacitor)
+
+### **How to Regenerate**
+```bash
+./generate-icons.sh
+npm run build
+npx cap sync android
+```
+
+### **File Locations**
+- **Icons:** `android/app/src/main/res/mipmap-*/`
+- **Splash:** `android/app/src/main/res/drawable-*/`
+- **Script:** `generate-icons.sh`
+
+---
+
+## 🚀 APK Build with Branding
+
+When you build APK now, it will include:
+- ✅ BK logo as app icon
+- ✅ BK logo on splash screen
+- ✅ White branded theme
+- ✅ Professional look & feel
+
+**Build Command:**
+```bash
+npm run android:build
+```
+
+Or via GitHub Actions (automatic).
+
+---
+
+## 📱 Result Preview
+
+**Home Screen:**
+```
+┌─────┐
+│ BK  │  ← Your BK logo
+│     │
+└─────┘
+BK POS
+```
+
+**Splash Screen:**
+```
+┌──────────────┐
+│              │
+│              │
+│    [LOGO]    │  ← BK logo centered
+│              │
+│              │
+└──────────────┘
+```
+
+**Perfect branding consistency from app icon to UI!** 🎨✨
+
