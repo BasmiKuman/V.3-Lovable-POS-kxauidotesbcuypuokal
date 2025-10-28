@@ -209,6 +209,7 @@ export default function Dashboard() {
           notes: returnItem.notes,
           returned_at: returnItem.returned_at,
           approved_by: user.id,
+          status: "approved"
         });
 
       if (historyError) throw historyError;
@@ -303,63 +304,120 @@ export default function Dashboard() {
               </CardTitle>
               <CardDescription className="text-xs sm:text-sm">Kelola return dari rider</CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="responsive-table">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[120px]">Rider</TableHead>
-                      <TableHead className="w-[120px]">Produk</TableHead>
-                      {!isMobile && (
-                        <>
-                          <TableHead>Jumlah</TableHead>
-                          <TableHead>Catatan</TableHead>
-                          <TableHead>Tanggal</TableHead>
-                        </>
-                      )}
-                      <TableHead className="text-right">Aksi</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {returns.map((returnItem) => (
-                      <TableRow key={returnItem.id}>
-                        <TableCell className="font-medium">
-                          {(returnItem.profiles as any)?.full_name || "N/A"}
-                          {isMobile && (
-                            <div className="text-xs text-muted-foreground mt-1">
-                              {returnItem.quantity} pcs • {new Date(returnItem.returned_at).toLocaleDateString()}
+            <CardContent className="p-3 sm:p-4">
+              {isMobile ? (
+                /* Mobile: Card List */
+                <div className="space-y-3">
+                  {returns.map((returnItem) => (
+                    <Card key={returnItem.id} className="border-2">
+                      <CardContent className="p-3 space-y-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <Users className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                              <span className="font-semibold text-sm truncate">
+                                {(returnItem.profiles as any)?.full_name || "N/A"}
+                              </span>
                             </div>
-                          )}
-                        </TableCell>
-                        <TableCell>{returnItem.products.name}</TableCell>
-                        <TableCell>
-                          <Badge>{returnItem.quantity}</Badge>
-                        </TableCell>
-                        <TableCell className="max-w-xs truncate">
-                          {returnItem.notes || "-"}
-                        </TableCell>
-                        <TableCell>
-                          {new Date(returnItem.returned_at).toLocaleDateString("id-ID")}
-                        </TableCell>
-                        <TableCell>
+                            <div className="flex items-center gap-2 mt-1">
+                              <Package className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+                              <span className="text-xs text-muted-foreground truncate">
+                                {returnItem.products.name}
+                              </span>
+                            </div>
+                          </div>
+                          <Badge variant="secondary" className="flex-shrink-0">
+                            {returnItem.quantity} pcs
+                          </Badge>
+                        </div>
+                        
+                        {returnItem.notes && (
+                          <div className="flex items-start gap-2 p-2 bg-muted/50 rounded">
+                            <span className="text-xs text-muted-foreground">💬</span>
+                            <p className="text-xs text-muted-foreground flex-1">
+                              {returnItem.notes}
+                            </p>
+                          </div>
+                        )}
+                        
+                        <div className="flex items-center justify-between pt-2 border-t">
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(returnItem.returned_at).toLocaleDateString("id-ID", {
+                              day: 'numeric',
+                              month: 'short',
+                              year: 'numeric'
+                            })}
+                          </span>
                           {returnItem.status === "pending" ? (
                             <Button
                               size="sm"
                               onClick={() => handleApproveReturn(returnItem)}
                               disabled={processingReturnId === returnItem.id}
+                              className="h-8 text-xs"
                             >
-                              <CheckCircle className="w-4 h-4 mr-1" />
-                              {processingReturnId === returnItem.id ? "Memproses..." : "Setujui"}
+                              <CheckCircle className="w-3 h-3 mr-1" />
+                              {processingReturnId === returnItem.id ? "Proses..." : "Setujui"}
                             </Button>
                           ) : (
-                            <Badge variant="secondary">Approved</Badge>
+                            <Badge variant="secondary" className="text-xs">
+                              ✓ Approved
+                            </Badge>
                           )}
-                        </TableCell>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                /* Desktop: Table */
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Rider</TableHead>
+                        <TableHead>Produk</TableHead>
+                        <TableHead>Jumlah</TableHead>
+                        <TableHead>Catatan</TableHead>
+                        <TableHead>Tanggal</TableHead>
+                        <TableHead className="text-right">Aksi</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+                    </TableHeader>
+                    <TableBody>
+                      {returns.map((returnItem) => (
+                        <TableRow key={returnItem.id}>
+                          <TableCell className="font-medium">
+                            {(returnItem.profiles as any)?.full_name || "N/A"}
+                          </TableCell>
+                          <TableCell>{returnItem.products.name}</TableCell>
+                          <TableCell>
+                            <Badge variant="secondary">{returnItem.quantity}</Badge>
+                          </TableCell>
+                          <TableCell className="max-w-xs truncate">
+                            {returnItem.notes || "-"}
+                          </TableCell>
+                          <TableCell>
+                            {new Date(returnItem.returned_at).toLocaleDateString("id-ID")}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {returnItem.status === "pending" ? (
+                              <Button
+                                size="sm"
+                                onClick={() => handleApproveReturn(returnItem)}
+                                disabled={processingReturnId === returnItem.id}
+                              >
+                                <CheckCircle className="w-4 h-4 mr-1" />
+                                {processingReturnId === returnItem.id ? "Memproses..." : "Setujui"}
+                              </Button>
+                            ) : (
+                              <Badge variant="secondary">Approved</Badge>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}

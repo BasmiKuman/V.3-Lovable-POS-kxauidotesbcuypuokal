@@ -75,7 +75,30 @@ export default function POS() {
     }
   };
 
-  const addToCart = (product: RiderProduct) => {
+  const addToCart = async (product: RiderProduct) => {
+    // Check if product has pending return
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data: pendingReturn, error } = await supabase
+      .rpc('has_pending_return', { 
+        product_id: product.product_id, 
+        rider_id: user.id 
+      });
+
+    if (error) {
+      console.error('Error checking pending return:', error);
+      toast.error("Gagal memeriksa status produk");
+      return;
+    }
+
+    if (pendingReturn) {
+      toast.warning("Produk sedang dalam proses return, menunggu persetujuan admin", {
+        duration: 4000,
+      });
+      return;
+    }
+
     const existingItem = cart.find((item) => item.product_id === product.product_id);
     
     if (existingItem) {

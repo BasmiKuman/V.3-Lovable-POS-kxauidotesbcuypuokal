@@ -77,6 +77,7 @@ export default function Products() {
   const [selectedProduct, setSelectedProduct] = useState<RiderStock | null>(null);
   const [returnQuantity, setReturnQuantity] = useState("");
   const [returnNotes, setReturnNotes] = useState("");
+  const [pendingReturns, setPendingReturns] = useState<Set<string>>(new Set()); // Track products with pending returns
 
   const form = useForm<z.infer<typeof productSchema>>({
     resolver: zodResolver(productSchema),
@@ -173,6 +174,17 @@ export default function Products() {
 
         if (error) throw error;
         setRiderStock(data || []);
+
+        // Fetch pending returns for this rider
+        const { data: pendingReturnsData, error: returnsError } = await supabase
+          .from("returns")
+          .select("product_id")
+          .eq("rider_id", user.id);
+
+        if (!returnsError && pendingReturnsData) {
+          const pendingProductIds = new Set(pendingReturnsData.map(r => r.product_id));
+          setPendingReturns(pendingProductIds);
+        }
       } catch (error: any) {
         console.error("Gagal memuat stok rider:", error);
       }
@@ -386,6 +398,26 @@ export default function Products() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
+      // Check if product already has pending return
+      const { data: pendingReturn, error: checkError } = await supabase
+        .rpc('has_pending_return', { 
+          product_id: selectedProduct.product_id, 
+          rider_id: user.id 
+        });
+
+      if (checkError) {
+        console.error('Error checking pending return:', checkError);
+        toast.error("Gagal memeriksa status return");
+        return;
+      }
+
+      if (pendingReturn) {
+        toast.warning("Produk ini sudah memiliki pengajuan return yang menunggu persetujuan admin", {
+          duration: 4000,
+        });
+        return;
+      }
+
       const { error } = await supabase.from("returns").insert({
         rider_id: user.id,
         product_id: selectedProduct.product_id,
@@ -400,6 +432,9 @@ export default function Products() {
       setSelectedProduct(null);
       setReturnQuantity("");
       setReturnNotes("");
+
+      // Add to pending returns set
+      setPendingReturns(prev => new Set(prev).add(selectedProduct.product_id));
 
       // Refresh rider stock
       const { data } = await supabase
@@ -823,17 +858,23 @@ export default function Products() {
                         </p>
                         <div className="flex items-center justify-between pt-2">
                           <Badge>Stok: {stock.quantity}</Badge>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setSelectedProduct(stock);
-                              setReturnDialogOpen(true);
-                            }}
-                          >
-                            <Undo2 className="w-4 h-4 mr-1" />
-                            Return
-                          </Button>
+                          {pendingReturns.has(stock.product_id) ? (
+                            <Badge variant="secondary" className="text-xs">
+                              Menunggu Approval
+                            </Badge>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setSelectedProduct(stock);
+                                setReturnDialogOpen(true);
+                              }}
+                            >
+                              <Undo2 className="w-4 h-4 mr-1" />
+                              Return
+                            </Button>
+                          )}
                         </div>
                       </div>
                     </div>

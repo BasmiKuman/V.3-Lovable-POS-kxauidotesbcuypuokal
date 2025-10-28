@@ -163,6 +163,7 @@ export type Database = {
           quantity: number
           returned_at: string
           rider_id: string
+          status: string | null
         }
         Insert: {
           approved_at?: string
@@ -173,6 +174,7 @@ export type Database = {
           quantity: number
           returned_at: string
           rider_id: string
+          status?: string | null
         }
         Update: {
           approved_at?: string
@@ -183,6 +185,7 @@ export type Database = {
           quantity?: number
           returned_at?: string
           rider_id?: string
+          status?: string | null
         }
         Relationships: [
           {
@@ -389,6 +392,24 @@ export type Database = {
       decrement_rider_stock: {
         Args: { p_product_id: string; p_quantity: number; p_rider_id: string }
         Returns: undefined
+      }
+      has_pending_return: {
+        Args: {
+          product_id: string
+          rider_id: string
+        }
+        Returns: boolean
+      }
+      get_pending_return_info: {
+        Args: {
+          product_id: string
+          rider_id: string
+        }
+        Returns: {
+          quantity: number
+          notes: string
+          returned_at: string
+        }[]
       }
       has_role: {
         Args: {
