@@ -75,7 +75,7 @@ export default function EmailVerified() {
           {[...Array(36)].map((_, i) => (
             <img 
               key={i}
-              src="/images/3f39c041-7a69-4897-8bed-362f05bda187.png" 
+              src="/images/logo.png" 
               alt="" 
               className="w-16 h-16 opacity-20"
             />
@@ -88,7 +88,7 @@ export default function EmailVerified() {
           <div className="mx-auto">
             {status === "loading" && (
               <img 
-                src="/images/3f39c041-7a69-4897-8bed-362f05bda187.png" 
+                src="/images/logo.png" 
                 alt="Loading" 
                 className="w-16 h-16 animate-spin mx-auto"
               />

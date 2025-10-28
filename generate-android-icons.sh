@@ -3,6 +3,10 @@
 # Script to generate Android app icons with proper safe zones
 # This generates adaptive icons that won't be cropped on any device
 
+# Get script directory
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+cd "$SCRIPT_DIR"
+
 echo "🎨 Android Icon Generator for BK POS"
 echo "===================================="
 
@@ -13,7 +17,7 @@ if ! command -v convert &> /dev/null; then
 fi
 
 # Source icon (you should replace this with your actual logo)
-SOURCE_ICON="public/images/3f39c041-7a69-4897-8bed-362f05bda187.png"
+SOURCE_ICON="public/images/logo.png"
 
 if [ ! -f "$SOURCE_ICON" ]; then
     echo "❌ Source icon not found at: $SOURCE_ICON"

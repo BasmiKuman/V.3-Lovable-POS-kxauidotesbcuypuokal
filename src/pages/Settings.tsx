@@ -512,7 +512,7 @@ export default function Settings() {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-4">
         <img 
-          src="/images/3f39c041-7a69-4897-8bed-362f05bda187.png" 
+          src="/images/logo.png" 
           alt="BK Logo" 
           className="w-20 h-20 animate-bounce"
         />
@@ -541,7 +541,7 @@ export default function Settings() {
         {/* Header with Logo */}
         <div className="flex items-center gap-3 pb-3 border-b">
           <img 
-            src="/images/3f39c041-7a69-4897-8bed-362f05bda187.png" 
+            src="/images/logo.png" 
             alt="BK Logo" 
             className="w-10 h-10 sm:w-12 sm:h-12 flex-shrink-0"
           />

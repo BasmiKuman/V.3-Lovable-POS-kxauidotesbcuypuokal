@@ -181,7 +181,7 @@ export default function Auth() {
           {[...Array(64)].map((_, i) => (
             <img 
               key={i}
-              src="/images/3f39c041-7a69-4897-8bed-362f05bda187.png" 
+              src="/images/logo.png" 
               alt="" 
               className="w-16 h-16 opacity-30 animate-pulse"
               style={{ animationDelay: `${i * 0.1}s` }}
@@ -197,7 +197,7 @@ export default function Auth() {
             <div className="relative">
               <div className="absolute inset-0 bg-gradient-to-br from-primary to-blue-600 rounded-2xl blur-xl opacity-50 animate-pulse"></div>
               <img 
-                src="/images/3f39c041-7a69-4897-8bed-362f05bda187.png" 
+                src="/images/logo.png" 
                 alt="BK Logo" 
                 className="w-16 h-16 relative z-10 drop-shadow-2xl"
               />
@@ -248,7 +248,7 @@ export default function Auth() {
                   <Button type="submit" className="flex-1" disabled={loading}>
                     {loading && (
                       <img 
-                        src="/images/3f39c041-7a69-4897-8bed-362f05bda187.png" 
+                        src="/images/logo.png" 
                         alt="" 
                         className="mr-2 h-4 w-4 animate-spin"
                       />
@@ -317,7 +317,7 @@ export default function Auth() {
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading && (
                     <img 
-                      src="/images/3f39c041-7a69-4897-8bed-362f05bda187.png" 
+                      src="/images/logo.png" 
                       alt="" 
                       className="mr-2 h-4 w-4 animate-spin"
                     />
@@ -415,7 +415,7 @@ export default function Auth() {
                   <Button type="submit" className="w-full" disabled={loading}>
                     {loading && (
                       <img 
-                        src="/images/3f39c041-7a69-4897-8bed-362f05bda187.png" 
+                        src="/images/logo.png" 
                         alt="" 
                         className="mr-2 h-4 w-4 animate-spin"
                       />

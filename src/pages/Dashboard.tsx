@@ -248,7 +248,7 @@ export default function Dashboard() {
         {/* Header with Logo */}
         <div className="flex items-center gap-3 pb-3 border-b">
           <img 
-            src="/images/3f39c041-7a69-4897-8bed-362f05bda187.png" 
+            src="/images/logo.png" 
             alt="BK Logo" 
             className="w-10 h-10 sm:w-12 sm:h-12 flex-shrink-0"
           />
