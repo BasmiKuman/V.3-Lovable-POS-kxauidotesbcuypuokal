@@ -521,42 +521,42 @@ export default function Reports() {
 
           {/* Filters */}
           <Card>
-            <CardContent className="pt-6">
-              <div className={`${isMobile ? "flex flex-col" : "flex flex-wrap"} gap-4`}>
+            <CardContent className="pt-4 sm:pt-6">
+              <div className="space-y-3">
                 {/* Quick Date Buttons */}
-                <div className={`${isMobile ? "grid grid-cols-2" : "flex"} gap-2`}>
+                <div className="grid grid-cols-2 gap-2">
                   <Button
                     variant="outline"
                     size="sm"
-                    className="w-full"
+                    className="w-full text-xs sm:text-sm"
                     onClick={() => setDateRange({
                       start: startOfDay(new Date()),
                       end: endOfDay(new Date())
                     })}
                   >
-                    <Calendar className="w-4 h-4 mr-2" />
+                    <Calendar className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                     Hari Ini
                   </Button>
                   <Button
                     variant="outline"
                     size="sm"
-                    className="w-full"
+                    className="w-full text-xs sm:text-sm"
                     onClick={() => setDateRange({
                       start: startOfMonth(new Date()),
                       end: endOfMonth(new Date())
                     })}
                   >
-                    <Calendar className="w-4 h-4 mr-2" />
+                    <Calendar className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                     Bulan Ini
                   </Button>
                 </div>
 
                 {/* Custom Date Range */}
-                <div className="flex gap-2">
+                <div className="flex items-center gap-2">
                   <Popover>
                     <PopoverTrigger asChild>
-                      <Button variant="outline" size="sm">
-                        {format(dateRange.start, "dd MMM yyyy", { locale: idLocale })}
+                      <Button variant="outline" size="sm" className="flex-1 text-xs sm:text-sm">
+                        {format(dateRange.start, "dd/MM/yy", { locale: idLocale })}
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="start">
@@ -568,11 +568,11 @@ export default function Reports() {
                       />
                     </PopoverContent>
                   </Popover>
-                  <span className="flex items-center text-muted-foreground">-</span>
+                  <span className="text-muted-foreground text-xs">s/d</span>
                   <Popover>
                     <PopoverTrigger asChild>
-                      <Button variant="outline" size="sm">
-                        {format(dateRange.end, "dd MMM yyyy", { locale: idLocale })}
+                      <Button variant="outline" size="sm" className="flex-1 text-xs sm:text-sm">
+                        {format(dateRange.end, "dd/MM/yy", { locale: idLocale })}
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="start">
@@ -588,9 +588,11 @@ export default function Reports() {
 
                 {/* Rider Filter */}
                 <Select value={selectedRider} onValueChange={setSelectedRider}>
-                  <SelectTrigger className="w-[200px]">
-                    <Filter className="w-4 h-4 mr-2" />
-                    <SelectValue placeholder="Pilih Rider" />
+                  <SelectTrigger className="w-full text-xs sm:text-sm h-9">
+                    <div className="flex items-center gap-2">
+                      <Filter className="w-3 h-3 sm:w-4 sm:h-4" />
+                      <SelectValue placeholder="Pilih Rider" />
+                    </div>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Semua Rider</SelectItem>
