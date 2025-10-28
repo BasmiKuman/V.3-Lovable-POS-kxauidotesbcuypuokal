@@ -13,8 +13,20 @@ if (typeof window !== 'undefined') {
       
       // Extract the hash part from the URL (Supabase sends tokens in hash)
       if (url.hash) {
-        // Redirect to the auth page with the hash
-        window.location.href = `${window.location.origin}/auth${url.hash}`;
+        // Check if this is a password recovery link
+        const hashParams = new URLSearchParams(url.hash.substring(1));
+        const type = hashParams.get('type');
+        
+        if (type === 'recovery') {
+          // Password reset - redirect to reset-password page
+          window.location.href = `${window.location.origin}/reset-password${url.hash}`;
+        } else if (type === 'signup') {
+          // Email verification - redirect to email-verified page
+          window.location.href = `${window.location.origin}/email-verified${url.hash}`;
+        } else {
+          // Default - redirect to auth page
+          window.location.href = `${window.location.origin}/auth${url.hash}`;
+        }
       } else if (url.pathname) {
         // Redirect to the appropriate page
         window.location.href = `${window.location.origin}${url.pathname}${url.search}${url.hash}`;

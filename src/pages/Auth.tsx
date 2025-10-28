@@ -34,6 +34,17 @@ export default function Auth() {
 
   useEffect(() => {
     const checkUser = async () => {
+      // Check if this is a password recovery link
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      const type = hashParams.get('type');
+      
+      // If it's a recovery link, redirect to reset password page
+      if (type === 'recovery') {
+        navigate('/reset-password', { replace: true });
+        return;
+      }
+      
+      // Otherwise, check session and redirect if logged in
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
         const from = (location.state as any)?.from?.pathname || "/dashboard";
