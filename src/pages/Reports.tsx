@@ -497,17 +497,25 @@ export default function Reports() {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-nav-safe">
-      <div className="max-w-screen-xl mx-auto p-2 sm:p-4 space-y-3 sm:space-y-4">
+    <div 
+      className="min-h-screen bg-background w-full overflow-x-hidden"
+      style={{
+        paddingTop: 'max(1rem, env(safe-area-inset-top, 0px))',
+        paddingBottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))',
+        paddingLeft: 'env(safe-area-inset-left, 0px)',
+        paddingRight: 'env(safe-area-inset-right, 0px)',
+      }}
+    >
+      <div className="max-w-screen-xl mx-auto px-3 sm:px-4 space-y-3 sm:space-y-4">
         <div className="space-y-2 sm:space-y-3">
-          <div className="flex items-center justify-between gap-2">
-            <div className="min-w-0">
-              <h1 className="text-xl sm:text-3xl font-bold text-gradient truncate">Laporan</h1>
+          <div className="flex items-start sm:items-center justify-between gap-2 flex-wrap sm:flex-nowrap">
+            <div className="min-w-0 flex-1">
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gradient">Laporan</h1>
               <p className="text-xs sm:text-sm text-muted-foreground">Analisis penjualan</p>
             </div>
-            <Button onClick={downloadReport} size="sm" className="flex-shrink-0">
-              <Download className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-2" />
-              <span className="hidden sm:inline">Unduh</span>
+            <Button onClick={downloadReport} size="sm" className="flex-shrink-0 w-full sm:w-auto mt-2 sm:mt-0">
+              <Download className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
+              <span>Unduh PDF</span>
             </Button>
           </div>
 

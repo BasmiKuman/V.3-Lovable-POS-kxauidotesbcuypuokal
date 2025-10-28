@@ -234,20 +234,28 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-nav-safe">
-      <div className="max-w-screen-xl mx-auto p-2 sm:p-4 space-y-3 sm:space-y-5">
+    <div 
+      className="min-h-screen bg-background w-full overflow-x-hidden"
+      style={{
+        paddingTop: 'max(1rem, env(safe-area-inset-top, 0px))',
+        paddingBottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))',
+        paddingLeft: 'env(safe-area-inset-left, 0px)',
+        paddingRight: 'env(safe-area-inset-right, 0px)',
+      }}
+    >
+      <div className="max-w-screen-xl mx-auto px-3 sm:px-4 space-y-3 sm:space-y-5">
         {/* Header with Logo */}
-        <div className="flex items-center gap-3 pt-1 pb-2 border-b">
+        <div className="flex items-center gap-3 pb-3 border-b">
           <img 
             src="/images/3f39c041-7a69-4897-8bed-362f05bda187.png" 
             alt="BK Logo" 
-            className="w-10 h-10 sm:w-12 sm:h-12"
+            className="w-10 h-10 sm:w-12 sm:h-12 flex-shrink-0"
           />
-          <div className="flex-1">
-            <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">
+          <div className="flex-1 min-w-0">
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">
               Dashboard
             </h1>
-            <p className="text-xs sm:text-sm text-muted-foreground">BK POS System - Ringkasan Sistem</p>
+            <p className="text-xs sm:text-sm text-muted-foreground truncate">BK POS System - Ringkasan Sistem</p>
           </div>
         </div>
 
