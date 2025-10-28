@@ -92,16 +92,19 @@ export default function Auth() {
     setLoading(true);
 
     try {
+      // Use environment variable or fallback to window.location.origin
+      const appUrl = import.meta.env.VITE_APP_URL || window.location.origin;
+      
       const { data, error } = await supabase.auth.signUp({
         email: signupEmail,
         password: signupPassword,
         options: {
           data: {
-            full_name: signupName,
-            phone: signupPhone,
-            address: signupAddress,
+            full_name: fullName,
+            phone: phoneNumber,
+            address: address,
           },
-          emailRedirectTo: `${window.location.origin}/email-verified`,
+          emailRedirectTo: `${appUrl}/email-verified`,
         },
       });
 
@@ -157,8 +160,11 @@ export default function Auth() {
     setLoading(true);
 
     try {
+      // Use environment variable or fallback to window.location.origin
+      const appUrl = import.meta.env.VITE_APP_URL || window.location.origin;
+      
       const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-        redirectTo: `${window.location.origin}/auth`,
+        redirectTo: `${appUrl}/auth`,
       });
 
       if (error) throw error;
