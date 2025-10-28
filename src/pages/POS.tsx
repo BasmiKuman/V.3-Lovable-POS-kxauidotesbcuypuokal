@@ -234,7 +234,11 @@ export default function POS() {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
                 {riderProducts.map((product) => (
-                  <Card key={product.product_id} className="overflow-hidden">
+                  <Card 
+                    key={product.product_id} 
+                    className="overflow-hidden cursor-pointer hover:shadow-md transition-all hover:border-primary/50"
+                    onClick={() => addToCart(product)}
+                  >
                     <CardContent className="p-2 sm:p-3">
                       <div className="flex items-start gap-2">
                         <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
@@ -255,7 +259,14 @@ export default function POS() {
                           </p>
                           <div className="flex items-center justify-between gap-2">
                             <Badge className="text-xs">Stok: {product.quantity}</Badge>
-                            <Button size="sm" onClick={() => addToCart(product)} className="h-7 px-2">
+                            <Button 
+                              size="sm" 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                addToCart(product);
+                              }} 
+                              className="h-7 px-2"
+                            >
                               <Plus className="w-3 h-3" />
                             </Button>
                           </div>
@@ -321,21 +332,35 @@ export default function POS() {
 
                     <div className="border-t pt-4 space-y-4">
                       {/* Payment Method Selection */}
-                      <div className="space-y-3">
+                      <div className="space-y-2.5">
                         <Label className="text-sm font-semibold">Metode Pembayaran</Label>
                         <RadioGroup value={paymentMethod} onValueChange={(value) => setPaymentMethod(value as "tunai" | "qris")}>
-                          <div className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-accent cursor-pointer">
-                            <RadioGroupItem value="tunai" id="tunai" />
-                            <Label htmlFor="tunai" className="flex-1 cursor-pointer flex items-center">
-                              <CreditCard className="w-4 h-4 mr-2" />
-                              Tunai
+                          <div 
+                            className={`flex items-center gap-3 p-3.5 border rounded-lg cursor-pointer transition-all ${
+                              paymentMethod === "tunai" 
+                                ? "border-primary/60 bg-primary/5" 
+                                : "border-border hover:border-primary/30 hover:bg-accent/50"
+                            }`}
+                            onClick={() => setPaymentMethod("tunai")}
+                          >
+                            <RadioGroupItem value="tunai" id="tunai" className="flex-shrink-0" />
+                            <Label htmlFor="tunai" className="flex-1 cursor-pointer flex items-center gap-2 font-medium text-sm">
+                              <CreditCard className="w-4 h-4 text-muted-foreground" />
+                              <span>Tunai</span>
                             </Label>
                           </div>
-                          <div className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-accent cursor-pointer">
-                            <RadioGroupItem value="qris" id="qris" />
-                            <Label htmlFor="qris" className="flex-1 cursor-pointer flex items-center">
-                              <Receipt className="w-4 h-4 mr-2" />
-                              QRIS
+                          <div 
+                            className={`flex items-center gap-3 p-3.5 border rounded-lg cursor-pointer transition-all ${
+                              paymentMethod === "qris" 
+                                ? "border-primary/60 bg-primary/5" 
+                                : "border-border hover:border-primary/30 hover:bg-accent/50"
+                            }`}
+                            onClick={() => setPaymentMethod("qris")}
+                          >
+                            <RadioGroupItem value="qris" id="qris" className="flex-shrink-0" />
+                            <Label htmlFor="qris" className="flex-1 cursor-pointer flex items-center gap-2 font-medium text-sm">
+                              <Receipt className="w-4 h-4 text-muted-foreground" />
+                              <span>QRIS</span>
                             </Label>
                           </div>
                         </RadioGroup>

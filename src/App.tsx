@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import Auth from "./pages/Auth";
+import EmailVerified from "./pages/EmailVerified";
 import Dashboard from "./pages/Dashboard";
 import Products from "./pages/Products";
 import Warehouse from "./pages/Warehouse";
@@ -41,6 +42,7 @@ const App = () => {
             }
           />
           <Route path="/auth" element={<Auth />} />
+          <Route path="/email-verified" element={<EmailVerified />} />
           
           <Route
             path="/dashboard"

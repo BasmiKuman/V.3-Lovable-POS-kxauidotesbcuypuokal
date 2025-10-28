@@ -10,7 +10,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { LogOut, User, UserPlus, Camera, Upload } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { LogOut, User, UserPlus, Camera, Upload, Edit, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useRef } from "react";
@@ -23,6 +24,7 @@ type Profile = {
   full_name: string;
   email?: string;
   phone: string | null;
+  address?: string | null;
   avatar_url?: string | null;
   role?: string;
 };
@@ -36,12 +38,22 @@ export default function Settings() {
   const [uploading, setUploading] = useState(false);
   const [users, setUsers] = useState<Profile[]>([]);
   const [isAddingUser, setIsAddingUser] = useState(false);
+  const [isEditingUser, setIsEditingUser] = useState(false);
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [newUser, setNewUser] = useState({
     email: "",
     password: "",
     fullName: "",
     phone: "",
+    address: "",
+  });
+  const [editUser, setEditUser] = useState({
+    email: "",
+    password: "",
+    fullName: "",
+    phone: "",
+    address: "",
   });
 
   useEffect(() => {
@@ -111,6 +123,7 @@ export default function Settings() {
                 full_name: profile.full_name,
                 email: "",
                 phone: profile.phone,
+                address: profile.address,
                 role: "rider",
                 avatar_url: profile.avatar_url
               }));
@@ -228,19 +241,18 @@ export default function Settings() {
     try {
       const newRole = currentRole === "admin" ? "rider" : "admin";
       
-      // Update user_roles table
-      const { error: deleteError } = await supabase
+      // Use upsert to update or insert role
+      const { error: upsertError } = await supabase
         .from("user_roles")
-        .delete()
-        .eq("user_id", userId);
-        
-      if (deleteError) throw deleteError;
+        .upsert(
+          { user_id: userId, role: newRole },
+          { onConflict: 'user_id' }
+        );
 
-      const { error: insertError } = await supabase
-        .from("user_roles")
-        .insert({ user_id: userId, role: newRole });
-
-      if (insertError) throw insertError;
+      if (upsertError) {
+        console.error("Upsert error:", upsertError);
+        throw upsertError;
+      }
 
       // Update local state
       setUsers(prevUsers =>
@@ -260,8 +272,8 @@ export default function Settings() {
 
   const handleAddUser = async () => {
     // Validate required fields
-    if (!newUser.email.trim() || !newUser.password || !newUser.fullName.trim()) {
-      toast.error("Mohon lengkapi semua field yang wajib");
+    if (!newUser.email.trim() || !newUser.password || !newUser.fullName.trim() || !newUser.phone.trim() || !newUser.address.trim()) {
+      toast.error("Mohon lengkapi semua field yang wajib (*)");
       return;
     }
 
@@ -277,9 +289,15 @@ export default function Settings() {
       return;
     }
 
-    // Validate phone format if provided
-    if (newUser.phone && !/^[0-9]+$/.test(newUser.phone)) {
-      toast.error("Format nomor telepon tidak valid");
+    // Validate phone format
+    if (!/^[0-9]+$/.test(newUser.phone) || newUser.phone.length < 10) {
+      toast.error("Nomor telepon minimal 10 digit angka");
+      return;
+    }
+
+    // Validate address length
+    if (newUser.address.trim().length < 10) {
+      toast.error("Alamat harus minimal 10 karakter");
       return;
     }
 
@@ -292,6 +310,8 @@ export default function Settings() {
         options: {
           data: {
             full_name: newUser.fullName.trim(),
+            phone: newUser.phone.trim(),
+            address: newUser.address.trim(),
           },
         },
       });
@@ -305,7 +325,8 @@ export default function Settings() {
         .insert({
           user_id: authData.user.id,
           full_name: newUser.fullName.trim(),
-          phone: newUser.phone?.trim() || null,
+          phone: newUser.phone.trim(),
+          address: newUser.address.trim(),
         });
 
       if (profileError) {
@@ -337,12 +358,13 @@ export default function Settings() {
         user_id: authData.user.id,
         full_name: newUser.fullName.trim(),
         email: newUser.email.trim(),
-        phone: newUser.phone?.trim() || null,
+        phone: newUser.phone.trim(),
+        address: newUser.address.trim(),
         role: "rider"
       }]);
 
       // Reset form
-      setNewUser({ email: "", password: "", fullName: "", phone: "" });
+      setNewUser({ email: "", password: "", fullName: "", phone: "", address: "" });
 
     } catch (error: any) {
       console.error("Error adding user:", error);
@@ -351,6 +373,126 @@ export default function Settings() {
       } else {
         toast.error("Gagal menambahkan pengguna: " + error.message);
       }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleOpenEditUser = (user: Profile) => {
+    setEditingUserId(user.user_id);
+    setEditUser({
+      email: user.email || "",
+      password: "", // Password tidak ditampilkan, hanya diisi jika ingin diubah
+      fullName: user.full_name,
+      phone: user.phone || "",
+      address: user.address || "",
+    });
+    setIsEditingUser(true);
+  };
+
+  const handleUpdateUser = async () => {
+    if (!editingUserId) return;
+
+    // Validate required fields (except password yang optional)
+    if (!editUser.fullName.trim() || !editUser.phone.trim() || !editUser.address.trim()) {
+      toast.error("Mohon lengkapi nama, telepon, dan alamat");
+      return;
+    }
+
+    // Validate phone format
+    if (!/^[0-9]+$/.test(editUser.phone) || editUser.phone.length < 10) {
+      toast.error("Nomor telepon minimal 10 digit angka");
+      return;
+    }
+
+    // Validate address length
+    if (editUser.address.trim().length < 10) {
+      toast.error("Alamat harus minimal 10 karakter");
+      return;
+    }
+
+    // Validate password if provided
+    if (editUser.password && editUser.password.length < 6) {
+      toast.error("Password harus minimal 6 karakter");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Update profile in database
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .update({
+          full_name: editUser.fullName.trim(),
+          phone: editUser.phone.trim(),
+          address: editUser.address.trim(),
+        })
+        .eq("user_id", editingUserId);
+
+      if (profileError) throw profileError;
+
+      // Update password if provided
+      if (editUser.password) {
+        const { error: passwordError } = await supabase.auth.admin.updateUserById(
+          editingUserId,
+          { password: editUser.password }
+        );
+
+        if (passwordError) {
+          toast.error("Profile berhasil diupdate, tapi gagal update password: " + passwordError.message);
+        } else {
+          toast.success("Profile dan password berhasil diupdate!");
+        }
+      } else {
+        toast.success("Profile berhasil diupdate!");
+      }
+
+      // Update local state
+      setUsers(prevUsers =>
+        prevUsers.map(user =>
+          user.user_id === editingUserId
+            ? {
+                ...user,
+                full_name: editUser.fullName.trim(),
+                phone: editUser.phone.trim(),
+                address: editUser.address.trim(),
+              }
+            : user
+        )
+      );
+
+      setIsEditingUser(false);
+      setEditingUserId(null);
+      setEditUser({ email: "", password: "", fullName: "", phone: "", address: "" });
+
+    } catch (error: any) {
+      console.error("Error updating user:", error);
+      toast.error("Gagal update pengguna: " + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteUser = async (userId: string, userName: string) => {
+    if (!confirm(`Apakah Anda yakin ingin menghapus pengguna "${userName}"? Tindakan ini tidak dapat dibatalkan.`)) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Delete from auth (this will cascade delete profile and roles due to foreign key)
+      const { error: deleteError } = await supabase.auth.admin.deleteUser(userId);
+
+      if (deleteError) throw deleteError;
+
+      toast.success("Pengguna berhasil dihapus");
+
+      // Update local state
+      setUsers(prevUsers => prevUsers.filter(user => user.user_id !== userId));
+
+    } catch (error: any) {
+      console.error("Error deleting user:", error);
+      toast.error("Gagal menghapus pengguna: " + error.message);
     } finally {
       setLoading(false);
     }
@@ -368,8 +510,13 @@ export default function Settings() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <User className="w-8 h-8 animate-spin text-primary" />
+      <div className="flex flex-col items-center justify-center min-h-screen gap-4">
+        <img 
+          src="/images/3f39c041-7a69-4897-8bed-362f05bda187.png" 
+          alt="BK Logo" 
+          className="w-20 h-20 animate-bounce"
+        />
+        <p className="text-sm text-muted-foreground animate-pulse">Memuat data...</p>
       </div>
     );
   }
@@ -383,10 +530,19 @@ export default function Settings() {
   return (
     <div className="min-h-screen bg-background pb-nav-safe">
       <div className="max-w-screen-xl mx-auto p-4 space-y-6">
-        {/* Header */}
-        <div>
-          <h1 className="text-3xl font-bold text-gradient">Pengaturan</h1>
-          <p className="text-muted-foreground">Kelola profil dan preferensi</p>
+        {/* Header with Logo */}
+        <div className="flex items-center gap-3 pb-2 border-b">
+          <img 
+            src="/images/3f39c041-7a69-4897-8bed-362f05bda187.png" 
+            alt="BK Logo" 
+            className="w-12 h-12"
+          />
+          <div className="flex-1">
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">
+              Pengaturan
+            </h1>
+            <p className="text-sm text-muted-foreground">BK POS System - Kelola profil dan preferensi</p>
+          </div>
         </div>
 
         {/* Profile Card */}
@@ -444,6 +600,12 @@ export default function Settings() {
                   <span className="text-sm font-medium">{profile.phone}</span>
                 </div>
               )}
+              {profile?.address && (
+                <div className="flex flex-col gap-1">
+                  <span className="text-sm text-muted-foreground">Alamat:</span>
+                  <span className="text-sm font-medium">{profile.address}</span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span className="text-sm text-muted-foreground">Role:</span>
                 <span className="text-sm font-medium">
@@ -451,23 +613,6 @@ export default function Settings() {
                 </span>
               </div>
             </div>
-          </CardContent>
-        </Card>
-
-        {/* Actions */}
-        <Card className="animate-fade-in">
-          <CardHeader>
-            <CardTitle>Aksi</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <Button
-              variant="destructive"
-              className="w-full"
-              onClick={handleLogout}
-            >
-              <LogOut className="w-4 h-4 mr-2" />
-              Keluar
-            </Button>
           </CardContent>
         </Card>
 
@@ -481,7 +626,7 @@ export default function Settings() {
               <Dialog open={isAddingUser} onOpenChange={(open) => {
                 if (!open) {
                   // Reset form when dialog closes
-                  setNewUser({ email: "", password: "", fullName: "", phone: "" });
+                  setNewUser({ email: "", password: "", fullName: "", phone: "", address: "" });
                 }
                 setIsAddingUser(open);
               }}>
@@ -529,13 +674,23 @@ export default function Settings() {
                       />
                     </div>
                     <div>
-                      <Label htmlFor="phone">No. Telepon (Opsional)</Label>
+                      <Label htmlFor="phone">No. Telepon *</Label>
                       <Input
                         id="phone"
                         type="tel"
-                        placeholder="08xxxxx"
+                        placeholder="08123456789"
                         value={newUser.phone}
                         onChange={(e) => setNewUser(prev => ({ ...prev, phone: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="address">Alamat Lengkap *</Label>
+                      <Textarea
+                        id="address"
+                        placeholder="Jl. Contoh No. 123, Kota, Provinsi"
+                        value={newUser.address}
+                        onChange={(e) => setNewUser(prev => ({ ...prev, address: e.target.value }))}
+                        rows={3}
                       />
                     </div>
                   </div>
@@ -549,38 +704,122 @@ export default function Settings() {
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
+
+              {/* Edit User Dialog */}
+              <Dialog open={isEditingUser} onOpenChange={(open) => {
+                if (!open) {
+                  setEditingUserId(null);
+                  setEditUser({ email: "", password: "", fullName: "", phone: "", address: "" });
+                }
+                setIsEditingUser(open);
+              }}>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Edit Pengguna</DialogTitle>
+                    <DialogDescription>
+                      Update informasi pengguna (kosongkan password jika tidak ingin mengubahnya)
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="edit-email">Email (Read Only)</Label>
+                      <Input
+                        id="edit-email"
+                        type="email"
+                        value={editUser.email}
+                        disabled
+                        className="bg-muted"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">Email tidak bisa diubah</p>
+                    </div>
+                    <div>
+                      <Label htmlFor="edit-password">Password Baru (Opsional)</Label>
+                      <Input
+                        id="edit-password"
+                        type="password"
+                        placeholder="Minimal 6 karakter (kosongkan jika tidak ingin mengubah)"
+                        value={editUser.password}
+                        onChange={(e) => setEditUser(prev => ({ ...prev, password: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="edit-fullName">Nama Lengkap *</Label>
+                      <Input
+                        id="edit-fullName"
+                        placeholder="Nama lengkap"
+                        value={editUser.fullName}
+                        onChange={(e) => setEditUser(prev => ({ ...prev, fullName: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="edit-phone">No. Telepon *</Label>
+                      <Input
+                        id="edit-phone"
+                        type="tel"
+                        placeholder="08123456789"
+                        value={editUser.phone}
+                        onChange={(e) => setEditUser(prev => ({ ...prev, phone: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="edit-address">Alamat Lengkap *</Label>
+                      <Textarea
+                        id="edit-address"
+                        placeholder="Jl. Contoh No. 123, Kota, Provinsi"
+                        value={editUser.address}
+                        onChange={(e) => setEditUser(prev => ({ ...prev, address: e.target.value }))}
+                        rows={3}
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsEditingUser(false)}>
+                      Batal
+                    </Button>
+                    <Button onClick={handleUpdateUser} disabled={loading}>
+                      {loading ? "Memproses..." : "Update"}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto -mx-6 px-6">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-[40%]">Info User</TableHead>
+                      <TableHead className="w-[25%]">Nama</TableHead>
                       {!isMobile && (
                         <>
                           <TableHead>Email</TableHead>
                           <TableHead>No. Telepon</TableHead>
+                          <TableHead>Alamat</TableHead>
                         </>
                       )}
-                      <TableHead>Status</TableHead>
+                      <TableHead>Status & Aksi</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {users.map((user) => (
-                                            <TableRow key={user.id}>
+                      <TableRow key={user.id}>
                         <TableCell className="font-medium">
-                          <div className="flex items-center space-x-4">
-                            <Avatar>
+                          <div className="flex items-center space-x-3 md:space-x-4">
+                            <Avatar className="w-8 h-8 md:w-10 md:h-10">
                               <AvatarImage src={user.avatar_url || undefined} alt={user.full_name} />
-                              <AvatarFallback>{user.full_name.charAt(0).toUpperCase()}</AvatarFallback>
+                              <AvatarFallback className="text-xs md:text-sm">{user.full_name.charAt(0).toUpperCase()}</AvatarFallback>
                             </Avatar>
                             <div>
-                              <div className="font-bold">{user.full_name}</div>
+                              <div className="font-bold text-xs md:text-sm">{user.full_name}</div>
                               {isMobile && (
                                 <>
-                                  <div className="text-sm text-muted-foreground">{user.email}</div>
+                                  <div className="text-[10px] md:text-xs text-muted-foreground truncate max-w-[150px]">{user.email}</div>
                                   {user.phone && (
-                                    <div className="text-sm text-muted-foreground">{user.phone}</div>
+                                    <div className="text-[10px] md:text-xs text-muted-foreground">{user.phone}</div>
+                                  )}
+                                  {user.address && (
+                                    <div className="text-[9px] md:text-xs text-muted-foreground mt-1 max-w-[150px] truncate" title={user.address}>
+                                      📍 {user.address}
+                                    </div>
                                   )}
                                 </>
                               )}
@@ -591,42 +830,46 @@ export default function Settings() {
                           <>
                             <TableCell>{user.email}</TableCell>
                             <TableCell>{user.phone || "-"}</TableCell>
+                            <TableCell>
+                              <div className="max-w-xs truncate" title={user.address || "-"}>
+                                {user.address || "-"}
+                              </div>
+                            </TableCell>
                           </>
                         )}
                         <TableCell>
-                          <div className="flex items-center space-x-2">
-                            <Badge variant={user.role === "admin" ? "default" : "outline"}>
+                          <div className="flex flex-col gap-1 md:gap-2">
+                            <Badge variant={user.role === "admin" ? "default" : "outline"} className="w-fit text-[10px] md:text-xs">
                               {user.role === "admin" ? "Admin" : "Rider"}
                             </Badge>
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              onClick={() => handleRoleChange(user.user_id, user.role || "rider")}
-                            >
-                              {user.role === "admin" ? "Turunkan ke Rider" : "Naikkan ke Admin"}
-                            </Button>
-                          </div>
-                        </TableCell>
-```
-                        <TableCell>
-                          <div className="font-medium">{user.full_name}</div>
-                          {isMobile && (
-                            <div className="space-y-1 mt-1">
-                              <div className="text-sm text-muted-foreground">{user.email}</div>
-                              {user.phone && (
-                                <div className="text-sm text-muted-foreground">{user.phone}</div>
-                              )}
+                            <div className="flex gap-1">
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => handleOpenEditUser(user)}
+                                className="flex-1 text-[10px] md:text-xs h-7 md:h-8 px-1 md:px-2"
+                              >
+                                <Edit className="w-3 h-3 md:mr-1" />
+                                <span className="hidden md:inline">Edit</span>
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => handleRoleChange(user.user_id, user.role || "rider")}
+                                className="flex-1 text-[10px] md:text-xs h-7 md:h-8 px-1 md:px-2"
+                              >
+                                {user.role === "admin" ? "→ R" : "→ A"}
+                              </Button>
+                              <Button 
+                                variant="destructive" 
+                                size="sm"
+                                onClick={() => handleDeleteUser(user.user_id, user.full_name)}
+                                className="h-7 md:h-8 w-7 md:w-8 p-0"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </Button>
                             </div>
-                          )}
-                        </TableCell>
-                        {!isMobile && (
-                          <>
-                            <TableCell>{user.email}</TableCell>
-                            <TableCell>{user.phone || "-"}</TableCell>
-                          </>
-                        )}
-                        <TableCell>
-                          <Badge>{user.role}</Badge>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -636,6 +879,20 @@ export default function Settings() {
             </CardContent>
           </Card>
         )}
+
+        {/* Sign Out Button - Moved to Bottom */}
+        <Card className="animate-fade-in">
+          <CardContent className="pt-6">
+            <Button
+              variant="destructive"
+              className="w-full"
+              onClick={handleLogout}
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              Keluar
+            </Button>
+          </CardContent>
+        </Card>
       </div>
 
       <BottomNav isAdmin={isAdmin} />

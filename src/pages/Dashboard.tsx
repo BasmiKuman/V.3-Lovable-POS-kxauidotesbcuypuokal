@@ -236,10 +236,19 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-background pb-nav-safe">
       <div className="max-w-screen-xl mx-auto p-2 sm:p-4 space-y-3 sm:space-y-5">
-        {/* Header */}
-        <div className="space-y-0.5 sm:space-y-1 pt-1">
-          <h1 className="text-xl sm:text-3xl font-bold text-gradient">Dashboard</h1>
-          <p className="text-xs sm:text-sm text-muted-foreground">Ringkasan sistem POS</p>
+        {/* Header with Logo */}
+        <div className="flex items-center gap-3 pt-1 pb-2 border-b">
+          <img 
+            src="/images/3f39c041-7a69-4897-8bed-362f05bda187.png" 
+            alt="BK Logo" 
+            className="w-10 h-10 sm:w-12 sm:h-12"
+          />
+          <div className="flex-1">
+            <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">
+              Dashboard
+            </h1>
+            <p className="text-xs sm:text-sm text-muted-foreground">BK POS System - Ringkasan Sistem</p>
+          </div>
         </div>
 
         {/* Stats Grid */}
