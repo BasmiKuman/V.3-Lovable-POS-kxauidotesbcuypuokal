@@ -1,0 +1,13 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  VITE_APP_URL = "https://bk-pos.lakujoo.com"
+  VITE_SUPABASE_URL = "https://mlwvrqjsaomthfcsmoit.supabase.co"
+  VITE_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1sd3ZycWpzYW9tdGhmY3Ntb2l0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE1NTg1NTQsImV4cCI6MjA3NzEzNDU1NH0.QUrLOVZjro2gl1JFUivatjlwvfbYegcR5BVsoz6kzpc"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
