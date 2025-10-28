@@ -1,38 +1,48 @@
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
+import { App as CapacitorApp } from '@capacitor/app';
 
 // Handle deep links for email verification and password reset
-// This runs when app is opened via deep link (com.basmikuman.pos://...)
-if (typeof window !== 'undefined') {
-  // Listen for URL changes (for Android deep links)
-  window.addEventListener('message', (event) => {
-    if (event.data && event.data.url) {
-      const url = new URL(event.data.url);
-      console.log('Deep link opened:', event.data.url);
+// This listens to appUrlOpen event from Capacitor
+CapacitorApp.addListener('appUrlOpen', (event) => {
+  console.log('Deep link opened:', event.url);
+  
+  try {
+    const url = new URL(event.url);
+    
+    // Extract hash parameters (Supabase sends tokens in hash)
+    const hash = url.hash || url.searchParams.get('hash') || '';
+    
+    if (hash) {
+      const hashParams = new URLSearchParams(hash.substring(1));
+      const type = hashParams.get('type');
       
-      // Extract the hash part from the URL (Supabase sends tokens in hash)
-      if (url.hash) {
-        // Check if this is a password recovery link
-        const hashParams = new URLSearchParams(url.hash.substring(1));
-        const type = hashParams.get('type');
-        
-        if (type === 'recovery') {
-          // Password reset - redirect to reset-password page
-          window.location.href = `${window.location.origin}/reset-password${url.hash}`;
-        } else if (type === 'signup') {
-          // Email verification - redirect to email-verified page
-          window.location.href = `${window.location.origin}/email-verified${url.hash}`;
-        } else {
-          // Default - redirect to auth page
-          window.location.href = `${window.location.origin}/auth${url.hash}`;
-        }
-      } else if (url.pathname) {
-        // Redirect to the appropriate page
-        window.location.href = `${window.location.origin}${url.pathname}${url.search}${url.hash}`;
+      console.log('Deep link type:', type);
+      
+      // Route based on link type
+      if (type === 'recovery') {
+        // Password reset
+        console.log('Redirecting to /reset-password');
+        window.location.href = `/reset-password${hash}`;
+      } else if (type === 'signup') {
+        // Email verification
+        console.log('Redirecting to /email-verified');
+        window.location.href = `/email-verified${hash}`;
+      } else {
+        // Default fallback
+        console.log('Redirecting to /auth');
+        window.location.href = `/auth${hash}`;
       }
+    } else if (url.pathname && url.pathname !== '/') {
+      // Direct path navigation
+      window.location.href = `${url.pathname}${url.search}${url.hash}`;
     }
-  });
-}
+  } catch (error) {
+    console.error('Error parsing deep link:', error);
+    // Fallback to auth page
+    window.location.href = '/auth';
+  }
+});
 
 createRoot(document.getElementById("root")!).render(<App />);
