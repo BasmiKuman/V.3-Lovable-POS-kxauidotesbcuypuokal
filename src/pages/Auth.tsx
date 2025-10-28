@@ -111,9 +111,9 @@ export default function Auth() {
         password: signupPassword,
         options: {
           data: {
-            full_name: fullName,
-            phone: phoneNumber,
-            address: address,
+            full_name: signupName,
+            phone: signupPhone,
+            address: signupAddress,
           },
           emailRedirectTo: `${appUrl}/email-verified`,
         },
