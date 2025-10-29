@@ -196,8 +196,9 @@ WHERE user_id = auth.uid();
 SELECT 
   'GPS Settings Test' as test,
   rider_id,
-  gps_enabled,
-  gps_consent_given
+  tracking_enabled,
+  consent_given,
+  consent_date
 FROM rider_gps_settings
 WHERE rider_id = auth.uid();
 
