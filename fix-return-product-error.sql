@@ -1,6 +1,29 @@
 -- Fix: Return produk error - RLS policies for returns table
 
--- Check if returns table has RLS enabled
+-- ============================================
+-- STEP 1: Create has_pending_return function if not exists
+-- ============================================
+
+CREATE OR REPLACE FUNCTION has_pending_return(p_product_id UUID, p_rider_id UUID)
+RETURNS BOOLEAN AS $$
+BEGIN
+    -- Check in 'returns' table for pending returns
+    RETURN EXISTS (
+        SELECT 1 
+        FROM returns 
+        WHERE product_id = p_product_id 
+          AND rider_id = p_rider_id
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Grant execute permission
+GRANT EXECUTE ON FUNCTION has_pending_return(UUID, UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION has_pending_return(UUID, UUID) TO anon;
+
+-- ============================================
+-- STEP 2: Check if returns table has RLS enabled
+-- ============================================
 SELECT 
   tablename,
   CASE 
