@@ -41,13 +41,15 @@
 **Expected Output:**
 ```
 ✓ has_pending_return function created
-✓ Returns table exists (atau baru dibuat)
+✓ Table returns already exists (atau baru dibuat)
 ✓ Test function returns FALSE
 ✓ Profiles INSERT policies terlihat
 ✓ User_roles INSERT policies terlihat
 ```
 
-Jika ada error, copy error message dan kirim ke saya.
+**Jika ada error "invalid input value for enum":**
+- Itu sudah diperbaiki! Jalankan ulang SQL yang sudah di-update
+- SQL sekarang sudah sesuai dengan struktur database yang ada
 
 ---
 
