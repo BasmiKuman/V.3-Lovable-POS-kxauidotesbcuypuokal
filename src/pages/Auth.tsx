@@ -141,33 +141,8 @@ export default function Auth() {
       if (error) throw error;
 
       if (data.user) {
-        // Create profile entry
-        const { error: profileError } = await supabase
-          .from("profiles")
-          .upsert({
-            user_id: data.user.id,
-            full_name: pendingSignupData.name,
-            phone: pendingSignupData.phone,
-            address: pendingSignupData.address,
-          });
-
-        if (profileError) {
-          console.error("Profile creation error:", profileError);
-        }
-
-        // Assign rider role
-        const { error: roleError } = await supabase
-          .from("user_roles")
-          .insert({
-            user_id: data.user.id,
-            role: "rider",
-          });
-
-        if (roleError) {
-          console.error("Role assignment error:", roleError);
-        }
-
-        // Save GPS consent (user accepted T&C)
+        // Profile, role, and GPS settings are automatically created by handle_new_user trigger
+        // Just save GPS consent (user accepted T&C)
         await saveGPSConsent(data.user.id);
       }
 
