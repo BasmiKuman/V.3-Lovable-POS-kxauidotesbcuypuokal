@@ -96,6 +96,7 @@ export default function Settings() {
 
       if (profileData) {
         setProfile({
+          id: profileData.user_id, // Use user_id as id
           ...profileData,
           email: user.email || "",
           role: isUserAdmin ? "admin" : "rider"
