@@ -189,12 +189,13 @@ export default function Reports() {
   };
 
   const downloadReport = () => {
-    if (!transactions || transactions.length === 0) {
-      toast.error("Tidak ada data untuk diunduh");
-      return;
-    }
+    try {
+      if (!transactions || transactions.length === 0) {
+        toast.error("Tidak ada data untuk diunduh");
+        return;
+      }
 
-    const workbook = XLSX.utils.book_new();
+      const workbook = XLSX.utils.book_new();
 
     if (selectedRider === "all") {
       // ========================================
@@ -535,6 +536,10 @@ export default function Reports() {
     }
 
     toast.success("Laporan berhasil diunduh dalam format Excel");
+    } catch (error) {
+      console.error('Error downloading report:', error);
+      toast.error("Gagal mengunduh laporan. Silakan coba lagi.");
+    }
   };
 
   return (
@@ -556,7 +561,7 @@ export default function Reports() {
             </div>
             <Button onClick={downloadReport} size="sm" className="flex-shrink-0 w-full sm:w-auto mt-2 sm:mt-0">
               <Download className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
-              <span>Unduh PDF</span>
+              <span>Unduh Excel</span>
             </Button>
           </div>
 
