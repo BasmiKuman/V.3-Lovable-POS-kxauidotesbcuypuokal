@@ -63,8 +63,25 @@ export default function EmailVerified() {
     handleEmailVerification();
   }, [navigate]);
 
-  const handleLoginRedirect = () => {
-    navigate("/auth");
+  const handleLoginRedirect = async () => {
+    // Check if user already logged in (from email verification)
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (session) {
+      // User already logged in, redirect based on role
+      const { data: roles } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", session.user.id)
+        .eq("role", "admin")
+        .maybeSingle();
+      
+      const redirectPath = roles ? "/dashboard" : "/pos";
+      navigate(redirectPath, { replace: true });
+    } else {
+      // Not logged in, go to auth page
+      navigate("/auth", { replace: true });
+    }
   };
 
   return (

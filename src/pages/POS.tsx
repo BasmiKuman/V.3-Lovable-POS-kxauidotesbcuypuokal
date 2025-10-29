@@ -80,23 +80,26 @@ export default function POS() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const { data: pendingReturn, error } = await supabase
-      .rpc('has_pending_return', { 
-        product_id: product.product_id, 
-        rider_id: user.id 
-      });
+    try {
+      const { data: pendingReturn, error } = await supabase
+        .rpc('has_pending_return', { 
+          product_id: product.product_id, 
+          rider_id: user.id 
+        });
 
-    if (error) {
-      console.error('Error checking pending return:', error);
-      toast.error("Gagal memeriksa status produk");
-      return;
-    }
-
-    if (pendingReturn) {
-      toast.warning("Produk sedang dalam proses return, menunggu persetujuan admin", {
-        duration: 4000,
-      });
-      return;
+      if (error) {
+        console.error('Error checking pending return:', error);
+        // If function doesn't exist or RPC fails, just continue (allow adding to cart)
+        console.warn('Skipping pending return check, function might not exist');
+      } else if (pendingReturn) {
+        toast.warning("Produk sedang dalam proses return, menunggu persetujuan admin", {
+          duration: 4000,
+        });
+        return;
+      }
+    } catch (err) {
+      // Silently fail and allow adding to cart
+      console.error('Exception checking pending return:', err);
     }
 
     const existingItem = cart.find((item) => item.product_id === product.product_id);

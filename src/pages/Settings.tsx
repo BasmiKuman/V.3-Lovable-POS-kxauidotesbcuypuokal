@@ -319,36 +319,60 @@ export default function Settings() {
       if (authError) throw authError;
       if (!authData.user) throw new Error("Gagal membuat akun pengguna");
 
-      // 2. Create profile manually (sebagai backup jika trigger gagal)
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .upsert({
-          user_id: authData.user.id,
-          full_name: newUser.fullName.trim(),
-          phone: newUser.phone.trim(),
-          address: newUser.address.trim(),
-        }, {
-          onConflict: 'user_id'
-        });
+      // Wait a bit for trigger to complete
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
-      if (profileError) {
-        console.error("Profile creation error:", profileError);
-        throw new Error("Gagal membuat profile: " + profileError.message);
+      // 2. Verify profile exists (trigger should have created it)
+      const { data: existingProfile } = await supabase
+        .from("profiles")
+        .select("user_id")
+        .eq("user_id", authData.user.id)
+        .maybeSingle();
+
+      // Only create profile if trigger didn't create it
+      if (!existingProfile) {
+        const { error: profileError } = await supabase
+          .from("profiles")
+          .insert({
+            user_id: authData.user.id,
+            full_name: newUser.fullName.trim(),
+            phone: newUser.phone.trim(),
+            address: newUser.address.trim(),
+          });
+
+        if (profileError) {
+          console.error("Profile creation error:", profileError);
+          // Don't throw error if it's duplicate key (trigger already created)
+          if (!profileError.message.includes('duplicate') && !profileError.message.includes('unique')) {
+            throw new Error("Gagal membuat profile: " + profileError.message);
+          }
+        }
       }
 
-      // 3. Assign rider role manually (sebagai backup jika trigger gagal)
-      const { error: roleError } = await supabase
+      // 3. Verify role exists
+      const { data: existingRole } = await supabase
         .from("user_roles")
-        .upsert({
-          user_id: authData.user.id,
-          role: "rider",
-        }, {
-          onConflict: 'user_id,role'
-        });
+        .select("user_id")
+        .eq("user_id", authData.user.id)
+        .eq("role", "rider")
+        .maybeSingle();
 
-      if (roleError) {
-        console.error("Role assignment error:", roleError);
-        throw new Error("Gagal assign role: " + roleError.message);
+      // Only assign role if trigger didn't create it
+      if (!existingRole) {
+        const { error: roleError } = await supabase
+          .from("user_roles")
+          .insert({
+            user_id: authData.user.id,
+            role: "rider",
+          });
+
+        if (roleError) {
+          console.error("Role assignment error:", roleError);
+          // Don't throw error if it's duplicate key (trigger already created)
+          if (!roleError.message.includes('duplicate') && !roleError.message.includes('unique')) {
+            throw new Error("Gagal assign role: " + roleError.message);
+          }
+        }
       }
 
       toast.success("Berhasil menambahkan pengguna baru. Email verifikasi telah dikirim.");
