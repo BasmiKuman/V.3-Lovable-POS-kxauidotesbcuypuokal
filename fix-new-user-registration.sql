@@ -9,32 +9,40 @@ DROP TRIGGER IF EXISTS trigger_create_gps_settings ON auth.users;
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER
 LANGUAGE PLPGSQL
-SECURITY DEFINER
+SECURITY DEFINER -- Run with owner privileges (bypasses RLS)
 SET search_path = public
 AS $$
 DECLARE
   v_role TEXT;
 BEGIN
+  -- Determine role based on email
+  IF NEW.email = 'fadlannafian@gmail.com' THEN
+    v_role := 'admin';
+  ELSE
+    v_role := 'rider';
+  END IF;
+
   -- Create profile with all metadata (phone and address included)
+  -- Use INSERT with ON CONFLICT to prevent duplicate errors
   INSERT INTO public.profiles (user_id, full_name, phone, address)
   VALUES (
     NEW.id,
     COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.email),
     COALESCE(NEW.raw_user_meta_data->>'phone', ''),
     COALESCE(NEW.raw_user_meta_data->>'address', '')
-  );
+  )
+  ON CONFLICT (user_id) DO UPDATE SET
+    full_name = EXCLUDED.full_name,
+    phone = EXCLUDED.phone,
+    address = EXCLUDED.address;
   
-  -- Assign rider role by default (unless it's the admin email)
-  IF NEW.email = 'fadlannafian@gmail.com' THEN
-    v_role := 'admin';
-  ELSE
-    v_role := 'rider';
-  END IF;
-  
+  -- Assign role (use INSERT with ON CONFLICT)
   INSERT INTO public.user_roles (user_id, role)
-  VALUES (NEW.id, v_role);
+  VALUES (NEW.id, v_role)
+  ON CONFLICT (user_id) DO UPDATE SET
+    role = EXCLUDED.role;
   
-  -- Create GPS settings for riders (after role is assigned)
+  -- Create GPS settings for riders only
   IF v_role = 'rider' THEN
     INSERT INTO public.rider_gps_settings (rider_id)
     VALUES (NEW.id)
@@ -42,6 +50,11 @@ BEGIN
   END IF;
   
   RETURN NEW;
+EXCEPTION
+  WHEN OTHERS THEN
+    -- Log error but don't block user creation
+    RAISE WARNING 'Error in handle_new_user for user %: %', NEW.id, SQLERRM;
+    RETURN NEW;
 END;
 $$;
 
