@@ -195,7 +195,7 @@ export default function TermsAndConditions({
                 id="terms"
                 checked={agreeToTerms}
                 onCheckedChange={(checked) => setAgreeToTerms(checked as boolean)}
-                className="rounded-full mt-0.5 h-4 w-4"
+                className="rounded-full mt-0.5 !h-4 !w-4 flex-shrink-0"
               />
               <label
                 htmlFor="terms"
@@ -211,7 +211,7 @@ export default function TermsAndConditions({
                 id="gps"
                 checked={agreeToGPS}
                 onCheckedChange={(checked) => setAgreeToGPS(checked as boolean)}
-                className="rounded-full mt-0.5 h-1 w-1"
+                className="rounded-full mt-0.5 !h-4 !w-4 flex-shrink-0"
               />
               <label
                 htmlFor="gps"

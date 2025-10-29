@@ -9,12 +9,15 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Package, Undo2, Tag, Edit, Trash2 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Plus, Package, Undo2, Tag, Edit, Trash2, Factory } from "lucide-react";
 import { toast } from "sonner";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
+import { AddProductionDialog } from "@/components/AddProductionDialog";
+import { ProductionHistory } from "@/components/ProductionHistory";
 
 interface Product {
   id: string;
@@ -78,6 +81,8 @@ export default function Products() {
   const [returnQuantity, setReturnQuantity] = useState("");
   const [returnNotes, setReturnNotes] = useState("");
   const [pendingReturns, setPendingReturns] = useState<Set<string>>(new Set()); // Track products with pending returns
+  const [productionDialogOpen, setProductionDialogOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState("products");
 
   const form = useForm<z.infer<typeof productSchema>>({
     resolver: zodResolver(productSchema),
@@ -246,6 +251,23 @@ export default function Products() {
     fetchProductRiderStocks();
   }, []);
 
+  const refreshProducts = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("products")
+        .select(`
+          *,
+          categories (name)
+        `)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setProducts(data || []);
+    } catch (error: any) {
+      toast.error("Gagal memuat produk");
+    }
+  };
+
   const refreshCategories = async () => {
     try {
       const { data, error } = await supabase
@@ -313,15 +335,7 @@ export default function Products() {
       form.reset();
 
       // Refresh products
-      const { data } = await supabase
-        .from("products")
-        .select(`
-          *,
-          categories (name)
-        `)
-        .order("created_at", { ascending: false });
-      
-      setProducts(data || []);
+      await refreshProducts();
     } catch (error: any) {
       toast.error("Gagal menambahkan produk");
       console.error(error);
@@ -365,15 +379,7 @@ export default function Products() {
       editForm.reset();
 
       // Refresh products
-      const { data } = await supabase
-        .from("products")
-        .select(`
-          *,
-          categories (name)
-        `)
-        .order("created_at", { ascending: false });
-      
-      setProducts(data || []);
+      await refreshProducts();
     } catch (error: any) {
       toast.error("Gagal mengupdate produk");
       console.error(error);
@@ -484,13 +490,32 @@ export default function Products() {
             <p className="text-xs sm:text-sm text-muted-foreground">Kelola produk</p>
           </div>
           {isAdmin && (
-            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-              <DialogTrigger asChild>
-                <Button size="sm" className="flex-shrink-0">
-                  <Plus className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
-                  <span className="hidden xs:inline">Tambah</span>
-                </Button>
-              </DialogTrigger>
+            <div className="flex gap-2 flex-shrink-0">
+              <Button 
+                size="sm" 
+                variant="outline"
+                onClick={() => setProductionDialogOpen(true)}
+                className="hidden sm:flex"
+              >
+                <Factory className="w-4 h-4 mr-2" />
+                <span>Tambah Produksi</span>
+              </Button>
+              <Button 
+                size="sm" 
+                variant="outline"
+                onClick={() => setProductionDialogOpen(true)}
+                className="sm:hidden"
+              >
+                <Factory className="w-4 h-4" />
+              </Button>
+              
+              <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm">
+                    <Plus className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
+                    <span className="hidden xs:inline">Tambah</span>
+                  </Button>
+                </DialogTrigger>
               <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>Tambah Produk Baru</DialogTitle>
@@ -640,6 +665,7 @@ export default function Products() {
                 </Form>
               </DialogContent>
             </Dialog>
+            </div>
           )}
         </div>
 
@@ -890,88 +916,104 @@ export default function Products() {
           </div>
         )}
 
-        {/* Products Grid */}
-        {isAdmin && products.length === 0 ? (
-          <Card>
-            <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-              <Package className="w-16 h-16 text-muted-foreground mb-4" />
-              <p className="text-muted-foreground">Belum ada produk</p>
-              {isAdmin && (
-                <Button className="mt-4" variant="outline" onClick={() => setDialogOpen(true)}>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Tambah Produk Pertama
-                </Button>
-              )}
-            </CardContent>
-          </Card>
-        ) : isAdmin ? (
-          <div>
-            <h2 className="text-2xl font-bold mb-4">Semua Produk</h2>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3">
-            {products.map((product) => (
-              <Card key={product.id} className="overflow-hidden hover:shadow-lg transition-shadow">
-                <CardContent className="p-2 sm:p-3">
-                  <div className="space-y-2">
-                    <div className="w-full aspect-square rounded-lg bg-muted flex items-center justify-center">
-                      {product.image_url ? (
-                        <img
-                          src={product.image_url}
-                          alt={product.name}
-                          className="w-full h-full object-cover rounded-lg"
-                        />
-                      ) : (
-                        <Package className="w-8 h-8 sm:w-10 sm:h-10 text-muted-foreground" />
-                      )}
-                    </div>
-                    <div className="space-y-1">
-                      <div className="flex items-start justify-between gap-1">
-                        <h3 className="font-semibold text-xs sm:text-sm line-clamp-2 leading-tight flex-1">
-                          {product.name}
-                        </h3>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="flex-shrink-0 h-6 w-6 sm:h-7 sm:w-7"
-                          onClick={() => handleEditProduct(product)}
-                        >
-                          <Edit className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-                        </Button>
-                      </div>
-                      {product.sku && (
-                        <p className="text-[10px] sm:text-xs text-muted-foreground">SKU: {product.sku}</p>
-                      )}
-                      <p className="text-[10px] sm:text-xs text-muted-foreground line-clamp-2">
-                        {product.description || "Tidak ada deskripsi"}
-                      </p>
-                      <p className="text-sm sm:text-base font-bold text-primary">
-                        Rp {Number(product.price).toLocaleString("id-ID")}
-                      </p>
-                      <div className="flex gap-1 flex-wrap">
-                        <Badge variant={product.stock_in_warehouse < 10 ? "destructive" : "default"} className="text-[10px] sm:text-xs px-1.5 py-0">
-                          Gudang: {product.stock_in_warehouse}
-                        </Badge>
-                        {productRiderStocks[product.id] && productRiderStocks[product.id].length > 0 && (
-                          <Badge variant="outline" className="text-[10px] sm:text-xs px-1.5 py-0">
-                            Rider: {productRiderStocks[product.id].reduce((sum, s) => sum + s.quantity, 0)}
-                          </Badge>
-                        )}
-                      </div>
-                      {productRiderStocks[product.id] && productRiderStocks[product.id].length > 0 && (
-                        <div className="text-[9px] sm:text-[10px] text-muted-foreground space-y-0.5">
-                          {productRiderStocks[product.id].map((stock) => (
-                            <div key={stock.rider_id} className="truncate">
-                              • {stock.profiles.full_name}: {stock.quantity}
+        {/* Admin View with Tabs */}
+        {isAdmin ? (
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="products" className="text-xs sm:text-sm">
+                <Package className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                Produk
+              </TabsTrigger>
+              <TabsTrigger value="production" className="text-xs sm:text-sm">
+                <Factory className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                Produksi
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="products" className="mt-4">
+              {products.length === 0 ? (
+                <Card>
+                  <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+                    <Package className="w-16 h-16 text-muted-foreground mb-4" />
+                    <p className="text-muted-foreground">Belum ada produk</p>
+                    <Button className="mt-4" variant="outline" onClick={() => setDialogOpen(true)}>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Tambah Produk Pertama
+                    </Button>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3">
+                  {products.map((product) => (
+                    <Card key={product.id} className="overflow-hidden hover:shadow-lg transition-shadow">
+                      <CardContent className="p-2 sm:p-3">
+                        <div className="space-y-2">
+                          <div className="w-full aspect-square rounded-lg bg-muted flex items-center justify-center">
+                            {product.image_url ? (
+                              <img
+                                src={product.image_url}
+                                alt={product.name}
+                                className="w-full h-full object-cover rounded-lg"
+                              />
+                            ) : (
+                              <Package className="w-8 h-8 sm:w-10 sm:h-10 text-muted-foreground" />
+                            )}
+                          </div>
+                          <div className="space-y-1">
+                            <div className="flex items-start justify-between gap-1">
+                              <h3 className="font-semibold text-xs sm:text-sm line-clamp-2 leading-tight flex-1">
+                                {product.name}
+                              </h3>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="flex-shrink-0 h-6 w-6 sm:h-7 sm:w-7"
+                                onClick={() => handleEditProduct(product)}
+                              >
+                                <Edit className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                              </Button>
                             </div>
-                          ))}
+                            {product.sku && (
+                              <p className="text-[10px] sm:text-xs text-muted-foreground">SKU: {product.sku}</p>
+                            )}
+                            <p className="text-[10px] sm:text-xs text-muted-foreground line-clamp-2">
+                              {product.description || "Tidak ada deskripsi"}
+                            </p>
+                            <p className="text-sm sm:text-base font-bold text-primary">
+                              Rp {Number(product.price).toLocaleString("id-ID")}
+                            </p>
+                            <div className="flex gap-1 flex-wrap">
+                              <Badge variant={product.stock_in_warehouse < 10 ? "destructive" : "default"} className="text-[10px] sm:text-xs px-1.5 py-0">
+                                Gudang: {product.stock_in_warehouse}
+                              </Badge>
+                              {productRiderStocks[product.id] && productRiderStocks[product.id].length > 0 && (
+                                <Badge variant="outline" className="text-[10px] sm:text-xs px-1.5 py-0">
+                                  Rider: {productRiderStocks[product.id].reduce((sum, s) => sum + s.quantity, 0)}
+                                </Badge>
+                              )}
+                            </div>
+                            {productRiderStocks[product.id] && productRiderStocks[product.id].length > 0 && (
+                              <div className="text-[9px] sm:text-[10px] text-muted-foreground space-y-0.5">
+                                {productRiderStocks[product.id].map((stock) => (
+                                  <div key={stock.rider_id} className="truncate">
+                                    • {stock.profiles.full_name}: {stock.quantity}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-            </div>
-          </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="production" className="mt-4">
+              <ProductionHistory />
+            </TabsContent>
+          </Tabs>
         ) : null}
 
         {/* Return Dialog */}
@@ -1017,6 +1059,14 @@ export default function Products() {
             )}
           </DialogContent>
         </Dialog>
+
+        {/* Add Production Dialog */}
+        <AddProductionDialog
+          open={productionDialogOpen}
+          onOpenChange={setProductionDialogOpen}
+          products={products}
+          onSuccess={refreshProducts}
+        />
       </div>
 
       <BottomNav isAdmin={isAdmin} />

@@ -20,7 +20,13 @@ interface RiderProduct {
     name: string;
     price: number;
     image_url: string | null;
+    category_id: string | null;
   };
+}
+
+interface Category {
+  id: string;
+  name: string;
 }
 
 interface CartItem {
@@ -42,6 +48,8 @@ interface ReceiptData {
 
 export default function POS() {
   const [riderProducts, setRiderProducts] = useState<RiderProduct[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
@@ -51,8 +59,22 @@ export default function POS() {
 
   useEffect(() => {
     fetchRiderStock();
+    fetchCategories();
   }, []);
 
+  const fetchCategories = async () => {
+    try {
+      const { data } = await supabase
+        .from("categories")
+        .select("id, name")
+        .order("name");
+      setCategories(data || []);
+    } catch (error: any) {
+      console.error("Gagal memuat kategori:", error);
+    }
+  };
+
+  // Fetch rider stock with product details including category
   const fetchRiderStock = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -62,7 +84,7 @@ export default function POS() {
         .from("rider_stock")
         .select(`
           *,
-          products (id, name, price, image_url)
+          products (id, name, price, image_url, category_id)
         `)
         .eq("rider_id", user.id)
         .gt("quantity", 0);
@@ -230,6 +252,11 @@ export default function POS() {
     }
   };
 
+  // Filter products by selected category
+  const filteredProducts = selectedCategory === "all"
+    ? riderProducts
+    : riderProducts.filter(p => p.products.category_id === selectedCategory);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -262,6 +289,36 @@ export default function POS() {
           {/* Products */}
           <div className="lg:col-span-2 space-y-2 sm:space-y-3">
             <h2 className="text-base sm:text-lg font-semibold">Produk Tersedia</h2>
+            
+            {/* Category Filter - Horizontal Scroll */}
+            {categories.length > 0 && (
+              <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-hide">
+                <Button
+                  size="sm"
+                  variant={selectedCategory === "all" ? "default" : "outline"}
+                  onClick={() => setSelectedCategory("all")}
+                  className="flex-shrink-0 h-7 text-xs sm:h-8 sm:text-sm"
+                >
+                  Semua ({riderProducts.length})
+                </Button>
+                {categories.map((category) => {
+                  const count = riderProducts.filter(p => p.products.category_id === category.id).length;
+                  if (count === 0) return null; // Hide categories with no products
+                  return (
+                    <Button
+                      key={category.id}
+                      size="sm"
+                      variant={selectedCategory === category.id ? "default" : "outline"}
+                      onClick={() => setSelectedCategory(category.id)}
+                      className="flex-shrink-0 h-7 text-xs sm:h-8 sm:text-sm"
+                    >
+                      {category.name} ({count})
+                    </Button>
+                  );
+                })}
+              </div>
+            )}
+
             {riderProducts.length === 0 ? (
               <Card>
                 <CardContent className="flex flex-col items-center justify-center py-12 text-center">
@@ -271,7 +328,7 @@ export default function POS() {
               </Card>
             ) : (
               <div className="grid grid-cols-2 gap-2 sm:gap-3">
-                {riderProducts.map((product) => (
+                {filteredProducts.map((product) => (
                   <Card 
                     key={product.product_id} 
                     className="overflow-hidden cursor-pointer hover:shadow-md transition-all hover:border-primary/50"

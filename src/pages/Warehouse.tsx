@@ -18,6 +18,13 @@ type Product = {
   name: string;
   stock_in_warehouse: number;
   price: number;
+  category_id: string | null;
+  image_url: string | null;
+};
+
+type Category = {
+  id: string;
+  name: string;
 };
 
 type Rider = {
@@ -52,6 +59,8 @@ export default function Warehouse() {
   const isMobile = useIsMobile();
   const [isAdmin, setIsAdmin] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [riders, setRiders] = useState<Rider[]>([]);
   const [selectedRider, setSelectedRider] = useState<string>("");
   const [distributionItems, setDistributionItems] = useState<DistributionItem[]>([]);
@@ -81,9 +90,17 @@ export default function Warehouse() {
     const fetchProducts = async () => {
       const { data } = await supabase
         .from("products")
-        .select("id, name, stock_in_warehouse, price")
+        .select("id, name, stock_in_warehouse, price, category_id, image_url")
         .order("name");
       setProducts(data || []);
+    };
+
+    const fetchCategories = async () => {
+      const { data } = await supabase
+        .from("categories")
+        .select("id, name")
+        .order("name");
+      setCategories(data || []);
     };
 
     const fetchRiders = async () => {
@@ -185,6 +202,7 @@ export default function Warehouse() {
 
     checkRole();
     fetchProducts();
+    fetchCategories();
     fetchRiders();
     fetchReturnHistory();
   }, []);
@@ -236,7 +254,7 @@ export default function Warehouse() {
       // Refresh products
       const { data: updatedProducts } = await supabase
         .from("products")
-        .select("id, name, stock_in_warehouse, price")
+        .select("id, name, stock_in_warehouse, price, category_id, image_url")
         .order("name");
       setProducts(updatedProducts || []);
 
@@ -247,6 +265,11 @@ export default function Warehouse() {
       setLoading(false);
     }
   };
+
+  // Filter products by selected category
+  const filteredProducts = selectedCategory === "all"
+    ? products
+    : products.filter(p => p.category_id === selectedCategory);
 
   return (
     <div 
@@ -302,9 +325,38 @@ export default function Warehouse() {
                   </Select>
                 </div>
 
+                {/* Category Filter - Horizontal Scroll */}
+                <div className="space-y-2">
+                  <Label className="text-sm sm:text-base">Filter Kategori</Label>
+                  <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-hide">
+                    <Button
+                      size="sm"
+                      variant={selectedCategory === "all" ? "default" : "outline"}
+                      onClick={() => setSelectedCategory("all")}
+                      className="flex-shrink-0 h-7 text-xs sm:h-8 sm:text-sm"
+                    >
+                      Semua ({products.length})
+                    </Button>
+                    {categories.map((category) => {
+                      const count = products.filter(p => p.category_id === category.id).length;
+                      return (
+                        <Button
+                          key={category.id}
+                          size="sm"
+                          variant={selectedCategory === category.id ? "default" : "outline"}
+                          onClick={() => setSelectedCategory(category.id)}
+                          className="flex-shrink-0 h-7 text-xs sm:h-8 sm:text-sm"
+                        >
+                          {category.name} ({count})
+                        </Button>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 {/* Grid Layout - 2 kolom untuk mobile & desktop */}
                 <div className="grid grid-cols-2 gap-2 sm:gap-3">
-                  {products.map((product) => (
+                  {filteredProducts.map((product) => (
                     <Card key={product.id} className="overflow-hidden hover:shadow-md transition-all">
                       <CardContent className="p-2 sm:p-3">
                         <div className="space-y-2">

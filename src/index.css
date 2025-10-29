@@ -204,6 +204,16 @@ body {
     animation: fadeIn 0.3s ease-in;
   }
 
+  /* Hide scrollbar but keep functionality */
+  .scrollbar-hide {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;  /* Chrome, Safari and Opera */
+  }
+
   @keyframes fadeIn {
     from {
       opacity: 0;
