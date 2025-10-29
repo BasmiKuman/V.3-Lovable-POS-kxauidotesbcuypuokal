@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { BottomNav } from "@/components/BottomNav";
+import { WeatherWidget } from "@/components/WeatherWidget";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -248,10 +249,20 @@ export default function POS() {
       }}
     >
       <div className="max-w-screen-xl mx-auto px-3 sm:px-4 space-y-3 sm:space-y-4">
-        {/* Header */}
-        <div className="space-y-0.5">
-          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gradient">Point of Sale</h1>
-          <p className="text-xs sm:text-sm text-muted-foreground">Transaksi penjualan</p>
+        {/* Header with Weather Widget */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="space-y-0.5 flex-1">
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gradient">Point of Sale</h1>
+            <p className="text-xs sm:text-sm text-muted-foreground">Transaksi penjualan</p>
+          </div>
+          <div className="hidden sm:block">
+            <WeatherWidget />
+          </div>
+        </div>
+
+        {/* Weather Widget Mobile - Full Width */}
+        <div className="sm:hidden">
+          <WeatherWidget />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4">

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { BottomNav } from "@/components/BottomNav";
 import { StatsCard } from "@/components/StatsCard";
+import { WeatherWidget } from "@/components/WeatherWidget";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Package, TrendingUp, Users, ShoppingCart, Undo2, CheckCircle } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -245,19 +246,29 @@ export default function Dashboard() {
       }}
     >
       <div className="max-w-screen-xl mx-auto px-3 sm:px-4 space-y-3 sm:space-y-5">
-        {/* Header with Logo */}
-        <div className="flex items-center gap-3 pb-3 border-b">
-          <img 
-            src="/images/logo.png" 
-            alt="BK Logo" 
-            className="w-10 h-10 sm:w-12 sm:h-12 flex-shrink-0"
-          />
-          <div className="flex-1 min-w-0">
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">
-              Dashboard
-            </h1>
-            <p className="text-xs sm:text-sm text-muted-foreground truncate">BK POS System - Ringkasan Sistem</p>
+        {/* Header with Logo and Weather */}
+        <div className="flex items-start justify-between gap-3 pb-3 border-b">
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            <img 
+              src="/images/logo.png" 
+              alt="BK Logo" 
+              className="w-10 h-10 sm:w-12 sm:h-12 flex-shrink-0"
+            />
+            <div className="flex-1 min-w-0">
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">
+                Dashboard
+              </h1>
+              <p className="text-xs sm:text-sm text-muted-foreground truncate">BK POS System - Ringkasan Sistem</p>
+            </div>
           </div>
+          <div className="hidden md:block flex-shrink-0">
+            <WeatherWidget />
+          </div>
+        </div>
+
+        {/* Weather Widget Mobile - Full Width */}
+        <div className="md:hidden">
+          <WeatherWidget />
         </div>
 
         {/* Stats Grid */}
