@@ -139,14 +139,14 @@ export function WeatherWidget() {
 
   if (loading) {
     return (
-      <Card className="p-2 sm:p-3 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 border-blue-200 dark:border-blue-800 min-w-[200px] sm:min-w-[240px]">
-        <div className="flex items-center gap-2">
+      <Card className="p-2 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 border-blue-200 dark:border-blue-800 w-auto">
+        <div className="flex items-center gap-1.5">
           <div className="animate-pulse">
-            <Cloud className="w-8 h-8 text-gray-400" />
+            <Cloud className="w-5 h-5 text-gray-400" />
           </div>
-          <div className="space-y-1 flex-1">
-            <div className="h-3 bg-gray-200 rounded w-20 animate-pulse"></div>
-            <div className="h-2 bg-gray-200 rounded w-16 animate-pulse"></div>
+          <div className="space-y-1">
+            <div className="h-2 bg-gray-200 rounded w-12 animate-pulse"></div>
+            <div className="h-1.5 bg-gray-200 rounded w-10 animate-pulse"></div>
           </div>
         </div>
       </Card>
@@ -158,78 +158,26 @@ export function WeatherWidget() {
   }
 
   return (
-    <Card className="p-2 sm:p-3 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 border-blue-200 dark:border-blue-800 shadow-md hover:shadow-lg transition-shadow">
-      <div className="space-y-2">
-        {/* Current Weather */}
-        <div className="flex items-center gap-2 sm:gap-3">
-          <WeatherIcon icon={weather.icon} size="w-10 h-10 sm:w-12 sm:h-12" />
-          <div className="flex-1 min-w-0">
-            <div className="flex items-baseline gap-1">
-              <span className="text-2xl sm:text-3xl font-bold text-blue-900 dark:text-blue-100">
-                {weather.temp}°
-              </span>
-              <span className="text-xs text-blue-700 dark:text-blue-300">C</span>
-            </div>
-            <p className="text-[10px] sm:text-xs text-blue-800 dark:text-blue-200 font-medium">
-              {weather.description}
-            </p>
+    <Card className="p-2 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 border-blue-200 dark:border-blue-800 shadow-sm hover:shadow-md transition-shadow">
+      <div className="flex items-center gap-2">
+        {/* Current Weather - Compact */}
+        <WeatherIcon icon={weather.icon} size="w-6 h-6" />
+        <div className="space-y-0.5">
+          <div className="flex items-baseline gap-0.5">
+            <span className="text-lg font-bold text-blue-900 dark:text-blue-100">
+              {weather.temp}°
+            </span>
+            <span className="text-[10px] text-blue-700 dark:text-blue-300">C</span>
           </div>
-        </div>
-
-        {/* Forecast 2 hours */}
-        <div className="border-t border-blue-200 dark:border-blue-700 pt-2">
-          <p className="text-[9px] sm:text-[10px] text-blue-700 dark:text-blue-300 font-semibold mb-1.5">
-            2 Jam Kedepan:
+          <p className="text-[9px] text-blue-800 dark:text-blue-200 font-medium leading-none">
+            {weather.description}
           </p>
-          <div className="grid grid-cols-2 gap-2">
-            {weather.forecast.map((item, index) => (
-              <div
-                key={index}
-                className="flex items-center gap-1.5 bg-white/50 dark:bg-blue-900/30 rounded-md p-1.5"
-              >
-                <WeatherIcon icon={item.icon} size="w-5 h-5 sm:w-6 sm:h-6" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-[10px] sm:text-xs font-bold text-blue-900 dark:text-blue-100">
-                    {item.time}
-                  </p>
-                  <div className="flex items-center gap-1">
-                    <span className="text-[9px] sm:text-[10px] text-blue-700 dark:text-blue-300">
-                      {item.temp}°C
-                    </span>
-                    {item.pop > 30 && (
-                      <div className="flex items-center gap-0.5" title={`${item.pop}% kemungkinan hujan`}>
-                        <Droplets className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-blue-500" />
-                        <span className="text-[8px] sm:text-[9px] text-blue-600 dark:text-blue-400">
-                          {item.pop}%
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
         </div>
 
-        {/* Additional Info */}
-        <div className="flex items-center gap-3 text-[9px] sm:text-[10px] text-blue-700 dark:text-blue-300 border-t border-blue-200 dark:border-blue-700 pt-1.5">
-          <div className="flex items-center gap-1" title="Kelembaban">
-            <Droplets className="w-3 h-3" />
-            <span>{weather.humidity}%</span>
-          </div>
-          <div className="flex items-center gap-1" title="Kecepatan Angin">
-            <Wind className="w-3 h-3" />
-            <span>{weather.windSpeed} km/h</span>
-          </div>
-        </div>
-
-        {/* Warning if rain probability > 50% */}
+        {/* Rain warning icon only */}
         {weather.forecast.some((f) => f.pop > 50) && (
-          <div className="flex items-start gap-1.5 bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-300 dark:border-yellow-700 rounded-md p-1.5">
-            <CloudRain className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-yellow-700 dark:text-yellow-400 flex-shrink-0 mt-0.5" />
-            <p className="text-[9px] sm:text-[10px] text-yellow-800 dark:text-yellow-300 leading-tight">
-              ⚠️ Kemungkinan hujan tinggi! Siapkan jas hujan.
-            </p>
+          <div className="ml-1" title="Kemungkinan hujan tinggi! Siapkan jas hujan.">
+            <CloudRain className="w-4 h-4 text-yellow-600 dark:text-yellow-400 animate-pulse" />
           </div>
         )}
       </div>

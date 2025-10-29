@@ -249,19 +249,12 @@ export default function POS() {
       }}
     >
       <div className="max-w-screen-xl mx-auto px-3 sm:px-4 space-y-3 sm:space-y-4">
-        {/* Header with Weather Widget */}
-        <div className="flex items-start justify-between gap-3">
-          <div className="space-y-0.5 flex-1">
+        {/* Header with Weather Widget - Inline */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="space-y-0.5 flex-1 min-w-0">
             <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gradient">Point of Sale</h1>
             <p className="text-xs sm:text-sm text-muted-foreground">Transaksi penjualan</p>
           </div>
-          <div className="hidden sm:block">
-            <WeatherWidget />
-          </div>
-        </div>
-
-        {/* Weather Widget Mobile - Full Width */}
-        <div className="sm:hidden">
           <WeatherWidget />
         </div>
 

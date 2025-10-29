@@ -246,8 +246,8 @@ export default function Dashboard() {
       }}
     >
       <div className="max-w-screen-xl mx-auto px-3 sm:px-4 space-y-3 sm:space-y-5">
-        {/* Header with Logo and Weather */}
-        <div className="flex items-start justify-between gap-3 pb-3 border-b">
+        {/* Header with Logo and Weather - Inline */}
+        <div className="flex items-center justify-between gap-2 pb-3 border-b">
           <div className="flex items-center gap-3 flex-1 min-w-0">
             <img 
               src="/images/logo.png" 
@@ -261,13 +261,6 @@ export default function Dashboard() {
               <p className="text-xs sm:text-sm text-muted-foreground truncate">BK POS System - Ringkasan Sistem</p>
             </div>
           </div>
-          <div className="hidden md:block flex-shrink-0">
-            <WeatherWidget />
-          </div>
-        </div>
-
-        {/* Weather Widget Mobile - Full Width */}
-        <div className="md:hidden">
           <WeatherWidget />
         </div>
 
