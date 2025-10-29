@@ -11,20 +11,20 @@
 
 -- Fungsi ini digunakan di POS untuk check apakah produk sedang dalam proses return
 -- Jika function ini tidak ada, maka POS tidak bisa add product ke cart
+-- NOTE: Table 'returns' tidak punya kolom 'status', jadi kita check apakah ada return entry saja
 CREATE OR REPLACE FUNCTION has_pending_return(p_product_id UUID, p_rider_id UUID)
 RETURNS BOOLEAN 
 LANGUAGE plpgsql 
 SECURITY DEFINER
 AS $$
 BEGIN
-    -- Check if there's an active return for this product by this rider
-    -- Returns table might not exist yet, so we'll create basic structure
+    -- Check if there's ANY return for this product by this rider
+    -- Since returns table doesn't have status, we assume all returns are "pending"
     RETURN EXISTS (
         SELECT 1 
         FROM returns 
         WHERE product_id = p_product_id 
           AND rider_id = p_rider_id
-          AND status IN ('pending', 'in_review')
     );
 EXCEPTION
     -- If returns table doesn't exist, just return false
@@ -42,26 +42,34 @@ GRANT EXECUTE ON FUNCTION has_pending_return(UUID, UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION has_pending_return(UUID, UUID) TO anon;
 
 -- ============================================
--- FIX 3: Verify atau create returns table (optional)
+-- FIX 3: Verify returns table structure
 -- ============================================
 
--- Cek apakah returns table sudah ada
+-- Table 'returns' seharusnya sudah ada dengan struktur:
+-- - id UUID PRIMARY KEY
+-- - product_id UUID REFERENCES products(id)
+-- - rider_id UUID REFERENCES auth.users(id)
+-- - quantity INTEGER
+-- - notes TEXT
+-- - returned_at TIMESTAMPTZ
+
+-- Check apakah returns table sudah ada
 DO $$ 
 BEGIN
-    -- Jika returns table belum ada, create basic structure
+    -- Jika returns table belum ada, create dengan struktur yang benar
     IF NOT EXISTS (
         SELECT FROM information_schema.tables 
         WHERE table_schema = 'public' 
         AND table_name = 'returns'
     ) THEN
-        -- Create returns table untuk future use
+        -- Create returns table sesuai skema yang ada
         CREATE TABLE returns (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            product_id UUID NOT NULL,
-            rider_id UUID NOT NULL REFERENCES auth.users(id),
-            status TEXT DEFAULT 'pending',
-            created_at TIMESTAMPTZ DEFAULT NOW(),
-            updated_at TIMESTAMPTZ DEFAULT NOW()
+            product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+            rider_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+            quantity INTEGER NOT NULL CHECK (quantity > 0),
+            notes TEXT,
+            returned_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
         
         -- Enable RLS
@@ -84,6 +92,10 @@ BEGIN
                     AND role = 'admin'
                 )
             );
+        
+        RAISE NOTICE 'Table returns created successfully';
+    ELSE
+        RAISE NOTICE 'Table returns already exists';
     END IF;
 END $$;
 
