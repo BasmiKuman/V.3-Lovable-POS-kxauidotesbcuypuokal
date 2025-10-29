@@ -150,13 +150,13 @@ CREATE OR REPLACE FUNCTION get_latest_rider_location(p_rider_id UUID)
 RETURNS TABLE (
     latitude DECIMAL(10, 8),
     longitude DECIMAL(11, 8),
-    timestamp TIMESTAMPTZ,
+    last_timestamp TIMESTAMPTZ,
     status TEXT
 )
 LANGUAGE sql
 SECURITY DEFINER
 AS $$
-    SELECT latitude, longitude, timestamp, status
+    SELECT latitude, longitude, timestamp as last_timestamp, status
     FROM rider_locations
     WHERE rider_id = p_rider_id
     ORDER BY timestamp DESC
