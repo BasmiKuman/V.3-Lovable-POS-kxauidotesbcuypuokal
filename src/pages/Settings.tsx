@@ -88,9 +88,9 @@ export default function Settings() {
       // Get profile data
       const { data: profileData, error: profileError } = await supabase
         .from("profiles")
-        .select("*")
+        .select("user_id, full_name, phone, address, avatar_url, created_at, updated_at")
         .eq("user_id", user.id)
-        .single();
+        .maybeSingle();
 
       if (profileError) throw profileError;
 
@@ -115,7 +115,7 @@ export default function Settings() {
           // Get profiles for these riders
           const { data: riderProfiles, error: profilesError } = await supabase
             .from("profiles")
-            .select("*")
+            .select("id, user_id, full_name, phone, address, avatar_url")
             .in("user_id", riderRoles.map(r => r.user_id));
 
           if (profilesError) throw profilesError;
