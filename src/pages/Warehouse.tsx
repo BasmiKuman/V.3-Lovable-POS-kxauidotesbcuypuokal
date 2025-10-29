@@ -302,66 +302,81 @@ export default function Warehouse() {
                   </Select>
                 </div>
 
-                <div className="overflow-x-auto -mx-6 px-6">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-[40%]">Produk</TableHead>
-                        <TableHead className="w-[20%]">Stok</TableHead>
-                        {!isMobile && (
-                          <TableHead>Harga</TableHead>
-                        )}
-                        <TableHead>Jumlah</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {products.map((product) => (
-                        <TableRow key={product.id}>
-                          <TableCell className="font-medium">
-                            {product.name}
-                            {isMobile && (
-                              <div className="text-xs text-muted-foreground mt-1">
-                                Rp {product.price.toLocaleString("id-ID")}
-                              </div>
+                {/* Grid Layout - 2 kolom untuk distribusi produk */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                  {products.map((product) => (
+                    <Card key={product.id} className="overflow-hidden hover:shadow-md transition-all">
+                      <CardContent className="p-3 sm:p-4">
+                        <div className="flex items-start gap-3">
+                          {/* Product Image */}
+                          <div className="w-16 h-16 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+                            {product.image_url ? (
+                              <img
+                                src={product.image_url}
+                                alt={product.name}
+                                className="w-full h-full object-cover rounded-lg"
+                              />
+                            ) : (
+                              <Package className="w-8 h-8 text-muted-foreground" />
                             )}
-                          </TableCell>
-                          <TableCell>
-                            <span className={product.stock_in_warehouse < 10 ? "text-destructive font-semibold" : ""}>
-                              {product.stock_in_warehouse}
-                            </span>
-                          </TableCell>
-                          {!isMobile && (
-                            <TableCell>Rp {product.price.toLocaleString("id-ID")}</TableCell>
-                          )}
-                          <TableCell>
-                            <Input
-                              type="number"
-                              min="0"
-                              max={product.stock_in_warehouse}
-                              value={distributionItems.find(d => d.productId === product.id)?.quantity || ""}
-                              onChange={(e) => {
-                                const value = parseInt(e.target.value);
-                                if (isNaN(value) || value < 0 || value > product.stock_in_warehouse) return;
+                          </div>
 
-                                setDistributionItems(prev => {
-                                  const existing = prev.find(d => d.productId === product.id);
-                                  if (existing) {
-                                    return prev.map(d =>
-                                      d.productId === product.id
-                                        ? { ...d, quantity: value }
-                                        : d
-                                    );
-                                  }
-                                  return [...prev, { productId: product.id, quantity: value }];
-                                });
-                              }}
-                              className="w-20 h-8 sm:h-9"
-                            />
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                          {/* Product Info */}
+                          <div className="flex-1 min-w-0 space-y-2">
+                            <div>
+                              <h3 className="font-semibold text-sm sm:text-base truncate">
+                                {product.name}
+                              </h3>
+                              <p className="text-xs sm:text-sm text-primary font-medium">
+                                Rp {product.price.toLocaleString("id-ID")}
+                              </p>
+                            </div>
+
+                            {/* Stock Badge */}
+                            <div className="flex items-center gap-2">
+                              <Badge 
+                                variant={product.stock_in_warehouse < 10 ? "destructive" : "default"}
+                                className="text-xs"
+                              >
+                                Stok: {product.stock_in_warehouse}
+                              </Badge>
+                            </div>
+
+                            {/* Distribution Quantity Input */}
+                            <div className="space-y-1">
+                              <Label className="text-xs text-muted-foreground">
+                                Jumlah Distribusi
+                              </Label>
+                              <Input
+                                type="number"
+                                min="0"
+                                max={product.stock_in_warehouse}
+                                placeholder="0"
+                                value={distributionItems.find(d => d.productId === product.id)?.quantity || ""}
+                                onChange={(e) => {
+                                  const value = parseInt(e.target.value);
+                                  if (isNaN(value) || value < 0 || value > product.stock_in_warehouse) return;
+
+                                  setDistributionItems(prev => {
+                                    const existing = prev.find(d => d.productId === product.id);
+                                    if (existing) {
+                                      return prev.map(d =>
+                                        d.productId === product.id
+                                          ? { ...d, quantity: value }
+                                          : d
+                                      );
+                                    }
+                                    return [...prev, { productId: product.id, quantity: value }];
+                                  });
+                                }}
+                                className="h-8 sm:h-9"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
                 </div>
 
                 <Button
