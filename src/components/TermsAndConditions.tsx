@@ -190,11 +190,12 @@ export default function TermsAndConditions({
         <DialogFooter className="flex-col gap-4 sm:flex-col">
           {/* Checkboxes */}
           <div className="space-y-3 w-full">
-            <div className="flex items-start space-x-2">
+            <div className="flex items-start space-x-3">
               <Checkbox
                 id="terms"
                 checked={agreeToTerms}
                 onCheckedChange={(checked) => setAgreeToTerms(checked as boolean)}
+                className="rounded-full mt-0.5 h-4 w-4"
               />
               <label
                 htmlFor="terms"
@@ -205,11 +206,12 @@ export default function TermsAndConditions({
               </label>
             </div>
 
-            <div className="flex items-start space-x-2">
+            <div className="flex items-start space-x-3">
               <Checkbox
                 id="gps"
                 checked={agreeToGPS}
                 onCheckedChange={(checked) => setAgreeToGPS(checked as boolean)}
+                className="rounded-full mt-0.5 h-4 w-4"
               />
               <label
                 htmlFor="gps"
