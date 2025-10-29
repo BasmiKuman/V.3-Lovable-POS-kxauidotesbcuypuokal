@@ -302,14 +302,14 @@ export default function Warehouse() {
                   </Select>
                 </div>
 
-                {/* Grid Layout - 2 kolom untuk distribusi produk */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                {/* Grid Layout - 2 kolom untuk mobile & desktop */}
+                <div className="grid grid-cols-2 gap-2 sm:gap-3">
                   {products.map((product) => (
                     <Card key={product.id} className="overflow-hidden hover:shadow-md transition-all">
-                      <CardContent className="p-3 sm:p-4">
-                        <div className="flex items-start gap-3">
+                      <CardContent className="p-2 sm:p-3">
+                        <div className="space-y-2">
                           {/* Product Image */}
-                          <div className="w-16 h-16 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+                          <div className="w-full aspect-square rounded-lg bg-muted flex items-center justify-center">
                             {product.image_url ? (
                               <img
                                 src={product.image_url}
@@ -317,35 +317,31 @@ export default function Warehouse() {
                                 className="w-full h-full object-cover rounded-lg"
                               />
                             ) : (
-                              <Package className="w-8 h-8 text-muted-foreground" />
+                              <Package className="w-8 h-8 sm:w-10 sm:h-10 text-muted-foreground" />
                             )}
                           </div>
 
                           {/* Product Info */}
-                          <div className="flex-1 min-w-0 space-y-2">
-                            <div>
-                              <h3 className="font-semibold text-sm sm:text-base truncate">
-                                {product.name}
-                              </h3>
-                              <p className="text-xs sm:text-sm text-primary font-medium">
-                                Rp {product.price.toLocaleString("id-ID")}
-                              </p>
-                            </div>
+                          <div className="space-y-1.5">
+                            <h3 className="font-semibold text-xs sm:text-sm line-clamp-2 leading-tight">
+                              {product.name}
+                            </h3>
+                            <p className="text-xs sm:text-sm text-primary font-medium">
+                              Rp {product.price.toLocaleString("id-ID")}
+                            </p>
 
                             {/* Stock Badge */}
-                            <div className="flex items-center gap-2">
-                              <Badge 
-                                variant={product.stock_in_warehouse < 10 ? "destructive" : "default"}
-                                className="text-xs"
-                              >
-                                Stok: {product.stock_in_warehouse}
-                              </Badge>
-                            </div>
+                            <Badge 
+                              variant={product.stock_in_warehouse < 10 ? "destructive" : "default"}
+                              className="text-[10px] sm:text-xs px-1.5 py-0"
+                            >
+                              Stok: {product.stock_in_warehouse}
+                            </Badge>
 
                             {/* Distribution Quantity Input */}
                             <div className="space-y-1">
-                              <Label className="text-xs text-muted-foreground">
-                                Jumlah Distribusi
+                              <Label className="text-[10px] sm:text-xs text-muted-foreground">
+                                Jumlah
                               </Label>
                               <Input
                                 type="number"
@@ -369,7 +365,7 @@ export default function Warehouse() {
                                     return [...prev, { productId: product.id, quantity: value }];
                                   });
                                 }}
-                                className="h-8 sm:h-9"
+                                className="h-7 text-xs sm:h-8 sm:text-sm"
                               />
                             </div>
                           </div>

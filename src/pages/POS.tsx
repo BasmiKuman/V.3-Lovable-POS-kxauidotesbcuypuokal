@@ -266,7 +266,7 @@ export default function POS() {
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+              <div className="grid grid-cols-2 gap-2 sm:gap-3">
                 {riderProducts.map((product) => (
                   <Card 
                     key={product.product_id} 
@@ -274,8 +274,8 @@ export default function POS() {
                     onClick={() => addToCart(product)}
                   >
                     <CardContent className="p-2 sm:p-3">
-                      <div className="flex items-start gap-2">
-                        <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+                      <div className="flex flex-col gap-2">
+                        <div className="w-full aspect-square rounded-lg bg-muted flex items-center justify-center">
                           {product.products.image_url ? (
                             <img
                               src={product.products.image_url}
@@ -283,23 +283,27 @@ export default function POS() {
                               className="w-full h-full object-cover rounded-lg"
                             />
                           ) : (
-                            <Package className="w-6 h-6 text-muted-foreground" />
+                            <Package className="w-8 h-8 text-muted-foreground" />
                           )}
                         </div>
-                        <div className="flex-1 min-w-0 space-y-1">
-                          <h3 className="text-sm sm:text-base font-semibold truncate">{product.products.name}</h3>
-                          <p className="text-sm sm:text-base font-bold text-primary">
+                        <div className="space-y-1">
+                          <h3 className="text-xs sm:text-sm font-semibold line-clamp-2 leading-tight">
+                            {product.products.name}
+                          </h3>
+                          <p className="text-xs sm:text-sm font-bold text-primary">
                             Rp {Number(product.products.price).toLocaleString("id-ID")}
                           </p>
-                          <div className="flex items-center justify-between gap-2">
-                            <Badge className="text-xs">Stok: {product.quantity}</Badge>
+                          <div className="flex items-center justify-between gap-1">
+                            <Badge className="text-[10px] px-1.5 py-0">
+                              Stok: {product.quantity}
+                            </Badge>
                             <Button 
                               size="sm" 
                               onClick={(e) => {
                                 e.stopPropagation();
                                 addToCart(product);
                               }} 
-                              className="h-7 px-2"
+                              className="h-6 px-1.5 sm:h-7 sm:px-2"
                             >
                               <Plus className="w-3 h-3" />
                             </Button>

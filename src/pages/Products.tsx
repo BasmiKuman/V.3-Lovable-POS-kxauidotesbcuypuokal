@@ -835,12 +835,12 @@ export default function Products() {
         {!isAdmin && riderStock.length > 0 && (
           <div className="space-y-2 sm:space-y-3">
             <h2 className="text-base sm:text-xl font-bold">Stok Saya</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3">
               {riderStock.map((stock) => (
                 <Card key={stock.product_id} className="overflow-hidden">
-                  <CardContent className="p-4">
-                    <div className="flex items-start space-x-4">
-                      <div className="w-16 h-16 rounded-lg bg-muted flex items-center justify-center">
+                  <CardContent className="p-2 sm:p-3">
+                    <div className="space-y-2">
+                      <div className="w-full aspect-square rounded-lg bg-muted flex items-center justify-center">
                         {stock.products.image_url ? (
                           <img
                             src={stock.products.image_url}
@@ -848,30 +848,35 @@ export default function Products() {
                             className="w-full h-full object-cover rounded-lg"
                           />
                         ) : (
-                          <Package className="w-8 h-8 text-muted-foreground" />
+                          <Package className="w-8 h-8 sm:w-10 sm:h-10 text-muted-foreground" />
                         )}
                       </div>
-                      <div className="flex-1 space-y-1">
-                        <h3 className="font-semibold text-foreground">{stock.products.name}</h3>
-                        <p className="text-sm text-muted-foreground">
+                      <div className="space-y-1">
+                        <h3 className="font-semibold text-xs sm:text-sm line-clamp-2 leading-tight">
+                          {stock.products.name}
+                        </h3>
+                        <p className="text-xs sm:text-sm text-muted-foreground">
                           Rp {Number(stock.products.price).toLocaleString("id-ID")}
                         </p>
-                        <div className="flex items-center justify-between pt-2">
-                          <Badge>Stok: {stock.quantity}</Badge>
+                        <Badge className="text-[10px] sm:text-xs px-1.5 py-0">
+                          Stok: {stock.quantity}
+                        </Badge>
+                        <div className="pt-1">
                           {pendingReturns.has(stock.product_id) ? (
-                            <Badge variant="secondary" className="text-xs">
+                            <Badge variant="secondary" className="text-[10px] sm:text-xs w-full justify-center">
                               Menunggu Approval
                             </Badge>
                           ) : (
                             <Button
                               size="sm"
                               variant="outline"
+                              className="w-full h-7 text-[10px] sm:text-xs sm:h-8"
                               onClick={() => {
                                 setSelectedProduct(stock);
                                 setReturnDialogOpen(true);
                               }}
                             >
-                              <Undo2 className="w-4 h-4 mr-1" />
+                              <Undo2 className="w-3 h-3 mr-1" />
                               Return
                             </Button>
                           )}
@@ -902,12 +907,12 @@ export default function Products() {
         ) : isAdmin ? (
           <div>
             <h2 className="text-2xl font-bold mb-4">Semua Produk</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3">
             {products.map((product) => (
               <Card key={product.id} className="overflow-hidden hover:shadow-lg transition-shadow">
-                <CardContent className="p-4">
-                  <div className="flex items-start gap-4">
-                    <div className="w-16 h-16 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+                <CardContent className="p-2 sm:p-3">
+                  <div className="space-y-2">
+                    <div className="w-full aspect-square rounded-lg bg-muted flex items-center justify-center">
                       {product.image_url ? (
                         <img
                           src={product.image_url}
@@ -915,51 +920,51 @@ export default function Products() {
                           className="w-full h-full object-cover rounded-lg"
                         />
                       ) : (
-                        <Package className="w-8 h-8 text-muted-foreground" />
+                        <Package className="w-8 h-8 sm:w-10 sm:h-10 text-muted-foreground" />
                       )}
                     </div>
-                    <div className="flex-1 min-w-0 space-y-1">
-                      <div className="flex items-start justify-between gap-2">
-                        <h3 className="font-semibold text-foreground">{product.name}</h3>
+                    <div className="space-y-1">
+                      <div className="flex items-start justify-between gap-1">
+                        <h3 className="font-semibold text-xs sm:text-sm line-clamp-2 leading-tight flex-1">
+                          {product.name}
+                        </h3>
                         <Button
                           size="icon"
                           variant="ghost"
-                          className="flex-shrink-0 h-8 w-8"
+                          className="flex-shrink-0 h-6 w-6 sm:h-7 sm:w-7"
                           onClick={() => handleEditProduct(product)}
                         >
-                          <Edit className="w-4 h-4" />
+                          <Edit className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                         </Button>
                       </div>
                       {product.sku && (
-                        <p className="text-xs text-muted-foreground">SKU: {product.sku}</p>
+                        <p className="text-[10px] sm:text-xs text-muted-foreground">SKU: {product.sku}</p>
                       )}
-                      <p className="text-sm text-muted-foreground line-clamp-2">
+                      <p className="text-[10px] sm:text-xs text-muted-foreground line-clamp-2">
                         {product.description || "Tidak ada deskripsi"}
                       </p>
-                      <div className="pt-2">
-                        <p className="text-lg font-bold text-primary">
-                          Rp {Number(product.price).toLocaleString("id-ID")}
-                        </p>
-                        <div className="flex gap-2 mt-1 flex-wrap">
-                          <Badge variant={product.stock_in_warehouse < 10 ? "destructive" : "default"}>
-                            Gudang: {product.stock_in_warehouse}
-                          </Badge>
-                          {productRiderStocks[product.id] && productRiderStocks[product.id].length > 0 && (
-                            <Badge variant="outline">
-                              Di Rider: {productRiderStocks[product.id].reduce((sum, s) => sum + s.quantity, 0)}
-                            </Badge>
-                          )}
-                        </div>
+                      <p className="text-sm sm:text-base font-bold text-primary">
+                        Rp {Number(product.price).toLocaleString("id-ID")}
+                      </p>
+                      <div className="flex gap-1 flex-wrap">
+                        <Badge variant={product.stock_in_warehouse < 10 ? "destructive" : "default"} className="text-[10px] sm:text-xs px-1.5 py-0">
+                          Gudang: {product.stock_in_warehouse}
+                        </Badge>
                         {productRiderStocks[product.id] && productRiderStocks[product.id].length > 0 && (
-                          <div className="mt-2 text-xs text-muted-foreground">
-                            {productRiderStocks[product.id].map((stock) => (
-                              <div key={stock.rider_id}>
-                                • {stock.profiles.full_name}: {stock.quantity} unit
-                              </div>
-                            ))}
-                          </div>
+                          <Badge variant="outline" className="text-[10px] sm:text-xs px-1.5 py-0">
+                            Rider: {productRiderStocks[product.id].reduce((sum, s) => sum + s.quantity, 0)}
+                          </Badge>
                         )}
                       </div>
+                      {productRiderStocks[product.id] && productRiderStocks[product.id].length > 0 && (
+                        <div className="text-[9px] sm:text-[10px] text-muted-foreground space-y-0.5">
+                          {productRiderStocks[product.id].map((stock) => (
+                            <div key={stock.rider_id} className="truncate">
+                              • {stock.profiles.full_name}: {stock.quantity}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </CardContent>
