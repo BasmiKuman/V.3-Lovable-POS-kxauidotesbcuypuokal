@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { User } from "@supabase/supabase-js";
 import { Loader2 } from "lucide-react";
 import { startTracking, stopTracking, resumeTracking } from "@/lib/gps-tracking";
+import GPSConsentCheck from "./GPSConsentCheck";
 
 interface ProtectedRouteProps {
   children: React.ReactNode | ((props: { isAdmin: boolean }) => React.ReactNode);
@@ -144,5 +145,13 @@ export const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRout
     );
   }
 
-  return <>{typeof children === 'function' ? children({ isAdmin }) : children}</>;
+  return (
+    <>
+      {/* GPS Consent Check for Riders */}
+      <GPSConsentCheck />
+      
+      {/* Render protected content */}
+      {typeof children === 'function' ? children({ isAdmin }) : children}
+    </>
+  );
 };
