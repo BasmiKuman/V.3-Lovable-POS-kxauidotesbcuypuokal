@@ -5,7 +5,7 @@ import { StatsCard } from "@/components/StatsCard";
 import { WeatherWidget } from "@/components/WeatherWidget";
 import RiderTrackingMap from "@/components/RiderTrackingMap";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { Package, TrendingUp, Users, ShoppingCart, Undo2, CheckCircle } from "lucide-react";
+import { Package, TrendingUp, Users, ShoppingCart, Undo2, CheckCircle, X } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -236,6 +236,47 @@ export default function Dashboard() {
     }
   };
 
+  const handleRejectReturn = async (returnItem: ReturnRequest) => {
+    setProcessingReturnId(returnItem.id);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      // Save to return history with rejected status
+      const { error: historyError } = await supabase
+        .from("return_history")
+        .insert({
+          product_id: returnItem.product_id,
+          rider_id: returnItem.rider_id,
+          quantity: returnItem.quantity,
+          notes: returnItem.notes,
+          returned_at: returnItem.returned_at,
+          approved_by: user.id,
+          status: "rejected"
+        });
+
+      if (historyError) throw historyError;
+
+      // Delete from returns table (rejected, not processed)
+      const { error: deleteReturnError } = await supabase
+        .from("returns")
+        .delete()
+        .eq("id", returnItem.id);
+
+      if (deleteReturnError) throw deleteReturnError;
+
+      toast.success("Return ditolak");
+
+      // Refresh returns list
+      setReturns(prev => prev.filter(r => r.id !== returnItem.id));
+    } catch (error: any) {
+      toast.error("Gagal menolak return: " + error.message);
+      console.error(error);
+    } finally {
+      setProcessingReturnId(null);
+    }
+  };
+
   return (
     <div 
       className="min-h-screen bg-background w-full overflow-x-hidden"
@@ -354,15 +395,27 @@ export default function Dashboard() {
                             })}
                           </span>
                           {returnItem.status === "pending" ? (
-                            <Button
-                              size="sm"
-                              onClick={() => handleApproveReturn(returnItem)}
-                              disabled={processingReturnId === returnItem.id}
-                              className="h-8 text-xs"
-                            >
-                              <CheckCircle className="w-3 h-3 mr-1" />
-                              {processingReturnId === returnItem.id ? "Proses..." : "Setujui"}
-                            </Button>
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleRejectReturn(returnItem)}
+                                disabled={processingReturnId === returnItem.id}
+                                className="h-8 text-xs"
+                              >
+                                <X className="w-3 h-3 mr-1" />
+                                Tolak
+                              </Button>
+                              <Button
+                                size="sm"
+                                onClick={() => handleApproveReturn(returnItem)}
+                                disabled={processingReturnId === returnItem.id}
+                                className="h-8 text-xs"
+                              >
+                                <CheckCircle className="w-3 h-3 mr-1" />
+                                {processingReturnId === returnItem.id ? "Proses..." : "Setujui"}
+                              </Button>
+                            </div>
                           ) : (
                             <Badge variant="secondary" className="text-xs">
                               ✓ Approved
@@ -405,14 +458,25 @@ export default function Dashboard() {
                           </TableCell>
                           <TableCell className="text-right">
                             {returnItem.status === "pending" ? (
-                              <Button
-                                size="sm"
-                                onClick={() => handleApproveReturn(returnItem)}
-                                disabled={processingReturnId === returnItem.id}
-                              >
-                                <CheckCircle className="w-4 h-4 mr-1" />
-                                {processingReturnId === returnItem.id ? "Memproses..." : "Setujui"}
-                              </Button>
+                              <div className="flex justify-end gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleRejectReturn(returnItem)}
+                                  disabled={processingReturnId === returnItem.id}
+                                >
+                                  <X className="w-4 h-4 mr-1" />
+                                  Tolak
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleApproveReturn(returnItem)}
+                                  disabled={processingReturnId === returnItem.id}
+                                >
+                                  <CheckCircle className="w-4 h-4 mr-1" />
+                                  {processingReturnId === returnItem.id ? "Memproses..." : "Setujui"}
+                                </Button>
+                              </div>
                             ) : (
                               <Badge variant="secondary">Approved</Badge>
                             )}
