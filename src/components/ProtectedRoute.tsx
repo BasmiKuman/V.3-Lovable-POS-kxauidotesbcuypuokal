@@ -3,6 +3,7 @@ import { Navigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { User } from "@supabase/supabase-js";
 import { Loader2 } from "lucide-react";
+import { startTracking, stopTracking, resumeTracking } from "@/lib/gps-tracking";
 
 interface ProtectedRouteProps {
   children: React.ReactNode | ((props: { isAdmin: boolean }) => React.ReactNode);
@@ -52,12 +53,37 @@ export const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRout
     // Subscribe FIRST to avoid missing events and keep callback synchronous
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (!mounted) return;
+      
       setUser(session?.user ?? null);
+      
       if (session?.user) {
         // Defer any Supabase calls to avoid deadlocks
         setTimeout(() => fetchIsAdmin(session.user!.id), 0);
+        
+        // Auto-start GPS tracking on login (for riders only)
+        if (event === 'SIGNED_IN') {
+          setTimeout(async () => {
+            const { data: roles } = await supabase
+              .from("user_roles")
+              .select("role")
+              .eq("user_id", session.user.id)
+              .eq("role", "rider")
+              .maybeSingle();
+            
+            if (roles) {
+              console.log('User logged in, starting GPS tracking...');
+              await startTracking(session.user.id);
+            }
+          }, 1000);
+        }
       } else {
         setIsAdmin(false);
+        
+        // Auto-stop GPS tracking on logout
+        if (event === 'SIGNED_OUT') {
+          console.log('User logged out, stopping GPS tracking...');
+          stopTracking();
+        }
       }
     });
 
@@ -74,6 +100,9 @@ export const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRout
           fetchIsAdmin(session.user.id).finally(() => {
             if (mounted) setLoading(false);
           });
+          
+          // Resume GPS tracking if it was active (on app restart)
+          setTimeout(() => resumeTracking(session.user.id), 1500);
         } else {
           if (mounted) setLoading(false);
         }

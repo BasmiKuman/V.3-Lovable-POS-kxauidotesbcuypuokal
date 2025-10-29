@@ -11,10 +11,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { LogOut, User, UserPlus, Camera, Upload, Edit, Trash2 } from "lucide-react";
+import { LogOut, User, UserPlus, Camera, Upload, Edit, Trash2, MapPin } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useRef } from "react";
+import { Switch } from "@/components/ui/switch";
+import { getGPSSettings, toggleTracking, getTrackingStatus, hasGPSConsent } from "@/lib/gps-tracking";
 
 import { User as AuthUser } from "@supabase/supabase-js";
 
@@ -41,6 +43,9 @@ export default function Settings() {
   const [isEditingUser, setIsEditingUser] = useState(false);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [gpsEnabled, setGpsEnabled] = useState(false);
+  const [hasGPSConsentStatus, setHasGPSConsentStatus] = useState(false);
+  const [gpsLoading, setGpsLoading] = useState(false);
   const [newUser, setNewUser] = useState({
     email: "",
     password: "",
@@ -149,6 +154,17 @@ export default function Settings() {
                 // Continue with ridersWithEmail (without emails)
               }
             }
+          }
+        }
+
+        // Load GPS settings for riders only
+        if (!isUserAdmin) {
+          const consent = await hasGPSConsent(user.id);
+          setHasGPSConsentStatus(consent);
+          
+          const gpsSettings = await getGPSSettings(user.id);
+          if (gpsSettings) {
+            setGpsEnabled(gpsSettings.tracking_enabled);
           }
         }
       } catch (error: any) {
@@ -513,6 +529,31 @@ export default function Settings() {
       toast.error("Gagal menghapus pengguna: " + error.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGPSToggle = async (enabled: boolean) => {
+    if (!profile) return;
+    
+    setGpsLoading(true);
+    try {
+      const success = await toggleTracking(profile.user_id, enabled);
+      
+      if (success) {
+        setGpsEnabled(enabled);
+        toast.success(
+          enabled 
+            ? "GPS Tracking diaktifkan" 
+            : "GPS Tracking dinonaktifkan"
+        );
+      } else {
+        toast.error("Gagal mengubah status GPS tracking");
+      }
+    } catch (error: any) {
+      console.error("GPS toggle error:", error);
+      toast.error("Terjadi kesalahan saat mengubah GPS tracking");
+    } finally {
+      setGpsLoading(false);
     }
   };
 
@@ -901,6 +942,71 @@ export default function Settings() {
                     ))}
                   </TableBody>
                 </Table>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* GPS Tracking Settings - Riders Only */}
+        {!isAdmin && hasGPSConsentStatus && (
+          <Card className="animate-fade-in">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <MapPin className="w-5 h-5 text-red-600" />
+                  <div>
+                    <CardTitle className="text-lg">GPS Tracking</CardTitle>
+                    <CardDescription className="text-xs mt-1">
+                      Kelola pelacakan lokasi Anda
+                    </CardDescription>
+                  </div>
+                </div>
+                <Switch
+                  checked={gpsEnabled}
+                  onCheckedChange={handleGPSToggle}
+                  disabled={gpsLoading}
+                />
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <div className="text-blue-600 dark:text-blue-400 mt-0.5">
+                    <MapPin className="w-5 h-5" />
+                  </div>
+                  <div className="space-y-2 flex-1">
+                    <h4 className="font-semibold text-sm text-blue-900 dark:text-blue-100">
+                      Status: {gpsEnabled ? "🟢 Aktif" : "🔴 Nonaktif"}
+                    </h4>
+                    <p className="text-xs text-blue-700 dark:text-blue-300 leading-relaxed">
+                      {gpsEnabled 
+                        ? "Lokasi Anda sedang dilacak secara real-time. Admin dapat melihat posisi Anda di peta."
+                        : "Pelacakan lokasi dinonaktifkan. Anda dapat mengaktifkannya kembali kapan saja."
+                      }
+                    </p>
+                    {gpsEnabled && (
+                      <div className="text-xs text-blue-600 dark:text-blue-400 space-y-1 mt-2">
+                        <p>✓ Auto-aktif saat login</p>
+                        <p>✓ Auto-mati saat logout</p>
+                        <p>✓ Update setiap 1 menit (hemat baterai)</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {!gpsEnabled && (
+                <div className="bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3">
+                  <p className="text-xs text-yellow-700 dark:text-yellow-300">
+                    ⚠️ <strong>Perhatian:</strong> Menonaktifkan GPS tracking dapat mempengaruhi 
+                    akses ke beberapa fitur dan koordinasi dengan tim.
+                  </p>
+                </div>
+              )}
+
+              <div className="text-xs text-muted-foreground space-y-1 pt-2 border-t">
+                <p>📍 <strong>Privasi:</strong> Data lokasi dilindungi dan hanya digunakan untuk keperluan operasional.</p>
+                <p>🔒 <strong>Keamanan:</strong> Anda dapat menonaktifkan tracking kapan saja melalui toggle di atas.</p>
               </div>
             </CardContent>
           </Card>

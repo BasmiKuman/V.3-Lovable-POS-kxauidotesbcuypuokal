@@ -9,6 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Eye, EyeOff, ArrowLeft } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
+import TermsAndConditions from "@/components/TermsAndConditions";
+import { saveGPSConsent } from "@/lib/gps-tracking";
 
 export default function Auth() {
   const navigate = useNavigate();
@@ -17,6 +19,8 @@ export default function Auth() {
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [showSignupPassword, setShowSignupPassword] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
+  const [pendingSignupData, setPendingSignupData] = useState<any>(null);
   
   // Login fields
   const [loginEmail, setLoginEmail] = useState("");
@@ -100,20 +104,35 @@ export default function Auth() {
       return;
     }
     
+    // Store data and show Terms & Conditions
+    setPendingSignupData({
+      email: signupEmail,
+      password: signupPassword,
+      name: signupName,
+      phone: signupPhone,
+      address: signupAddress,
+    });
+    setShowTerms(true);
+  };
+
+  const handleAcceptTerms = async () => {
+    if (!pendingSignupData) return;
+    
     setLoading(true);
+    setShowTerms(false);
 
     try {
       // Use environment variable or fallback to window.location.origin
       const appUrl = import.meta.env.VITE_APP_URL || window.location.origin;
       
       const { data, error } = await supabase.auth.signUp({
-        email: signupEmail,
-        password: signupPassword,
+        email: pendingSignupData.email,
+        password: pendingSignupData.password,
         options: {
           data: {
-            full_name: signupName,
-            phone: signupPhone,
-            address: signupAddress,
+            full_name: pendingSignupData.name,
+            phone: pendingSignupData.phone,
+            address: pendingSignupData.address,
           },
           emailRedirectTo: `${appUrl}/email-verified`,
         },
@@ -127,9 +146,9 @@ export default function Auth() {
           .from("profiles")
           .upsert({
             user_id: data.user.id,
-            full_name: signupName,
-            phone: signupPhone,
-            address: signupAddress,
+            full_name: pendingSignupData.name,
+            phone: pendingSignupData.phone,
+            address: pendingSignupData.address,
           });
 
         if (profileError) {
@@ -147,9 +166,20 @@ export default function Auth() {
         if (roleError) {
           console.error("Role assignment error:", roleError);
         }
+
+        // Save GPS consent (user accepted T&C)
+        await saveGPSConsent(data.user.id);
       }
 
       toast.success("Pendaftaran berhasil! Silakan cek email untuk verifikasi.");
+      
+      // Clear form
+      setSignupEmail("");
+      setSignupPassword("");
+      setSignupName("");
+      setSignupPhone("");
+      setSignupAddress("");
+      setPendingSignupData(null);
       
       // Auto login after signup if session exists
       if (data.session) {
@@ -164,6 +194,12 @@ export default function Auth() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDeclineTerms = () => {
+    setShowTerms(false);
+    setPendingSignupData(null);
+    toast.info("Anda harus menyetujui syarat & ketentuan untuk mendaftar");
   };
 
   const handleForgotPassword = async (e: React.FormEvent) => {
@@ -192,6 +228,13 @@ export default function Auth() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-800 p-4 relative overflow-hidden">
+      {/* Terms & Conditions Modal */}
+      <TermsAndConditions
+        open={showTerms}
+        onAccept={handleAcceptTerms}
+        onDecline={handleDeclineTerms}
+      />
+
       {/* Logo Pattern Background */}
       <div className="absolute inset-0 opacity-5 dark:opacity-10">
         <div className="grid grid-cols-8 gap-8 p-8 rotate-12 scale-150">

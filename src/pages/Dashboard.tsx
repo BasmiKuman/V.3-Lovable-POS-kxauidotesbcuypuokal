@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { BottomNav } from "@/components/BottomNav";
 import { StatsCard } from "@/components/StatsCard";
 import { WeatherWidget } from "@/components/WeatherWidget";
+import RiderTrackingMap from "@/components/RiderTrackingMap";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Package, TrendingUp, Users, ShoppingCart, Undo2, CheckCircle } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -426,7 +427,7 @@ export default function Dashboard() {
           </Card>
         )}
 
-        {/* Recent Activity */}
+        {/* Aktivitas Terbaru */}
         <Card className="animate-fade-in">
           <CardHeader className="p-3 sm:p-4 pb-2 sm:pb-3">
             <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
@@ -443,6 +444,13 @@ export default function Dashboard() {
             </div>
           </CardContent>
         </Card>
+
+        {/* GPS Rider Tracking - Admin Only */}
+        {isAdmin && (
+          <div className="animate-fade-in" style={{ animationDelay: "0.2s" }}>
+            <RiderTrackingMap />
+          </div>
+        )}
       </div>
 
       <BottomNav isAdmin={isAdmin} />
