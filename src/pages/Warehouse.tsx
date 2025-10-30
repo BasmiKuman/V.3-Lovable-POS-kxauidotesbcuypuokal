@@ -43,6 +43,7 @@ type ReturnHistoryItem = {
   notes: string | null;
   returned_at: string;
   approved_at: string;
+  status: string; // 'approved' or 'rejected'
   products: {
     name: string;
     price: number;
@@ -138,6 +139,7 @@ export default function Warehouse() {
             approved_at,
             rider_id,
             approved_by,
+            status,
             products (
               name,
               price
@@ -183,6 +185,7 @@ export default function Warehouse() {
           notes: item.notes,
           returned_at: item.returned_at,
           approved_at: item.approved_at,
+          status: item.status || "approved", // Default to 'approved' for old records
           products: item.products,
           rider: {
             full_name: profileMap.get(item.rider_id) || "Unknown"
@@ -515,7 +518,15 @@ export default function Warehouse() {
                               </>
                             )}
                             <TableCell>
-                              <Badge>{item.quantity} pcs</Badge>
+                              <div className="space-y-1">
+                                <Badge>{item.quantity} pcs</Badge>
+                                <Badge 
+                                  variant={item.status === "approved" ? "default" : "destructive"}
+                                  className="ml-2"
+                                >
+                                  {item.status === "approved" ? "Disetujui" : "Ditolak"}
+                                </Badge>
+                              </div>
                             </TableCell>
                           </TableRow>
                         ))}

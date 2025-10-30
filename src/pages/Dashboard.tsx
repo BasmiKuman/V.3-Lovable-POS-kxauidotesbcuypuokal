@@ -201,7 +201,7 @@ export default function Dashboard() {
         }
       }
 
-      // Save to return history before deleting
+      // Save to return history
       const { error: historyError } = await supabase
         .from("return_history")
         .insert({
@@ -216,13 +216,13 @@ export default function Dashboard() {
 
       if (historyError) throw historyError;
 
-      // Update return status to approved instead of deleting
-      const { error: updateReturnError } = await supabase
+      // Delete from returns table
+      const { error: deleteReturnError } = await supabase
         .from("returns")
-        .update({ status: "approved" })
+        .delete()
         .eq("id", returnItem.id);
 
-      if (updateReturnError) throw updateReturnError;
+      if (deleteReturnError) throw deleteReturnError;
 
       toast.success("Return berhasil disetujui");
 
