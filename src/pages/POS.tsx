@@ -106,8 +106,8 @@ export default function POS() {
     try {
       const { data: pendingReturn, error } = await supabase
         .rpc('has_pending_return', { 
-          product_id: product.product_id, 
-          rider_id: user.id 
+          p_product_id: product.product_id, 
+          p_rider_id: user.id 
         });
 
       if (error) {

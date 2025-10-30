@@ -184,7 +184,8 @@ export default function Products() {
         const { data: pendingReturnsData, error: returnsError } = await supabase
           .from("returns")
           .select("product_id")
-          .eq("rider_id", user.id);
+          .eq("rider_id", user.id)
+          .eq("status", "pending");  // Only get pending returns
 
         if (!returnsError && pendingReturnsData) {
           const pendingProductIds = new Set(pendingReturnsData.map(r => r.product_id));
@@ -407,8 +408,8 @@ export default function Products() {
       // Check if product already has pending return
       const { data: pendingReturn, error: checkError } = await supabase
         .rpc('has_pending_return', { 
-          product_id: selectedProduct.product_id, 
-          rider_id: user.id 
+          p_product_id: selectedProduct.product_id, 
+          p_rider_id: user.id 
         });
 
       if (checkError) {

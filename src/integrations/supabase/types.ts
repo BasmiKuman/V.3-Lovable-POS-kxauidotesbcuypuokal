@@ -395,20 +395,22 @@ export type Database = {
       }
       has_pending_return: {
         Args: {
-          product_id: string
-          rider_id: string
+          p_product_id: string
+          p_rider_id: string
         }
         Returns: boolean
       }
       get_pending_return_info: {
         Args: {
-          product_id: string
-          rider_id: string
+          p_product_id: string
+          p_rider_id: string
         }
         Returns: {
+          id: string
           quantity: number
           notes: string
           returned_at: string
+          status: string
         }[]
       }
       has_role: {

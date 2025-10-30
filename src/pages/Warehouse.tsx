@@ -405,11 +405,29 @@ export default function Warehouse() {
                                 placeholder="0"
                                 value={distributionItems.find(d => d.productId === product.id)?.quantity || ""}
                                 onChange={(e) => {
-                                  const value = parseInt(e.target.value);
-                                  if (isNaN(value) || value < 0 || value > product.stock_in_warehouse) return;
+                                  const inputValue = e.target.value;
+                                  
+                                  // Allow empty input (to clear the field)
+                                  if (inputValue === "" || inputValue === null) {
+                                    setDistributionItems(prev => 
+                                      prev.filter(d => d.productId !== product.id)
+                                    );
+                                    return;
+                                  }
+
+                                  const value = parseInt(inputValue);
+                                  
+                                  // Validate: must be a valid number, >= 0, and <= stock
+                                  if (isNaN(value) || value < 0 || value > product.stock_in_warehouse) {
+                                    return;
+                                  }
 
                                   setDistributionItems(prev => {
                                     const existing = prev.find(d => d.productId === product.id);
+                                    if (value === 0) {
+                                      // Remove item if quantity is 0
+                                      return prev.filter(d => d.productId !== product.id);
+                                    }
                                     if (existing) {
                                       return prev.map(d =>
                                         d.productId === product.id
