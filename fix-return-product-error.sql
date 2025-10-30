@@ -1,7 +1,29 @@
 -- Fix: Return produk error - RLS policies for returns table
 
 -- ============================================
--- STEP 1: Create has_pending_return function if not exists
+-- STEP 1: Ensure return_history has status column
+-- ============================================
+
+-- Add status column to return_history if not exists
+DO $$ 
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'return_history' 
+        AND column_name = 'status'
+    ) THEN
+        ALTER TABLE return_history 
+        ADD COLUMN status TEXT DEFAULT 'approved' CHECK (status IN ('pending', 'approved', 'rejected'));
+    END IF;
+END $$;
+
+-- Update existing records to have 'approved' status
+UPDATE return_history 
+SET status = 'approved' 
+WHERE status IS NULL;
+
+-- ============================================
+-- STEP 2: Create has_pending_return function if not exists
 -- ============================================
 
 CREATE OR REPLACE FUNCTION has_pending_return(p_product_id UUID, p_rider_id UUID)
@@ -22,7 +44,7 @@ GRANT EXECUTE ON FUNCTION has_pending_return(UUID, UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION has_pending_return(UUID, UUID) TO anon;
 
 -- ============================================
--- STEP 2: Check if returns table has RLS enabled
+-- STEP 3: Verify the fix
 -- ============================================
 SELECT 
   tablename,
