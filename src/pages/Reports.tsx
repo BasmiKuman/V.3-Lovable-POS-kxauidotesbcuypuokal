@@ -20,6 +20,7 @@ import * as XLSX from "xlsx";
 import { checkStoragePermission, requestStoragePermission } from "@/lib/permissions";
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
+import { Share } from '@capacitor/share';
 
 export default function Reports() {
   const isMobile = useIsMobile();
@@ -225,37 +226,33 @@ export default function Reports() {
         
         console.log('File saved to:', result.uri);
         
-        // Show toast with action button to open folder
+        // Show toast with action button to share/open file
         toast.success(`Laporan berhasil diunduh!`, {
-          description: `File: ${fileName}\nKlik "Buka Folder" untuk melihat file`,
-          duration: 7000, // Show longer so user can click
+          description: `File: ${fileName}\nKlik "Buka File" untuk melihat`,
+          duration: 8000, // 8 detik
           action: {
-            label: "Buka Folder",
+            label: "Buka File",
             onClick: async () => {
               try {
-                if (Capacitor.getPlatform() === 'android') {
-                  // On Android, try to open the file with default app or file manager
-                  const fileUri = result.uri;
-                  
-                  // Open file manager to Documents folder using content URI
-                  window.location.href = 'content://com.android.externalstorage.documents/document/primary:Documents';
-                  
-                  // Fallback message
-                  setTimeout(() => {
-                    toast.info("Buka File Manager", {
-                      description: "File tersimpan di folder Documents"
-                    });
-                  }, 1500);
-                } else {
-                  // iOS: show info message
-                  toast.info("File tersimpan di Documents", {
-                    description: "Buka Files app untuk melihat file"
-                  });
+                // Use Share API to open file with other apps
+                await Share.share({
+                  title: 'Laporan Penjualan',
+                  text: 'Buka file laporan dengan aplikasi Excel/Spreadsheet',
+                  url: result.uri,
+                  dialogTitle: 'Buka dengan aplikasi...'
+                });
+              } catch (error: any) {
+                console.error('Error sharing file:', error);
+                
+                // If share fails, show helpful message
+                if (error.message && error.message.includes('cancelled')) {
+                  // User cancelled, do nothing
+                  return;
                 }
-              } catch (error) {
-                console.error('Error opening file:', error);
-                toast.info("File tersimpan di folder Documents", {
-                  description: "Silakan buka File Manager → Documents untuk melihat file"
+                
+                toast.info("File tersimpan di Documents", {
+                  description: `Buka File Manager → Documents\nCari file: ${fileName}`,
+                  duration: 10000
                 });
               }
             }
