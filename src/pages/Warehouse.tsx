@@ -491,6 +491,14 @@ export default function Warehouse() {
                                       <span className="text-muted-foreground">Oleh:</span>
                                       <span className="font-medium">{item.approver.full_name}</span>
                                     </div>
+                                    <div className="flex justify-between items-center mt-2 pt-2 border-t">
+                                      <span className="text-muted-foreground">Status:</span>
+                                      <Badge 
+                                        variant={item.status === "approved" ? "default" : "destructive"}
+                                      >
+                                        {item.status === "approved" ? "✓ Disetujui" : "✗ Ditolak"}
+                                      </Badge>
+                                    </div>
                                     {item.notes && (
                                       <div className="text-xs italic text-muted-foreground mt-1">"{item.notes}"</div>
                                     )}
@@ -518,14 +526,19 @@ export default function Warehouse() {
                               </>
                             )}
                             <TableCell>
-                              <div className="space-y-1">
-                                <Badge>{item.quantity} pcs</Badge>
-                                <Badge 
-                                  variant={item.status === "approved" ? "default" : "destructive"}
-                                  className="ml-2"
-                                >
-                                  {item.status === "approved" ? "Disetujui" : "Ditolak"}
-                                </Badge>
+                              <div className="flex flex-col gap-2">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm text-muted-foreground">Jumlah:</span>
+                                  <Badge variant="secondary">{item.quantity} pcs</Badge>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm text-muted-foreground">Status:</span>
+                                  <Badge 
+                                    variant={item.status === "approved" ? "default" : "destructive"}
+                                  >
+                                    {item.status === "approved" ? "✓ Disetujui" : "✗ Ditolak"}
+                                  </Badge>
+                                </div>
                               </div>
                             </TableCell>
                           </TableRow>
