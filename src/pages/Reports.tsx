@@ -17,6 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
+import { checkStoragePermission, requestStoragePermission } from "@/lib/permissions";
 
 export default function Reports() {
   const isMobile = useIsMobile();
@@ -188,8 +189,20 @@ export default function Reports() {
     }).format(value);
   };
 
-  const downloadReport = () => {
+  const downloadReport = async () => {
     try {
+      // Check storage permission first
+      const hasPermission = await checkStoragePermission();
+      if (!hasPermission) {
+        const granted = await requestStoragePermission();
+        if (!granted) {
+          toast.error("Izin penyimpanan diperlukan untuk mengunduh laporan", {
+            description: "Silakan aktifkan izin penyimpanan di pengaturan aplikasi"
+          });
+          return;
+        }
+      }
+
       if (!transactions || transactions.length === 0) {
         toast.error("Tidak ada data untuk diunduh");
         return;

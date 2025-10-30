@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { User } from "@supabase/supabase-js";
 import { Loader2 } from "lucide-react";
 import { startTracking, stopTracking, resumeTracking } from "@/lib/gps-tracking";
+import { requestAllPermissions } from "@/lib/permissions";
 import GPSConsentCheck from "./GPSConsentCheck";
 
 interface ProtectedRouteProps {
@@ -64,6 +65,11 @@ export const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRout
         // Auto-start GPS tracking on login (for riders only)
         if (event === 'SIGNED_IN') {
           setTimeout(async () => {
+            // Request all permissions on login
+            console.log('Requesting app permissions...');
+            const permissions = await requestAllPermissions();
+            console.log('Permissions granted:', permissions);
+            
             const { data: roles } = await supabase
               .from("user_roles")
               .select("role")
