@@ -18,6 +18,8 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 import { checkStoragePermission, requestStoragePermission } from "@/lib/permissions";
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Capacitor } from '@capacitor/core';
 
 export default function Reports() {
   const isMobile = useIsMobile();
@@ -201,6 +203,45 @@ export default function Reports() {
     setAppliedDateRange(dateRange);
     setAppliedRider(selectedRider);
     toast.success("Filter diterapkan");
+  };
+
+  // Helper function to save Excel file on mobile
+  const saveExcelFile = async (workbook: XLSX.WorkBook, fileName: string) => {
+    const isNative = Capacitor.isNativePlatform();
+    
+    if (isNative) {
+      // Android/iOS: Use Capacitor Filesystem
+      try {
+        // Generate binary data from workbook
+        const wbout = XLSX.write(workbook, { type: 'base64', bookType: 'xlsx' });
+        
+        // Save to Downloads directory
+        const result = await Filesystem.writeFile({
+          path: fileName,
+          data: wbout,
+          directory: Directory.Documents, // Documents folder accessible in file manager
+          recursive: true
+        });
+        
+        console.log('File saved to:', result.uri);
+        toast.success(`Laporan berhasil diunduh`, {
+          description: `File: ${fileName}\nLokasi: Documents folder`
+        });
+        
+        return true;
+      } catch (error: any) {
+        console.error('Filesystem write error:', error);
+        toast.error("Gagal menyimpan file", {
+          description: error.message
+        });
+        return false;
+      }
+    } else {
+      // Web: Use standard download
+      XLSX.writeFile(workbook, fileName);
+      toast.success("Laporan berhasil diunduh dalam format Excel");
+      return true;
+    }
   };
 
   const downloadReport = async () => {
@@ -429,7 +470,7 @@ export default function Reports() {
       }
 
       const fileName = `Laporan-Keseluruhan-${format(dateRange.start, "yyyyMMdd")}-${format(dateRange.end, "yyyyMMdd")}.xlsx`;
-      XLSX.writeFile(workbook, fileName);
+      await saveExcelFile(workbook, fileName);
 
     } else {
       // ========================================
@@ -559,10 +600,9 @@ export default function Reports() {
       XLSX.utils.book_append_sheet(workbook, periodSheet, "Total Periode");
 
       const fileName = `Laporan-${riderName.replace(/\s+/g, '-')}-${format(dateRange.start, "yyyyMMdd")}-${format(dateRange.end, "yyyyMMdd")}.xlsx`;
-      XLSX.writeFile(workbook, fileName);
+      await saveExcelFile(workbook, fileName);
     }
 
-    toast.success("Laporan berhasil diunduh dalam format Excel");
     } catch (error) {
       console.error('Error downloading report:', error);
       toast.error("Gagal mengunduh laporan. Silakan coba lagi.");
