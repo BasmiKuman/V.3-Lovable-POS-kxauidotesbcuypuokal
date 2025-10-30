@@ -224,8 +224,42 @@ export default function Reports() {
         });
         
         console.log('File saved to:', result.uri);
-        toast.success(`Laporan berhasil diunduh`, {
-          description: `File: ${fileName}\nLokasi: Documents folder`
+        
+        // Show toast with action button to open folder
+        toast.success(`Laporan berhasil diunduh!`, {
+          description: `File: ${fileName}\nKlik "Buka Folder" untuk melihat file`,
+          duration: 7000, // Show longer so user can click
+          action: {
+            label: "Buka Folder",
+            onClick: async () => {
+              try {
+                if (Capacitor.getPlatform() === 'android') {
+                  // On Android, try to open the file with default app or file manager
+                  const fileUri = result.uri;
+                  
+                  // Open file manager to Documents folder using content URI
+                  window.location.href = 'content://com.android.externalstorage.documents/document/primary:Documents';
+                  
+                  // Fallback message
+                  setTimeout(() => {
+                    toast.info("Buka File Manager", {
+                      description: "File tersimpan di folder Documents"
+                    });
+                  }, 1500);
+                } else {
+                  // iOS: show info message
+                  toast.info("File tersimpan di Documents", {
+                    description: "Buka Files app untuk melihat file"
+                  });
+                }
+              } catch (error) {
+                console.error('Error opening file:', error);
+                toast.info("File tersimpan di folder Documents", {
+                  description: "Silakan buka File Manager → Documents untuk melihat file"
+                });
+              }
+            }
+          }
         });
         
         return true;
