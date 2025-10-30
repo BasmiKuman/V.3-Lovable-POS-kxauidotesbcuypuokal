@@ -46,6 +46,8 @@ export default function Settings() {
   const [gpsEnabled, setGpsEnabled] = useState(false);
   const [hasGPSConsentStatus, setHasGPSConsentStatus] = useState(false);
   const [gpsLoading, setGpsLoading] = useState(false);
+  const [viewAvatarUrl, setViewAvatarUrl] = useState<string | null>(null);
+  const [isViewingAvatar, setIsViewingAvatar] = useState(false);
   const [newUser, setNewUser] = useState({
     email: "",
     password: "",
@@ -624,7 +626,11 @@ export default function Settings() {
             <div className="flex items-center space-x-4">
               <div className="relative">
                 <Avatar className="w-20 h-20">
-                  <AvatarImage src={profile?.avatar_url || undefined} alt={profile?.full_name} />
+                  <AvatarImage 
+                    src={profile?.avatar_url || undefined} 
+                    alt={profile?.full_name}
+                    className="object-cover aspect-square"
+                  />
                   <AvatarFallback className="bg-primary text-primary-foreground text-2xl">
                     {profile?.full_name?.charAt(0)?.toUpperCase() || "U"}
                   </AvatarFallback>
@@ -873,8 +879,20 @@ export default function Settings() {
                       <TableRow key={user.id}>
                         <TableCell className="font-medium">
                           <div className="flex items-center space-x-3 md:space-x-4">
-                            <Avatar className="w-8 h-8 md:w-10 md:h-10">
-                              <AvatarImage src={user.avatar_url || undefined} alt={user.full_name} />
+                            <Avatar 
+                              className="w-8 h-8 md:w-10 md:h-10 cursor-pointer hover:ring-2 hover:ring-primary transition-all"
+                              onClick={() => {
+                                if (user.avatar_url) {
+                                  setViewAvatarUrl(user.avatar_url);
+                                  setIsViewingAvatar(true);
+                                }
+                              }}
+                            >
+                              <AvatarImage 
+                                src={user.avatar_url || undefined} 
+                                alt={user.full_name}
+                                className="object-cover aspect-square"
+                              />
                               <AvatarFallback className="text-xs md:text-sm">{user.full_name.charAt(0).toUpperCase()}</AvatarFallback>
                             </Avatar>
                             <div>
@@ -1074,6 +1092,24 @@ export default function Settings() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Avatar View Dialog */}
+      <Dialog open={isViewingAvatar} onOpenChange={setIsViewingAvatar}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Foto Profile</DialogTitle>
+          </DialogHeader>
+          {viewAvatarUrl && (
+            <div className="flex items-center justify-center p-4">
+              <img 
+                src={viewAvatarUrl} 
+                alt="Profile" 
+                className="max-w-full max-h-[70vh] object-contain rounded-lg"
+              />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <BottomNav isAdmin={isAdmin} />
     </div>

@@ -27,6 +27,13 @@ export default function Reports() {
   });
   const [selectedRider, setSelectedRider] = useState<string>("all");
   const [riders, setRiders] = useState<Array<{ user_id: string; full_name: string }>>([]);
+  
+  // Applied filters (actual filters used in query)
+  const [appliedDateRange, setAppliedDateRange] = useState({
+    start: startOfMonth(new Date()),
+    end: endOfMonth(new Date())
+  });
+  const [appliedRider, setAppliedRider] = useState<string>("all");
 
   // Fetch riders list
   useEffect(() => {
@@ -54,17 +61,17 @@ export default function Reports() {
 
   // Fetch transactions with related data
   const { data: transactions, isLoading } = useQuery({
-    queryKey: ["transactions", dateRange, selectedRider],
+    queryKey: ["transactions", appliedDateRange, appliedRider],
     queryFn: async () => {
       let query = supabase
         .from("transactions")
         .select("*")
-        .gte("created_at", dateRange.start.toISOString())
-        .lte("created_at", dateRange.end.toISOString());
+        .gte("created_at", appliedDateRange.start.toISOString())
+        .lte("created_at", appliedDateRange.end.toISOString());
 
       // Apply rider filter if not "all"
-      if (selectedRider !== "all") {
-        query = query.eq("rider_id", selectedRider);
+      if (appliedRider !== "all") {
+        query = query.eq("rider_id", appliedRider);
       }
 
       const { data: transactionsData, error: transactionsError } = await query
@@ -187,6 +194,13 @@ export default function Reports() {
       currency: "IDR",
       minimumFractionDigits: 0
     }).format(value);
+  };
+
+  // Apply filters
+  const applyFilters = () => {
+    setAppliedDateRange(dateRange);
+    setAppliedRider(selectedRider);
+    toast.success("Filter diterapkan");
   };
 
   const downloadReport = async () => {
@@ -662,6 +676,16 @@ export default function Reports() {
                     ))}
                   </SelectContent>
                 </Select>
+
+                {/* Apply Filter Button */}
+                <Button 
+                  onClick={applyFilters}
+                  className="w-full"
+                  size="sm"
+                >
+                  <Filter className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
+                  Terapkan Filter
+                </Button>
               </div>
             </CardContent>
           </Card>

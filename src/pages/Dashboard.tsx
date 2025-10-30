@@ -5,7 +5,7 @@ import { StatsCard } from "@/components/StatsCard";
 import { WeatherWidget } from "@/components/WeatherWidget";
 import RiderTrackingMap from "@/components/RiderTrackingMap";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { Package, TrendingUp, Users, ShoppingCart, Undo2, CheckCircle, X } from "lucide-react";
+import { Package, TrendingUp, Users, ShoppingCart, Undo2, CheckCircle, X, RefreshCw } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -33,6 +33,8 @@ export default function Dashboard() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [returns, setReturns] = useState<ReturnRequest[]>([]);
   const [processingReturnId, setProcessingReturnId] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
   const isMobile = useIsMobile();
   const [stats, setStats] = useState({
     totalProducts: 0,
@@ -277,6 +279,91 @@ export default function Dashboard() {
     }
   };
 
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      // Fetch stats
+      const { count: productsCount } = await supabase
+        .from("products")
+        .select("*", { count: "exact", head: true });
+
+      const { count: transactionsCount } = await supabase
+        .from("transactions")
+        .select("*", { count: "exact", head: true });
+
+      const { data: transactions } = await supabase
+        .from("transactions")
+        .select("total_amount");
+
+      const totalRevenue = transactions?.reduce((sum, t) => sum + Number(t.total_amount), 0) || 0;
+
+      const { count: ridersCount } = await supabase
+        .from("user_roles")
+        .select("*", { count: "exact", head: true })
+        .eq("role", "rider");
+
+      setStats({
+        totalProducts: productsCount || 0,
+        totalTransactions: transactionsCount || 0,
+        totalRevenue,
+        activeRiders: ridersCount || 0,
+      });
+
+      // Fetch returns if admin
+      if (isAdmin) {
+        const { data: returnsData, error: returnsError } = await supabase
+          .from("returns")
+          .select(`
+            id,
+            quantity,
+            notes,
+            returned_at,
+            product_id,
+            rider_id,
+            status,
+            products (name, price)
+          `)
+          .eq("status", "pending")
+          .order("returned_at", { ascending: false });
+
+        if (returnsError) throw returnsError;
+
+        if (!returnsData || returnsData.length === 0) {
+          setReturns([]);
+        } else {
+          const riderIds = returnsData.map(r => r.rider_id);
+          const { data: profilesData, error: profilesError } = await supabase
+            .from("profiles")
+            .select("user_id, full_name")
+            .in("user_id", riderIds);
+
+          if (profilesError) throw profilesError;
+
+          const profilesMap = new Map(profilesData?.map(p => [p.user_id, p.full_name]) || []);
+
+          const enrichedReturns = returnsData.map(returnItem => ({
+            ...returnItem,
+            profiles: {
+              full_name: profilesMap.get(returnItem.rider_id) || "Unknown",
+            },
+          }));
+
+          setReturns(enrichedReturns);
+        }
+      }
+
+      // Force re-render of WeatherWidget and RiderTrackingMap
+      setRefreshKey(prev => prev + 1);
+      
+      toast.success("Dashboard diperbarui");
+    } catch (error) {
+      console.error("Error refreshing dashboard:", error);
+      toast.error("Gagal memperbarui dashboard");
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   return (
     <div 
       className="min-h-screen bg-background w-full overflow-x-hidden"
@@ -303,7 +390,18 @@ export default function Dashboard() {
               <p className="text-xs sm:text-sm text-muted-foreground truncate">BK POS System - Ringkasan Sistem</p>
             </div>
           </div>
-          <WeatherWidget />
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              size="icon"
+              variant="outline"
+              className="flex-shrink-0"
+            >
+              <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            </Button>
+            <WeatherWidget key={refreshKey} />
+          </div>
         </div>
 
         {/* Stats Grid */}
@@ -512,7 +610,7 @@ export default function Dashboard() {
         {/* GPS Rider Tracking - Admin Only */}
         {isAdmin && (
           <div className="animate-fade-in" style={{ animationDelay: "0.2s" }}>
-            <RiderTrackingMap />
+            <RiderTrackingMap key={refreshKey} />
           </div>
         )}
       </div>
