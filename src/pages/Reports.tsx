@@ -4,7 +4,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { StatsCard } from "@/components/StatsCard";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { BarChart3, DollarSign, ShoppingCart, TrendingUp, Calendar, Download, Filter, ChevronDown, Users } from "lucide-react";
+import { BarChart3, DollarSign, ShoppingCart, TrendingUp, Calendar, Download, Filter, ChevronDown, Users, FileText } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format, startOfMonth, endOfMonth, startOfDay, endOfDay } from "date-fns";
@@ -15,8 +15,11 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import { checkStoragePermission, requestStoragePermission } from "@/lib/permissions";
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
@@ -640,6 +643,215 @@ export default function Reports() {
     }
   };
 
+  const downloadPDFReport = async () => {
+    try {
+      // Check storage permission first
+      const hasPermission = await checkStoragePermission();
+      if (!hasPermission) {
+        const granted = await requestStoragePermission();
+        if (!granted) {
+          toast.error("Izin penyimpanan diperlukan untuk mengunduh laporan", {
+            description: "Silakan aktifkan izin penyimpanan di pengaturan aplikasi"
+          });
+          return;
+        }
+      }
+
+      if (!transactions || transactions.length === 0) {
+        toast.error("Tidak ada data untuk diunduh");
+        return;
+      }
+
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      let yPos = 20;
+
+      // Title
+      doc.setFontSize(18);
+      doc.setFont('helvetica', 'bold');
+      doc.text('LAPORAN PENJUALAN', pageWidth / 2, yPos, { align: 'center' });
+      
+      yPos += 10;
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Periode: ${format(dateRange.start, "dd MMM yyyy")} - ${format(dateRange.end, "dd MMM yyyy")}`, pageWidth / 2, yPos, { align: 'center' });
+
+      // ========================================
+      // 1. RINGKASAN KESELURUHAN
+      // ========================================
+      yPos += 15;
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text('RINGKASAN KESELURUHAN', 14, yPos);
+
+      yPos += 8;
+      const totalCupsSold = transactions.reduce((sum, t) => {
+        return sum + (t.transaction_items?.reduce((itemSum: number, item: any) => 
+          itemSum + item.quantity, 0) || 0);
+      }, 0);
+
+      const summaryData = [
+        ['Total Cup/Produk Terjual', totalCupsSold.toString()],
+        ['Total Transaksi', stats.totalTransactions.toString()],
+        ['Total Penjualan', `Rp ${stats.totalSales.toLocaleString('id-ID')}`],
+        ['Total Pajak', `Rp ${stats.totalTax.toLocaleString('id-ID')}`],
+        ['Rata-rata per Transaksi', `Rp ${Math.round(stats.avgTransaction).toLocaleString('id-ID')}`],
+      ];
+
+      autoTable(doc, {
+        startY: yPos,
+        head: [['Deskripsi', 'Nilai']],
+        body: summaryData,
+        theme: 'grid',
+        headStyles: { fillColor: [41, 128, 185], fontSize: 10, fontStyle: 'bold' },
+        styles: { fontSize: 9, cellPadding: 3 },
+        columnStyles: {
+          0: { cellWidth: 100 },
+          1: { cellWidth: 70, halign: 'right' }
+        }
+      });
+
+      // ========================================
+      // 2. DETAIL PER RIDER (if all riders selected)
+      // ========================================
+      if (selectedRider === "all" && riders.length > 0) {
+        yPos = (doc as any).lastAutoTable.finalY + 10;
+        
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Detail per Rider:', 14, yPos);
+        
+        yPos += 6;
+        const riderSummaryData = riders.map(rider => {
+          const riderTransactions = transactions.filter(t => t.rider_id === rider.user_id);
+          const riderCups = riderTransactions.reduce((sum, t) => {
+            return sum + (t.transaction_items?.reduce((itemSum: number, item: any) => 
+              itemSum + item.quantity, 0) || 0);
+          }, 0);
+          const totalSales = riderTransactions.reduce((sum, t) => sum + Number(t.total_amount), 0);
+          
+          return [
+            rider.full_name,
+            `${riderCups} cup`,
+            `Rp ${totalSales.toLocaleString('id-ID')}`
+          ];
+        });
+
+        autoTable(doc, {
+          startY: yPos,
+          head: [['Nama Rider', 'Total Cup', 'Total Penjualan']],
+          body: riderSummaryData,
+          theme: 'striped',
+          headStyles: { fillColor: [52, 152, 219], fontSize: 9, fontStyle: 'bold' },
+          styles: { fontSize: 8, cellPadding: 2 },
+          columnStyles: {
+            0: { cellWidth: 80 },
+            1: { cellWidth: 40, halign: 'center' },
+            2: { cellWidth: 60, halign: 'right' }
+          }
+        });
+      }
+
+      // ========================================
+      // 3. SEMUA TRANSAKSI
+      // ========================================
+      yPos = (doc as any).lastAutoTable.finalY + 12;
+      
+      // Check if need new page
+      if (yPos > 250) {
+        doc.addPage();
+        yPos = 20;
+      }
+
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text('SEMUA TRANSAKSI', 14, yPos);
+
+      yPos += 6;
+      const transactionsData = transactions.map(t => [
+        format(new Date(t.created_at), "dd/MM/yy HH:mm"),
+        t.rider?.full_name || "-",
+        t.payment_method || "-",
+        `Rp ${Number(t.subtotal).toLocaleString('id-ID')}`,
+        `Rp ${Number(t.tax_amount).toLocaleString('id-ID')}`,
+        `Rp ${Number(t.total_amount).toLocaleString('id-ID')}`
+      ]);
+
+      autoTable(doc, {
+        startY: yPos,
+        head: [['Tanggal', 'Rider', 'Metode', 'Subtotal', 'Pajak', 'Total']],
+        body: transactionsData,
+        theme: 'grid',
+        headStyles: { fillColor: [41, 128, 185], fontSize: 8, fontStyle: 'bold' },
+        styles: { fontSize: 7, cellPadding: 2 },
+        columnStyles: {
+          0: { cellWidth: 28 },
+          1: { cellWidth: 35 },
+          2: { cellWidth: 25 },
+          3: { cellWidth: 30, halign: 'right' },
+          4: { cellWidth: 25, halign: 'right' },
+          5: { cellWidth: 30, halign: 'right' }
+        }
+      });
+
+      // Save PDF
+      const fileName = selectedRider === "all" 
+        ? `Laporan-Semua-Rider-${format(dateRange.start, "yyyyMMdd")}-${format(dateRange.end, "yyyyMMdd")}.pdf`
+        : `Laporan-${riders.find(r => r.user_id === selectedRider)?.full_name.replace(/\s+/g, '-')}-${format(dateRange.start, "yyyyMMdd")}-${format(dateRange.end, "yyyyMMdd")}.pdf`;
+
+      const isNative = Capacitor.isNativePlatform();
+      
+      if (isNative) {
+        // Android/iOS: Save using Filesystem
+        const pdfOutput = doc.output('datauristring');
+        const base64Data = pdfOutput.split(',')[1]; // Remove data:application/pdf;base64, prefix
+        
+        const result = await Filesystem.writeFile({
+          path: fileName,
+          data: base64Data,
+          directory: Directory.Documents,
+          recursive: true
+        });
+        
+        console.log('PDF saved to:', result.uri);
+        
+        toast.success(`Laporan PDF berhasil diunduh!`, {
+          description: `File: ${fileName}\nKlik "Buka File" untuk melihat`,
+          duration: 8000,
+          action: {
+            label: "Buka File",
+            onClick: async () => {
+              try {
+                await Share.share({
+                  title: 'Laporan Penjualan PDF',
+                  text: 'Buka file laporan dengan aplikasi PDF Reader',
+                  url: result.uri,
+                  dialogTitle: 'Buka dengan aplikasi...'
+                });
+              } catch (error: any) {
+                if (error.message && error.message.includes('cancelled')) {
+                  return;
+                }
+                toast.info("File tersimpan di Documents", {
+                  description: `Buka File Manager → Documents\nCari file: ${fileName}`,
+                  duration: 10000
+                });
+              }
+            }
+          }
+        });
+      } else {
+        // Web: Direct download
+        doc.save(fileName);
+        toast.success("Laporan PDF berhasil diunduh");
+      }
+
+    } catch (error) {
+      console.error('Error downloading PDF report:', error);
+      toast.error("Gagal mengunduh laporan PDF. Silakan coba lagi.");
+    }
+  };
+
   return (
     <div 
       className="min-h-screen bg-background w-full overflow-x-hidden"
@@ -657,10 +869,31 @@ export default function Reports() {
               <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gradient">Laporan</h1>
               <p className="text-xs sm:text-sm text-muted-foreground">Analisis penjualan</p>
             </div>
-            <Button onClick={downloadReport} size="sm" className="flex-shrink-0 w-full sm:w-auto mt-2 sm:mt-0">
-              <Download className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
-              <span>Unduh Excel</span>
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" className="flex-shrink-0 w-full sm:w-auto mt-2 sm:mt-0">
+                  <Download className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
+                  <span>Unduh Laporan</span>
+                  <ChevronDown className="w-3 h-3 sm:w-4 sm:h-4 ml-2" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onClick={downloadReport} className="cursor-pointer">
+                  <Download className="w-4 h-4 mr-2" />
+                  <div className="flex flex-col">
+                    <span className="font-medium">Excel (.xlsx)</span>
+                    <span className="text-xs text-muted-foreground">Detail lengkap & dokumentasi</span>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={downloadPDFReport} className="cursor-pointer">
+                  <FileText className="w-4 h-4 mr-2" />
+                  <div className="flex flex-col">
+                    <span className="font-medium">PDF (.pdf)</span>
+                    <span className="text-xs text-muted-foreground">Ringkasan untuk atasan</span>
+                  </div>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
           {/* Filters */}
