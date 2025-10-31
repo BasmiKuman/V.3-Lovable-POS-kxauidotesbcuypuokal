@@ -753,7 +753,7 @@ export default function Reports() {
       }
 
       // ========================================
-      // 3. SEMUA TRANSAKSI
+      // 3. DETAIL TRANSAKSI & PRODUK
       // ========================================
       yPos = (doc as any).lastAutoTable.finalY + 12;
       
@@ -765,32 +765,100 @@ export default function Reports() {
 
       doc.setFontSize(14);
       doc.setFont('helvetica', 'bold');
-      doc.text('SEMUA TRANSAKSI', 14, yPos);
+      doc.text('DETAIL TRANSAKSI & PRODUK', 14, yPos);
 
       yPos += 6;
-      const transactionsData = transactions.map(t => [
-        format(new Date(t.created_at), "dd/MM/yy HH:mm"),
-        t.rider?.full_name || "-",
-        t.payment_method || "-",
-        `Rp ${Number(t.subtotal).toLocaleString('id-ID')}`,
-        `Rp ${Number(t.tax_amount).toLocaleString('id-ID')}`,
-        `Rp ${Number(t.total_amount).toLocaleString('id-ID')}`
-      ]);
+      
+      // Create detailed transactions with product breakdown
+      const detailedTransactionsData: any[] = [];
+      
+      transactions.forEach((t, index) => {
+        // Transaction header row
+        const transactionDate = format(new Date(t.created_at), "dd/MM/yy HH:mm");
+        const riderName = t.rider?.full_name || "-";
+        const paymentMethod = t.payment_method || "-";
+        
+        // Add transaction header
+        detailedTransactionsData.push([
+          {
+            content: `${transactionDate} | ${riderName} | ${paymentMethod}`,
+            colSpan: 4,
+            styles: { 
+              fillColor: [236, 240, 241], 
+              fontStyle: 'bold', 
+              fontSize: 7,
+              textColor: [44, 62, 80]
+            }
+          }
+        ]);
+        
+        // Add product items
+        if (t.transaction_items && t.transaction_items.length > 0) {
+          t.transaction_items.forEach((item: any) => {
+            detailedTransactionsData.push([
+              `  • ${item.products?.name || 'Unknown'}`,
+              `${item.quantity} x`,
+              `Rp ${Number(item.price).toLocaleString('id-ID')}`,
+              `Rp ${Number(item.subtotal).toLocaleString('id-ID')}`
+            ]);
+          });
+        }
+        
+        // Add transaction total
+        detailedTransactionsData.push([
+          {
+            content: 'TOTAL',
+            colSpan: 3,
+            styles: { 
+              halign: 'right', 
+              fontStyle: 'bold',
+              fontSize: 7
+            }
+          },
+          {
+            content: `Rp ${Number(t.total_amount).toLocaleString('id-ID')}`,
+            styles: { 
+              fontStyle: 'bold',
+              fillColor: [241, 196, 15],
+              textColor: [0, 0, 0],
+              fontSize: 7
+            }
+          }
+        ]);
+        
+        // Add separator between transactions
+        if (index < transactions.length - 1) {
+          detailedTransactionsData.push([
+            { content: '', colSpan: 4, styles: { minCellHeight: 2, fillColor: [255, 255, 255] } }
+          ]);
+        }
+      });
 
       autoTable(doc, {
         startY: yPos,
-        head: [['Tanggal', 'Rider', 'Metode', 'Subtotal', 'Pajak', 'Total']],
-        body: transactionsData,
-        theme: 'grid',
-        headStyles: { fillColor: [41, 128, 185], fontSize: 8, fontStyle: 'bold' },
-        styles: { fontSize: 7, cellPadding: 2 },
+        head: [['Produk', 'Qty', 'Harga', 'Subtotal']],
+        body: detailedTransactionsData,
+        theme: 'striped',
+        headStyles: { 
+          fillColor: [41, 128, 185], 
+          fontSize: 8, 
+          fontStyle: 'bold',
+          halign: 'left'
+        },
+        styles: { 
+          fontSize: 6.5, 
+          cellPadding: 1.5,
+          lineColor: [200, 200, 200],
+          lineWidth: 0.1
+        },
         columnStyles: {
-          0: { cellWidth: 28 },
-          1: { cellWidth: 35 },
-          2: { cellWidth: 25 },
-          3: { cellWidth: 30, halign: 'right' },
-          4: { cellWidth: 25, halign: 'right' },
-          5: { cellWidth: 30, halign: 'right' }
+          0: { cellWidth: 80 },
+          1: { cellWidth: 25, halign: 'center' },
+          2: { cellWidth: 40, halign: 'right' },
+          3: { cellWidth: 40, halign: 'right' }
+        },
+        alternateRowStyles: {
+          fillColor: [249, 249, 249]
         }
       });
 
@@ -1020,37 +1088,83 @@ export default function Reports() {
         </div>
 
         {/* Sales Chart */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Grafik Penjualan</CardTitle>
+        <Card className="shadow-lg">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-primary" />
+              Grafik Penjualan
+            </CardTitle>
             <CardDescription>
               {format(dateRange.start, "dd MMM yyyy", { locale: idLocale })} - {format(dateRange.end, "dd MMM yyyy", { locale: idLocale })}
             </CardDescription>
           </CardHeader>
           <CardContent>
             {chartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis dataKey="date" className="text-xs" />
-                  <YAxis className="text-xs" />
-                  <Tooltip
-                    formatter={(value: any) => formatCurrency(value)}
-                    contentStyle={{ 
-                      backgroundColor: "hsl(var(--card))",
-                      border: "1px solid hsl(var(--border))",
-                      borderRadius: "var(--radius)"
-                    }}
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="total" 
-                    stroke="hsl(var(--primary))" 
-                    strokeWidth={2}
-                    name="Total Penjualan"
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+              <div className="relative">
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5 rounded-lg pointer-events-none" />
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                    <defs>
+                      <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid 
+                      strokeDasharray="3 3" 
+                      className="stroke-muted/30" 
+                      vertical={false}
+                    />
+                    <XAxis 
+                      dataKey="date" 
+                      className="text-xs"
+                      tickLine={false}
+                      axisLine={{ stroke: 'hsl(var(--border))' }}
+                      tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                    />
+                    <YAxis 
+                      className="text-xs"
+                      tickLine={false}
+                      axisLine={{ stroke: 'hsl(var(--border))' }}
+                      tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                      tickFormatter={(value) => `${(value / 1000)}k`}
+                    />
+                    <Tooltip
+                      formatter={(value: any) => formatCurrency(value)}
+                      contentStyle={{ 
+                        backgroundColor: "hsl(var(--card))",
+                        border: "1px solid hsl(var(--border))",
+                        borderRadius: "var(--radius)",
+                        boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)"
+                      }}
+                      labelStyle={{ 
+                        color: "hsl(var(--foreground))",
+                        fontWeight: 600 
+                      }}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="total" 
+                      stroke="hsl(var(--primary))" 
+                      strokeWidth={3}
+                      name="Total Penjualan"
+                      dot={{ 
+                        fill: "hsl(var(--primary))", 
+                        strokeWidth: 2, 
+                        r: 4,
+                        stroke: "hsl(var(--card))"
+                      }}
+                      activeDot={{ 
+                        r: 6, 
+                        stroke: "hsl(var(--card))", 
+                        strokeWidth: 3,
+                        fill: "hsl(var(--primary))"
+                      }}
+                      fill="url(#colorTotal)"
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
             ) : (
               <div className="text-center py-12 text-muted-foreground">
                 <BarChart3 className="w-12 h-12 mx-auto mb-2 opacity-50" />
@@ -1061,39 +1175,78 @@ export default function Reports() {
         </Card>
 
         {/* Rider Performance Chart */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Performance per Rider</CardTitle>
+        <Card className="shadow-lg">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2">
+              <Users className="w-5 h-5 text-primary" />
+              Performance per Rider
+            </CardTitle>
             <CardDescription>Tingkat penjualan dari masing-masing rider</CardDescription>
           </CardHeader>
           <CardContent>
             {riderPerformance && riderPerformance.length > 0 ? (
-              <ResponsiveContainer width="100%" height={isMobile ? 300 : 350}>
-                <BarChart data={riderPerformance} margin={{ bottom: isMobile ? 60 : 20 }}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis 
-                    dataKey="riderName" 
-                    className="text-xs"
-                    angle={isMobile ? -45 : 0}
-                    textAnchor={isMobile ? "end" : "middle"}
-                    height={isMobile ? 80 : 30}
-                  />
-                  <YAxis className="text-xs" />
-                  <Tooltip
-                    formatter={(value: any, name: string) => {
-                      if (name === "Total Penjualan") return formatCurrency(value);
-                      return value;
-                    }}
-                    contentStyle={{ 
-                      backgroundColor: "hsl(var(--card))",
-                      border: "1px solid hsl(var(--border))",
-                      borderRadius: "var(--radius)"
-                    }}
-                    labelStyle={{ color: "hsl(var(--foreground))" }}
-                  />
-                  <Bar dataKey="totalSales" fill="hsl(var(--primary))" name="Total Penjualan" />
-                </BarChart>
-              </ResponsiveContainer>
+              <div className="relative">
+                <div className="absolute inset-0 bg-gradient-to-br from-accent/5 via-transparent to-primary/5 rounded-lg pointer-events-none" />
+                <ResponsiveContainer width="100%" height={isMobile ? 300 : 350}>
+                  <BarChart 
+                    data={riderPerformance} 
+                    margin={{ bottom: isMobile ? 60 : 20, top: 10, right: 10, left: 0 }}
+                  >
+                    <defs>
+                      <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={1}/>
+                        <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0.6}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid 
+                      strokeDasharray="3 3" 
+                      className="stroke-muted/30"
+                      vertical={false}
+                    />
+                    <XAxis 
+                      dataKey="riderName" 
+                      className="text-xs"
+                      angle={isMobile ? -45 : 0}
+                      textAnchor={isMobile ? "end" : "middle"}
+                      height={isMobile ? 80 : 30}
+                      tickLine={false}
+                      axisLine={{ stroke: 'hsl(var(--border))' }}
+                      tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                    />
+                    <YAxis 
+                      className="text-xs"
+                      tickLine={false}
+                      axisLine={{ stroke: 'hsl(var(--border))' }}
+                      tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                      tickFormatter={(value) => `${(value / 1000)}k`}
+                    />
+                    <Tooltip
+                      formatter={(value: any, name: string) => {
+                        if (name === "Total Penjualan") return formatCurrency(value);
+                        return value;
+                      }}
+                      contentStyle={{ 
+                        backgroundColor: "hsl(var(--card))",
+                        border: "1px solid hsl(var(--border))",
+                        borderRadius: "var(--radius)",
+                        boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)"
+                      }}
+                      labelStyle={{ 
+                        color: "hsl(var(--foreground))",
+                        fontWeight: 600
+                      }}
+                      cursor={{ fill: 'hsl(var(--muted))', opacity: 0.1 }}
+                    />
+                    <Bar 
+                      dataKey="totalSales" 
+                      fill="url(#barGradient)" 
+                      name="Total Penjualan"
+                      radius={[8, 8, 0, 0]}
+                      maxBarSize={60}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             ) : (
               <div className="text-center py-12 text-muted-foreground">
                 <Users className="w-12 h-12 mx-auto mb-2 opacity-50" />
