@@ -711,13 +711,27 @@ export default function Reports() {
       doc.text('RINGKASAN KESELURUHAN', 14, yPos);
 
       yPos += 8;
-      const totalCupsSold = transactions.reduce((sum, t) => {
-        return sum + (t.transaction_items?.reduce((itemSum: number, item: any) => 
-          itemSum + item.quantity, 0) || 0);
-      }, 0);
+      
+      // Calculate cups (exclude Add On) and add-ons separately
+      let totalCupsSold = 0;
+      let totalAddOnsSold = 0;
+      
+      transactions.forEach(t => {
+        t.transaction_items?.forEach((item: any) => {
+          const categoryName = item.products?.categories?.name?.toLowerCase() || '';
+          const isAddOn = categoryName === 'add on' || categoryName === 'addon' || categoryName === 'add-on';
+          
+          if (isAddOn) {
+            totalAddOnsSold += item.quantity;
+          } else {
+            totalCupsSold += item.quantity;
+          }
+        });
+      });
 
       const summaryData = [
-        ['Total Cup/Produk Terjual', totalCupsSold.toString()],
+        ['Total Cup Terjual', `${totalCupsSold} cup`],
+        ['Total Add On Terjual', `${totalAddOnsSold} pcs`],
         ['Total Transaksi', stats.totalTransactions.toString()],
         ['Total Penjualan', `Rp ${stats.totalSales.toLocaleString('id-ID')}`],
         ['Total Pajak', `Rp ${stats.totalTax.toLocaleString('id-ID')}`],
@@ -750,10 +764,20 @@ export default function Reports() {
         yPos += 6;
         const riderSummaryData = riders.map(rider => {
           const riderTransactions = transactions.filter(t => t.rider_id === rider.user_id);
-          const riderCups = riderTransactions.reduce((sum, t) => {
-            return sum + (t.transaction_items?.reduce((itemSum: number, item: any) => 
-              itemSum + item.quantity, 0) || 0);
-          }, 0);
+          
+          // Calculate cups (exclude Add On)
+          let riderCups = 0;
+          riderTransactions.forEach(t => {
+            t.transaction_items?.forEach((item: any) => {
+              const categoryName = item.products?.categories?.name?.toLowerCase() || '';
+              const isAddOn = categoryName === 'add on' || categoryName === 'addon' || categoryName === 'add-on';
+              
+              if (!isAddOn) {
+                riderCups += item.quantity;
+              }
+            });
+          });
+          
           const totalSales = riderTransactions.reduce((sum, t) => sum + Number(t.total_amount), 0);
           
           return [
