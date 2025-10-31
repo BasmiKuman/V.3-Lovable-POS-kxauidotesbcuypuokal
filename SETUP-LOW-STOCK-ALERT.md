@@ -2,6 +2,19 @@
 
 Fitur ini menampilkan peringatan produk yang stoknya rendah di halaman Produk (khusus Admin).
 
+## 🎨 UX Improvements
+
+### Loading State
+- ✨ Menggunakan **BK Logo animasi** (bounce effect) saat loading
+- 🎯 Konsisten di semua halaman (Products, POS, Settings)
+- 🔄 Mengganti icon Package/ShoppingCart yang spinning
+
+### Low Stock Alert Flow
+- 🎯 Klik produk → **Langsung ke Tab Produksi**
+- 📝 Auto-open dialog produksi dengan produk terpilih
+- 📊 History produksi tercatat dengan baik
+- 💡 Toast notification dengan info stok saat ini
+
 ## 📋 Cara Setup
 
 ### 1. Jalankan SQL Migration
@@ -63,6 +76,24 @@ COMMENT ON COLUMN public.products.min_stock IS 'Minimum stock threshold for low 
   - `HABIS` - Stock = 0
   - `SANGAT RENDAH` - Stock < 50% dari minimum
   - `RENDAH` - Stock ≤ minimum
+- **Clickable** - Klik untuk buka produksi (bukan edit!)
+
+### Alur Saat Klik Produk
+
+1. **Auto Switch Tab** - Pindah ke tab "Produksi"
+2. **Open Dialog** - Dialog "Tambah Produksi" terbuka
+3. **Pre-Selected** - Produk sudah terpilih otomatis
+4. **Toast Info** - Muncul notifikasi dengan info stok
+5. **Input Qty** - Tinggal masukkan jumlah produksi
+6. **Save** - History tercatat di tab Produksi
+
+### Keuntungan Flow Baru
+
+✅ **History Tercatat** - Semua produksi masuk database  
+✅ **Tracking** - Bisa lihat riwayat kapan produksi  
+✅ **Audit Trail** - Ada catatan siapa yang produksi  
+✅ **Reporting** - Data lengkap untuk laporan  
+❌ **Bukan Edit Manual** - Tidak langsung edit stok (no history)
 
 ### Pengaturan Per Produk
 
@@ -72,7 +103,7 @@ COMMENT ON COLUMN public.products.min_stock IS 'Minimum stock threshold for low 
 
 2. **Edit Produk:**
    - Bisa ubah nilai "Stok Minimal"
-   - Klik produk di alert untuk quick edit
+   - Klik ikon Edit (pensil) di card produk
 
 ## 🎯 Cara Kerja
 
@@ -135,15 +166,27 @@ Status WARNING jika:
    - Sesuaikan dengan musim/trend
    - Update jika pattern penjualan berubah
 
-3. **Quick Action**
-   - Klik langsung produk di alert
-   - Akan buka dialog edit
-   - Update stok atau min_stock
+3. **Quick Production dari Alert**
+   - Klik produk di alert
+   - Langsung input jumlah produksi
+   - History otomatis tercatat
+   - Tidak perlu edit manual
 
 4. **Monitoring**
    - Cek alert setiap hari
    - Prioritaskan produk KRITIS
    - Plan produksi untuk produk WARNING
+
+## ⚡ Perbedaan dengan Edit Manual
+
+| Fitur | Via Alert (Produksi) | Edit Manual |
+|-------|---------------------|-------------|
+| History Tercatat | ✅ Ya | ❌ Tidak |
+| Tracking Waktu | ✅ Ya | ❌ Tidak |
+| Catatan/Notes | ✅ Bisa | ❌ Tidak bisa |
+| Audit Trail | ✅ Lengkap | ❌ Tidak ada |
+| Laporan | ✅ Masuk laporan | ❌ Tidak masuk |
+| **Rekomendasi** | **✅ GUNAKAN INI** | ⚠️ Hanya untuk koreksi |
 
 ## 🔧 Troubleshooting
 
@@ -168,13 +211,20 @@ Status WARNING jika:
    - Alert hanya muncul untuk role Admin
    - Rider tidak bisa lihat alert ini
 
-### Error "min_stock is missing"
+### Produk Tidak Auto-Select di Dialog
 
-- Jalankan ulang SQL migration
-- Clear browser cache
-- Refresh halaman
+1. **Refresh browser** setelah klik
+2. **Cek console** untuk error
+3. **Pastikan product ID valid**
+
+### Loading Masih Pakai Icon Lama
+
+1. **Hard refresh** browser (Ctrl+Shift+R)
+2. **Clear cache** browser
+3. **Restart dev server**
 
 ---
 
 **Status:** ✅ Ready to Test  
+**Last Updated:** Oct 31, 2025  
 **Note:** Jangan push dulu, test di browser dulu!
