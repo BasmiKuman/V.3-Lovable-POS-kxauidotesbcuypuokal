@@ -4,7 +4,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { StatsCard } from "@/components/StatsCard";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { BarChart3, DollarSign, ShoppingCart, TrendingUp, Calendar, Download, Filter, ChevronDown, Users, FileText } from "lucide-react";
+import { BarChart3, DollarSign, ShoppingCart, TrendingUp, Calendar, Download, Filter, ChevronDown, Users, FileText, Package } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format, startOfMonth, endOfMonth, startOfDay, endOfDay } from "date-fns";
@@ -95,7 +95,7 @@ export default function Reports() {
 
       const { data: items } = await supabase
         .from("transaction_items")
-        .select("*, products(name, sku)")
+        .select("*, products(name, sku, category_id, categories(name))")
         .in("transaction_id", transactionsData.map(t => t.id));
 
       // Combine data
@@ -183,13 +183,23 @@ export default function Reports() {
         riderName,
         transactions: [],
         totalSales: 0,
-        totalTransactions: 0
+        totalTransactions: 0,
+        totalCups: 0
       };
     }
     
     acc[riderId].transactions.push(transaction);
     acc[riderId].totalSales += Number(transaction.total_amount);
     acc[riderId].totalTransactions += 1;
+    
+    // Calculate cups for this transaction (exclude Add On)
+    const transactionCups = transaction.transaction_items?.reduce((sum: number, item: any) => {
+      const categoryName = item.products?.categories?.name?.toLowerCase() || '';
+      const isAddOn = categoryName === 'add on' || categoryName === 'addon' || categoryName === 'add-on';
+      return isAddOn ? sum : sum + item.quantity;
+    }, 0) || 0;
+    
+    acc[riderId].totalCups += transactionCups;
     
     return acc;
   }, {} as Record<string, any>);
@@ -200,6 +210,22 @@ export default function Reports() {
       currency: "IDR",
       minimumFractionDigits: 0
     }).format(value);
+  };
+
+  // Helper function to calculate cups (exclude Add On category)
+  const calculateCups = (items: any[]) => {
+    if (!items) return 0;
+    return items.reduce((sum, item) => {
+      // Check if product category is "Add On" (case insensitive)
+      const categoryName = item.products?.categories?.name?.toLowerCase() || '';
+      const isAddOn = categoryName === 'add on' || categoryName === 'addon' || categoryName === 'add-on';
+      
+      // Only count if NOT Add On
+      if (!isAddOn) {
+        return sum + item.quantity;
+      }
+      return sum;
+    }, 0);
   };
 
   // Apply filters
@@ -1277,7 +1303,11 @@ export default function Reports() {
                           <Users className="w-4 h-4" />
                           <span className="font-semibold">{riderData.riderName}</span>
                         </div>
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                        <div className="flex items-center gap-3 text-sm text-muted-foreground flex-wrap justify-end">
+                          <div className="flex items-center gap-1 px-2 py-1 rounded-md bg-primary/10">
+                            <Package className="w-3 h-3 text-primary" />
+                            <span className="font-semibold text-primary">{riderData.totalCups} cup</span>
+                          </div>
                           <span>{riderData.totalTransactions} transaksi</span>
                           <span className="font-semibold text-foreground">
                             {formatCurrency(riderData.totalSales)}
