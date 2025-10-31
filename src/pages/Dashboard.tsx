@@ -4,12 +4,11 @@ import { BottomNav } from "@/components/BottomNav";
 import { StatsCard } from "@/components/StatsCard";
 import { WeatherWidget } from "@/components/WeatherWidget";
 import RiderTrackingMap from "@/components/RiderTrackingMap";
+import { ReturnsAccordion } from "@/components/ReturnsAccordion";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { Package, TrendingUp, Users, ShoppingCart, Undo2, CheckCircle, X, RefreshCw } from "lucide-react";
+import { Package, TrendingUp, Users, ShoppingCart, Undo2, RefreshCw } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 
 interface ReturnRequest {
@@ -449,142 +448,12 @@ export default function Dashboard() {
               <CardDescription className="text-xs sm:text-sm">Kelola return dari rider</CardDescription>
             </CardHeader>
             <CardContent className="p-3 sm:p-4">
-              {isMobile ? (
-                /* Mobile: Card List */
-                <div className="space-y-3">
-                  {returns.map((returnItem) => (
-                    <Card key={returnItem.id} className="border-2">
-                      <CardContent className="p-3 space-y-2">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <Users className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                              <span className="font-semibold text-sm truncate">
-                                {(returnItem.profiles as any)?.full_name || "N/A"}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-2 mt-1">
-                              <Package className="w-3 h-3 text-muted-foreground flex-shrink-0" />
-                              <span className="text-xs text-muted-foreground truncate">
-                                {returnItem.products.name}
-                              </span>
-                            </div>
-                          </div>
-                          <Badge variant="secondary" className="flex-shrink-0">
-                            {returnItem.quantity} pcs
-                          </Badge>
-                        </div>
-                        
-                        {returnItem.notes && (
-                          <div className="flex items-start gap-2 p-2 bg-muted/50 rounded">
-                            <span className="text-xs text-muted-foreground">💬</span>
-                            <p className="text-xs text-muted-foreground flex-1">
-                              {returnItem.notes}
-                            </p>
-                          </div>
-                        )}
-                        
-                        <div className="flex items-center justify-between pt-2 border-t">
-                          <span className="text-xs text-muted-foreground">
-                            {new Date(returnItem.returned_at).toLocaleDateString("id-ID", {
-                              day: 'numeric',
-                              month: 'short',
-                              year: 'numeric'
-                            })}
-                          </span>
-                          {returnItem.status === "pending" ? (
-                            <div className="flex gap-2">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleRejectReturn(returnItem)}
-                                disabled={processingReturnId === returnItem.id}
-                                className="h-8 text-xs"
-                              >
-                                <X className="w-3 h-3 mr-1" />
-                                Tolak
-                              </Button>
-                              <Button
-                                size="sm"
-                                onClick={() => handleApproveReturn(returnItem)}
-                                disabled={processingReturnId === returnItem.id}
-                                className="h-8 text-xs"
-                              >
-                                <CheckCircle className="w-3 h-3 mr-1" />
-                                {processingReturnId === returnItem.id ? "Proses..." : "Setujui"}
-                              </Button>
-                            </div>
-                          ) : (
-                            <Badge variant="secondary" className="text-xs">
-                              ✓ Approved
-                            </Badge>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              ) : (
-                /* Desktop: Table */
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Rider</TableHead>
-                        <TableHead>Produk</TableHead>
-                        <TableHead>Jumlah</TableHead>
-                        <TableHead>Catatan</TableHead>
-                        <TableHead>Tanggal</TableHead>
-                        <TableHead className="text-right">Aksi</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {returns.map((returnItem) => (
-                        <TableRow key={returnItem.id}>
-                          <TableCell className="font-medium">
-                            {(returnItem.profiles as any)?.full_name || "N/A"}
-                          </TableCell>
-                          <TableCell>{returnItem.products.name}</TableCell>
-                          <TableCell>
-                            <Badge variant="secondary">{returnItem.quantity}</Badge>
-                          </TableCell>
-                          <TableCell className="max-w-xs truncate">
-                            {returnItem.notes || "-"}
-                          </TableCell>
-                          <TableCell>
-                            {new Date(returnItem.returned_at).toLocaleDateString("id-ID")}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {returnItem.status === "pending" ? (
-                              <div className="flex justify-end gap-2">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => handleRejectReturn(returnItem)}
-                                  disabled={processingReturnId === returnItem.id}
-                                >
-                                  <X className="w-4 h-4 mr-1" />
-                                  Tolak
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  onClick={() => handleApproveReturn(returnItem)}
-                                  disabled={processingReturnId === returnItem.id}
-                                >
-                                  <CheckCircle className="w-4 h-4 mr-1" />
-                                  {processingReturnId === returnItem.id ? "Memproses..." : "Setujui"}
-                                </Button>
-                              </div>
-                            ) : (
-                              <Badge variant="secondary">Approved</Badge>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
+              <ReturnsAccordion
+                returns={returns}
+                processingReturnId={processingReturnId}
+                onApprove={handleApproveReturn}
+                onReject={handleRejectReturn}
+              />
             </CardContent>
           </Card>
         )}
