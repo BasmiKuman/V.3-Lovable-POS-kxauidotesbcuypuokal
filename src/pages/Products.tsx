@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { BottomNav } from "@/components/BottomNav";
+import { LowStockAlert } from "@/components/LowStockAlert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -24,6 +25,7 @@ interface Product {
   name: string;
   price: number;
   stock_in_warehouse: number;
+  min_stock: number;
   description: string | null;
   image_url: string | null;
   sku: string | null;
@@ -59,6 +61,7 @@ const productSchema = z.object({
   description: z.string().trim().optional(),
   price: z.string().min(1, "Harga wajib diisi").regex(/^\d+(\.\d{1,2})?$/, "Harga tidak valid"),
   stock_in_warehouse: z.string().min(1, "Stok wajib diisi").regex(/^\d+$/, "Stok harus berupa angka"),
+  min_stock: z.string().min(1, "Stok minimal wajib diisi").regex(/^\d+$/, "Stok minimal harus berupa angka"),
   category_id: z.string().optional(),
   sku: z.string().trim().optional(),
   image_url: z.string().trim().url("URL gambar tidak valid").optional().or(z.literal("")),
@@ -91,6 +94,7 @@ export default function Products() {
       description: "",
       price: "",
       stock_in_warehouse: "",
+      min_stock: "10",
       category_id: "",
       sku: "",
       image_url: "",
@@ -104,6 +108,7 @@ export default function Products() {
       description: "",
       price: "",
       stock_in_warehouse: "",
+      min_stock: "10",
       category_id: "",
       sku: "",
       image_url: "",
@@ -324,6 +329,7 @@ export default function Products() {
         description: values.description || null,
         price: parseFloat(values.price),
         stock_in_warehouse: parseInt(values.stock_in_warehouse),
+        min_stock: parseInt(values.min_stock),
         category_id: values.category_id || null,
         sku: values.sku || null,
         image_url: values.image_url || null,
@@ -349,6 +355,7 @@ export default function Products() {
     editForm.setValue("description", product.description || "");
     editForm.setValue("price", product.price.toString());
     editForm.setValue("stock_in_warehouse", product.stock_in_warehouse.toString());
+    editForm.setValue("min_stock", (product.min_stock || 10).toString());
     editForm.setValue("category_id", product.category_id || "");
     editForm.setValue("sku", product.sku || "");
     editForm.setValue("image_url", product.image_url || "");
@@ -366,6 +373,7 @@ export default function Products() {
           description: values.description || null,
           price: parseFloat(values.price),
           stock_in_warehouse: parseInt(values.stock_in_warehouse),
+          min_stock: parseInt(values.min_stock),
           category_id: values.category_id || null,
           sku: values.sku || null,
           image_url: values.image_url || null,
@@ -581,6 +589,23 @@ export default function Products() {
                       />
                     </div>
 
+                    <FormField
+                      control={form.control}
+                      name="min_stock"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Stok Minimal *</FormLabel>
+                          <FormControl>
+                            <Input type="text" placeholder="10" {...field} />
+                          </FormControl>
+                          <FormDescription className="text-xs">
+                            Peringatan akan muncul jika stok ≤ nilai ini
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
                     <div className="space-y-4">
                       <FormField
                         control={form.control}
@@ -738,6 +763,23 @@ export default function Products() {
                     )}
                   />
                 </div>
+
+                <FormField
+                  control={editForm.control}
+                  name="min_stock"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Stok Minimal *</FormLabel>
+                      <FormControl>
+                        <Input type="text" placeholder="10" {...field} />
+                      </FormControl>
+                      <FormDescription className="text-xs">
+                        Peringatan akan muncul jika stok ≤ nilai ini
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
                 <div className="space-y-4">
                   <FormField
@@ -919,13 +961,20 @@ export default function Products() {
 
         {/* Admin View with Tabs */}
         {isAdmin ? (
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="products" className="text-xs sm:text-sm">
-                <Package className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                Produk
-              </TabsTrigger>
-              <TabsTrigger value="production" className="text-xs sm:text-sm">
+          <>
+            {/* Low Stock Alert - Shown only for admins */}
+            <LowStockAlert 
+              products={products} 
+              onProductClick={handleEditProduct}
+            />
+
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="products" className="text-xs sm:text-sm">
+                  <Package className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                  Produk
+                </TabsTrigger>
+                <TabsTrigger value="production" className="text-xs sm:text-sm">
                 <Factory className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                 Produksi
               </TabsTrigger>
@@ -1015,6 +1064,7 @@ export default function Products() {
               <ProductionHistory />
             </TabsContent>
           </Tabs>
+          </>
         ) : null}
 
         {/* Return Dialog */}
