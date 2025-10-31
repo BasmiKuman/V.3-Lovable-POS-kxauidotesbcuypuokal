@@ -889,7 +889,7 @@ export default function Reports() {
                   <FileText className="w-4 h-4 mr-2" />
                   <div className="flex flex-col">
                     <span className="font-medium">PDF (.pdf)</span>
-                    <span className="text-xs text-muted-foreground">Ringkasan untuk atasan</span>
+                    <span className="text-xs text-muted-foreground">Ringkasan Penjualan</span>
                   </div>
                 </DropdownMenuItem>
               </DropdownMenuContent>
