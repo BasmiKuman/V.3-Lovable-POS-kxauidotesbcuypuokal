@@ -59,7 +59,15 @@ export function BulkReturnTab({ riderStock, pendingReturns, onReturnSuccess }: B
 
   const updateQuantity = (productId: string, quantity: string) => {
     const qty = parseInt(quantity);
-    if (!qty || qty < 1) return;
+    
+    // Don't allow 0 or negative
+    if (!quantity || qty < 1) {
+      const newSelected = new Map(selectedProducts);
+      newSelected.delete(productId);
+      setSelectedProducts(newSelected);
+      toast.error("Jumlah return minimal 1");
+      return;
+    }
 
     const stock = availableStock.find(s => s.product_id === productId);
     if (!stock) return;
@@ -82,6 +90,11 @@ export function BulkReturnTab({ riderStock, pendingReturns, onReturnSuccess }: B
 
     // Validate all quantities
     for (const [productId, quantity] of selectedProducts.entries()) {
+      if (quantity < 1) {
+        toast.error("Jumlah return tidak boleh 0 atau negatif");
+        return;
+      }
+      
       const stock = availableStock.find(s => s.product_id === productId);
       if (!stock || quantity > stock.quantity) {
         toast.error("Ada jumlah return yang tidak valid");
