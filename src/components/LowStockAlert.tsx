@@ -8,7 +8,7 @@ interface Product {
   id: string;
   name: string;
   stock_in_warehouse: number;
-  min_stock: number;
+  min_stock?: number;
   image_url: string | null;
   sku: string | null;
 }
@@ -21,7 +21,7 @@ interface LowStockAlertProps {
 export function LowStockAlert({ products, onProductClick }: LowStockAlertProps) {
   // Filter products that are at or below minimum stock
   const lowStockProducts = products.filter(
-    (p) => p.stock_in_warehouse <= p.min_stock
+    (p) => p.min_stock && p.stock_in_warehouse <= p.min_stock
   );
 
   if (lowStockProducts.length === 0) {
@@ -30,19 +30,19 @@ export function LowStockAlert({ products, onProductClick }: LowStockAlertProps) 
 
   // Sort by urgency: lowest stock percentage first
   const sortedProducts = [...lowStockProducts].sort((a, b) => {
-    const percentA = (a.stock_in_warehouse / a.min_stock) * 100;
-    const percentB = (b.stock_in_warehouse / b.min_stock) * 100;
+    const percentA = (a.stock_in_warehouse / (a.min_stock || 10)) * 100;
+    const percentB = (b.stock_in_warehouse / (b.min_stock || 10)) * 100;
     return percentA - percentB;
   });
 
   // Critical: stock is 0 or less than 50% of minimum
   const criticalCount = sortedProducts.filter(
-    (p) => p.stock_in_warehouse === 0 || p.stock_in_warehouse < p.min_stock * 0.5
+    (p) => p.stock_in_warehouse === 0 || p.stock_in_warehouse < (p.min_stock || 10) * 0.5
   ).length;
 
   // Warning: stock is between 50% and 100% of minimum
   const warningCount = sortedProducts.filter(
-    (p) => p.stock_in_warehouse >= p.min_stock * 0.5 && p.stock_in_warehouse <= p.min_stock
+    (p) => p.stock_in_warehouse >= (p.min_stock || 10) * 0.5 && p.stock_in_warehouse <= (p.min_stock || 10)
   ).length;
 
   return (
@@ -81,7 +81,8 @@ export function LowStockAlert({ products, onProductClick }: LowStockAlertProps) 
         <ScrollArea className="w-full">
           <div className="flex gap-3 pb-2">
             {sortedProducts.map((product) => {
-              const stockPercent = (product.stock_in_warehouse / product.min_stock) * 100;
+              const minStock = product.min_stock || 10;
+              const stockPercent = (product.stock_in_warehouse / minStock) * 100;
               const isCritical = product.stock_in_warehouse === 0 || stockPercent < 50;
               
               return (
@@ -131,7 +132,7 @@ export function LowStockAlert({ products, onProductClick }: LowStockAlertProps) 
                               Stok: {product.stock_in_warehouse}
                             </span>
                             <span className="text-muted-foreground">
-                              Min: {product.min_stock}
+                              Min: {minStock}
                             </span>
                           </div>
 
@@ -171,7 +172,7 @@ export function LowStockAlert({ products, onProductClick }: LowStockAlertProps) 
 
         {/* Action Hint */}
         <p className="text-xs text-muted-foreground mt-3 text-center">
-          💡 Klik produk untuk mengedit dan menambah stok produksi
+          💡 Klik produk untuk menambah produksi dan mencatat ke history
         </p>
       </CardContent>
     </Card>

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { BottomNav } from "@/components/BottomNav";
 import { LowStockAlert } from "@/components/LowStockAlert";
+import { LoadingScreen } from "@/components/LoadingScreen";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -25,7 +26,7 @@ interface Product {
   name: string;
   price: number;
   stock_in_warehouse: number;
-  min_stock: number;
+  min_stock?: number;
   description: string | null;
   image_url: string | null;
   sku: string | null;
@@ -85,6 +86,7 @@ export default function Products() {
   const [returnNotes, setReturnNotes] = useState("");
   const [pendingReturns, setPendingReturns] = useState<Set<string>>(new Set()); // Track products with pending returns
   const [productionDialogOpen, setProductionDialogOpen] = useState(false);
+  const [selectedProductForProduction, setSelectedProductForProduction] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("products");
 
   const form = useForm<z.infer<typeof productSchema>>({
@@ -473,12 +475,25 @@ export default function Products() {
     }
   };
 
+  const handleLowStockProductClick = (product: Product) => {
+    // Switch to production tab
+    setActiveTab("production");
+    
+    // Set selected product for production dialog
+    setSelectedProductForProduction(product.id);
+    
+    // Open production dialog
+    setProductionDialogOpen(true);
+    
+    // Show helpful toast
+    toast.info(`Menambah produksi untuk: ${product.name}`, {
+      description: `Stok saat ini: ${product.stock_in_warehouse} | Min: ${product.min_stock}`,
+      duration: 3000,
+    });
+  };
+
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Package className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    );
+    return <LoadingScreen message="Memuat produk..." />;
   }
 
   return (
@@ -965,7 +980,7 @@ export default function Products() {
             {/* Low Stock Alert - Shown only for admins */}
             <LowStockAlert 
               products={products} 
-              onProductClick={handleEditProduct}
+              onProductClick={handleLowStockProductClick}
             />
 
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -1114,9 +1129,16 @@ export default function Products() {
         {/* Add Production Dialog */}
         <AddProductionDialog
           open={productionDialogOpen}
-          onOpenChange={setProductionDialogOpen}
+          onOpenChange={(open) => {
+            setProductionDialogOpen(open);
+            // Reset selected product when dialog closes
+            if (!open) {
+              setSelectedProductForProduction(null);
+            }
+          }}
           products={products}
           onSuccess={refreshProducts}
+          preSelectedProductId={selectedProductForProduction}
         />
       </div>
 
