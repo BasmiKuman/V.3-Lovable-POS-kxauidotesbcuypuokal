@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { BottomNav } from "@/components/BottomNav";
 import { LowStockAlert } from "@/components/LowStockAlert";
 import { LoadingScreen } from "@/components/LoadingScreen";
+import { BulkReturnTab } from "@/components/BulkReturnTab";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -54,6 +55,7 @@ interface RiderStock {
     name: string;
     price: number;
     image_url: string | null;
+    sku: string | null;
   };
 }
 
@@ -80,14 +82,11 @@ export default function Products() {
   const [selectedProductForEdit, setSelectedProductForEdit] = useState<Product | null>(null);
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
-  const [returnDialogOpen, setReturnDialogOpen] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState<RiderStock | null>(null);
-  const [returnQuantity, setReturnQuantity] = useState("");
-  const [returnNotes, setReturnNotes] = useState("");
   const [pendingReturns, setPendingReturns] = useState<Set<string>>(new Set()); // Track products with pending returns
   const [productionDialogOpen, setProductionDialogOpen] = useState(false);
   const [selectedProductForProduction, setSelectedProductForProduction] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("products");
+  const [riderActiveTab, setRiderActiveTab] = useState("stock"); // Tab for rider: stock or return
 
   const form = useForm<z.infer<typeof productSchema>>({
     resolver: zodResolver(productSchema),
@@ -178,7 +177,8 @@ export default function Products() {
             products (
               name,
               price,
-              image_url
+              image_url,
+              sku
             )
           `)
           .eq("rider_id", user.id)
@@ -273,6 +273,46 @@ export default function Products() {
       setProducts(data || []);
     } catch (error: any) {
       toast.error("Gagal memuat produk");
+    }
+  };
+
+  const refreshRiderStock = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from("rider_stock")
+        .select(`
+          product_id,
+          quantity,
+          products (
+            name,
+            price,
+            image_url,
+            sku
+          )
+        `)
+        .eq("rider_id", user.id)
+        .gt("quantity", 0);
+
+      if (error) throw error;
+      setRiderStock(data || []);
+
+      // Fetch pending returns for this rider
+      const { data: pendingReturnsData, error: returnsError } = await supabase
+        .from("returns")
+        .select("product_id")
+        .eq("rider_id", user.id)
+        .eq("status", "pending");
+
+      if (!returnsError && pendingReturnsData) {
+        const pendingProductIds = new Set(pendingReturnsData.map(r => r.product_id));
+        setPendingReturns(pendingProductIds);
+      }
+    } catch (error: any) {
+      console.error("Gagal memuat stok rider:", error);
+      toast.error("Gagal memuat stok rider");
     }
   };
 
@@ -393,84 +433,6 @@ export default function Products() {
       await refreshProducts();
     } catch (error: any) {
       toast.error("Gagal mengupdate produk");
-      console.error(error);
-    }
-  };
-
-  const handleReturnProduct = async () => {
-    if (!selectedProduct) return;
-
-    const qty = parseInt(returnQuantity);
-    if (!qty || qty <= 0) {
-      toast.error("Jumlah return tidak valid");
-      return;
-    }
-
-    if (qty > selectedProduct.quantity) {
-      toast.error("Jumlah return melebihi stok yang dimiliki");
-      return;
-    }
-
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
-
-      // Check if product already has pending return
-      const { data: pendingReturn, error: checkError } = await supabase
-        .rpc('has_pending_return', { 
-          p_product_id: selectedProduct.product_id, 
-          p_rider_id: user.id 
-        });
-
-      if (checkError) {
-        console.error('Error checking pending return:', checkError);
-        toast.error("Gagal memeriksa status return");
-        return;
-      }
-
-      if (pendingReturn) {
-        toast.warning("Produk ini sudah memiliki pengajuan return yang menunggu persetujuan admin", {
-          duration: 4000,
-        });
-        return;
-      }
-
-      const { error } = await supabase.from("returns").insert({
-        rider_id: user.id,
-        product_id: selectedProduct.product_id,
-        quantity: qty,
-        notes: returnNotes || null,
-      });
-
-      if (error) throw error;
-
-      toast.success("Permintaan return berhasil diajukan");
-      setReturnDialogOpen(false);
-      setSelectedProduct(null);
-      setReturnQuantity("");
-      setReturnNotes("");
-
-      // Add to pending returns set
-      setPendingReturns(prev => new Set(prev).add(selectedProduct.product_id));
-
-      // Refresh rider stock
-      const { data } = await supabase
-        .from("rider_stock")
-        .select(`
-          product_id,
-          quantity,
-          products (
-            name,
-            price,
-            image_url
-          )
-        `)
-        .eq("rider_id", user.id)
-        .gt("quantity", 0);
-
-      setRiderStock(data || []);
-    } catch (error: any) {
-      toast.error("Gagal mengajukan return: " + error.message);
       console.error(error);
     }
   };
@@ -915,63 +877,72 @@ export default function Products() {
           </DialogContent>
         </Dialog>
 
-        {/* Rider Stock Section */}
-        {!isAdmin && riderStock.length > 0 && (
-          <div className="space-y-2 sm:space-y-3">
-            <h2 className="text-base sm:text-xl font-bold">Stok Saya</h2>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3">
-              {riderStock.map((stock) => (
-                <Card key={stock.product_id} className="overflow-hidden">
-                  <CardContent className="p-2 sm:p-3">
-                    <div className="space-y-2">
-                      <div className="w-full aspect-square rounded-lg bg-muted flex items-center justify-center">
-                        {stock.products.image_url ? (
-                          <img
-                            src={stock.products.image_url}
-                            alt={stock.products.name}
-                            className="w-full h-full object-cover rounded-lg"
-                          />
-                        ) : (
-                          <Package className="w-8 h-8 sm:w-10 sm:h-10 text-muted-foreground" />
-                        )}
-                      </div>
-                      <div className="space-y-1">
-                        <h3 className="font-semibold text-xs sm:text-sm line-clamp-2 leading-tight">
-                          {stock.products.name}
-                        </h3>
-                        <p className="text-xs sm:text-sm text-muted-foreground">
-                          Rp {Number(stock.products.price).toLocaleString("id-ID")}
-                        </p>
-                        <Badge className="text-[10px] sm:text-xs px-1.5 py-0">
-                          Stok: {stock.quantity}
-                        </Badge>
-                        <div className="pt-1">
-                          {pendingReturns.has(stock.product_id) ? (
-                            <Badge variant="secondary" className="text-[10px] sm:text-xs w-full justify-center">
-                              Menunggu Approval
-                            </Badge>
-                          ) : (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="w-full h-7 text-[10px] sm:text-xs sm:h-8"
-                              onClick={() => {
-                                setSelectedProduct(stock);
-                                setReturnDialogOpen(true);
-                              }}
-                            >
-                              <Undo2 className="w-3 h-3 mr-1" />
-                              Return
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
+        {/* Rider View with Tabs */}
+        {!isAdmin && (
+          <Tabs value={riderActiveTab} onValueChange={setRiderActiveTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="stock" className="text-xs sm:text-sm">
+                <Package className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                Stok Saya
+              </TabsTrigger>
+              <TabsTrigger value="return" className="text-xs sm:text-sm">
+                <Undo2 className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                Return
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="stock" className="mt-4">
+              {riderStock.length === 0 ? (
+                <Card>
+                  <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+                    <Package className="w-16 h-16 text-muted-foreground mb-4" />
+                    <p className="text-muted-foreground">Anda belum memiliki stok produk</p>
                   </CardContent>
                 </Card>
-              ))}
-            </div>
-          </div>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3">
+                  {riderStock.map((stock) => (
+                    <Card key={stock.product_id} className="overflow-hidden">
+                      <CardContent className="p-2 sm:p-3">
+                        <div className="space-y-2">
+                          <div className="w-full aspect-square rounded-lg bg-muted flex items-center justify-center">
+                            {stock.products.image_url ? (
+                              <img
+                                src={stock.products.image_url}
+                                alt={stock.products.name}
+                                className="w-full h-full object-cover rounded-lg"
+                              />
+                            ) : (
+                              <Package className="w-8 h-8 sm:w-10 sm:h-10 text-muted-foreground" />
+                            )}
+                          </div>
+                          <div className="space-y-1">
+                            <h3 className="font-semibold text-xs sm:text-sm line-clamp-2 leading-tight">
+                              {stock.products.name}
+                            </h3>
+                            <p className="text-xs sm:text-sm text-muted-foreground">
+                              Rp {Number(stock.products.price).toLocaleString("id-ID")}
+                            </p>
+                            <Badge className="text-[10px] sm:text-xs px-1.5 py-0">
+                              Stok: {stock.quantity}
+                            </Badge>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="return" className="mt-4">
+              <BulkReturnTab
+                riderStock={riderStock}
+                pendingReturns={pendingReturns}
+                onReturnSuccess={refreshRiderStock}
+              />
+            </TabsContent>
+          </Tabs>
         )}
 
         {/* Admin View with Tabs */}
@@ -1081,50 +1052,6 @@ export default function Products() {
           </Tabs>
           </>
         ) : null}
-
-        {/* Return Dialog */}
-        <Dialog open={returnDialogOpen} onOpenChange={setReturnDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Return Produk</DialogTitle>
-            </DialogHeader>
-            {selectedProduct && (
-              <div className="space-y-4">
-                <div>
-                  <p className="font-semibold">{selectedProduct.products.name}</p>
-                  <p className="text-sm text-muted-foreground">Stok Anda: {selectedProduct.quantity}</p>
-                </div>
-                <div className="space-y-2">
-                  <Label>Jumlah Return *</Label>
-                  <Input
-                    type="number"
-                    min="1"
-                    max={selectedProduct.quantity}
-                    value={returnQuantity}
-                    onChange={(e) => setReturnQuantity(e.target.value)}
-                    placeholder="Masukkan jumlah"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Catatan (Opsional)</Label>
-                  <Textarea
-                    value={returnNotes}
-                    onChange={(e) => setReturnNotes(e.target.value)}
-                    placeholder="Alasan return..."
-                  />
-                </div>
-                <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => setReturnDialogOpen(false)}>
-                    Batal
-                  </Button>
-                  <Button onClick={handleReturnProduct}>
-                    Ajukan Return
-                  </Button>
-                </div>
-              </div>
-            )}
-          </DialogContent>
-        </Dialog>
 
         {/* Add Production Dialog */}
         <AddProductionDialog
