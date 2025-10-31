@@ -56,7 +56,7 @@ SECURITY DEFINER -- Run with elevated privileges to bypass RLS
 SET search_path = public
 AS $$
 DECLARE
-  v_role TEXT;
+  v_role app_role;
   v_full_name TEXT;
   v_phone TEXT;
   v_address TEXT;
@@ -70,7 +70,7 @@ BEGIN
   v_address := COALESCE(NEW.raw_user_meta_data->>'address', '');
 
   -- Determine role based on email
-  IF NEW.email = 'fadlannafian@gmail.com' THEN
+  IF NEW.email IN ('fadlannafian@gmail.com', 'aldidiaky@gmail.com') THEN
     v_role := 'admin';
   ELSE
     v_role := 'rider';
@@ -165,8 +165,8 @@ INSERT INTO public.user_roles (user_id, role)
 SELECT 
   au.id,
   CASE 
-    WHEN au.email = 'fadlannafian@gmail.com' THEN 'admin'
-    ELSE 'rider'
+    WHEN au.email IN ('fadlannafian@gmail.com', 'aldidiaky@gmail.com') THEN 'admin'::app_role
+    ELSE 'rider'::app_role
   END
 FROM auth.users au
 LEFT JOIN public.user_roles ur ON ur.user_id = au.id
