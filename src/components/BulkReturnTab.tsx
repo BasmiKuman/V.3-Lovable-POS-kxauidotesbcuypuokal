@@ -90,13 +90,19 @@ export function BulkReturnTab({ riderStock, pendingReturns, onReturnSuccess }: B
   };
 
   const updateQuantity = (productId: string, quantity: string) => {
+    const newSelected = new Map(selectedProducts);
+    
+    // Allow empty string temporarily (user is typing)
+    if (quantity === '') {
+      newSelected.set(productId, 0);
+      setSelectedProducts(newSelected);
+      return;
+    }
+    
     const qty = parseInt(quantity);
     
-    // Don't allow 0 or negative
-    if (!quantity || qty < 1) {
-      const newSelected = new Map(selectedProducts);
-      newSelected.delete(productId);
-      setSelectedProducts(newSelected);
+    // Check if valid number
+    if (isNaN(qty) || qty < 1) {
       toast.error("Jumlah return minimal 1");
       return;
     }
@@ -109,7 +115,6 @@ export function BulkReturnTab({ riderStock, pendingReturns, onReturnSuccess }: B
       return;
     }
 
-    const newSelected = new Map(selectedProducts);
     newSelected.set(productId, qty);
     setSelectedProducts(newSelected);
   };
@@ -314,8 +319,9 @@ export function BulkReturnTab({ riderStock, pendingReturns, onReturnSuccess }: B
                             type="number"
                             min="1"
                             max={stock.quantity}
-                            value={returnQty}
+                            value={returnQty === 0 ? '' : returnQty}
                             onChange={(e) => updateQuantity(stock.product_id, e.target.value)}
+                            onFocus={(e) => e.target.select()}
                             className="w-16 sm:w-20 text-center sm:text-right text-sm font-semibold mx-auto sm:ml-auto sm:mr-0"
                             placeholder={stock.quantity.toString()}
                           />
