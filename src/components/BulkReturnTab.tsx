@@ -71,6 +71,24 @@ export function BulkReturnTab({ riderStock, pendingReturns, onReturnSuccess }: B
     });
   };
 
+  const returnAllProducts = () => {
+    const newSelected = new Map<string, number>();
+    
+    availableStock.forEach(stock => {
+      newSelected.set(stock.product_id, stock.quantity);
+    });
+    
+    setSelectedProducts(newSelected);
+    
+    const totalItems = availableStock.length;
+    const totalQty = availableStock.reduce((sum, stock) => sum + stock.quantity, 0);
+    
+    toast.success(`${totalItems} produk terpilih untuk return`, {
+      description: `Total ${totalQty} pcs akan dikembalikan`,
+      duration: 3000,
+    });
+  };
+
   const updateQuantity = (productId: string, quantity: string) => {
     const qty = parseInt(quantity);
     
@@ -196,12 +214,26 @@ export function BulkReturnTab({ riderStock, pendingReturns, onReturnSuccess }: B
       {/* Products Table */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base sm:text-lg">
-            Pilih Produk untuk Return
-          </CardTitle>
-          <p className="text-xs sm:text-sm text-muted-foreground">
-            Centang produk dan masukkan jumlah yang ingin direturn
-          </p>
+          <div className="flex items-start sm:items-center justify-between gap-2 flex-col sm:flex-row">
+            <div>
+              <CardTitle className="text-base sm:text-lg">
+                Pilih Produk untuk Return
+              </CardTitle>
+              <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+                Centang produk dan masukkan jumlah yang ingin direturn
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={returnAllProducts}
+              disabled={availableStock.length === 0}
+              className="w-full sm:w-auto whitespace-nowrap"
+            >
+              <Package className="w-4 h-4 mr-2" />
+              Return Semua Produk
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="p-0 sm:p-6">
           <div className="overflow-x-auto">
