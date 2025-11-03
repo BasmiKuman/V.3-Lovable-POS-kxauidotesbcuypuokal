@@ -173,33 +173,16 @@ export default function Dashboard() {
 
       if (updateProductError) throw updateProductError;
 
-      // Update rider stock (deduct returned quantity)
-      const { data: riderStock } = await supabase
+      // Delete rider stock completely (return means rider has 0 stock for this product)
+      const { error: deleteStockError } = await supabase
         .from("rider_stock")
-        .select("quantity")
+        .delete()
         .eq("rider_id", returnItem.rider_id)
-        .eq("product_id", returnItem.product_id)
-        .single();
+        .eq("product_id", returnItem.product_id);
 
-      if (riderStock) {
-        const newQuantity = riderStock.quantity - returnItem.quantity;
-        if (newQuantity > 0) {
-          const { error: updateStockError } = await supabase
-            .from("rider_stock")
-            .update({ quantity: newQuantity })
-            .eq("rider_id", returnItem.rider_id)
-            .eq("product_id", returnItem.product_id);
-
-          if (updateStockError) throw updateStockError;
-        } else {
-          const { error: deleteStockError } = await supabase
-            .from("rider_stock")
-            .delete()
-            .eq("rider_id", returnItem.rider_id)
-            .eq("product_id", returnItem.product_id);
-
-          if (deleteStockError) throw deleteStockError;
-        }
+      if (deleteStockError) {
+        console.error("Error deleting rider stock:", deleteStockError);
+        // Don't throw error if stock doesn't exist, just log it
       }
 
       // Save to return history
