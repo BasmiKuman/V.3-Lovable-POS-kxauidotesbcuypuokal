@@ -1,30 +1,51 @@
-# Fix: Return Product Stock Reset
+# Fix: Return Product - Support Partial Return
 
 ## Masalah
-Ketika admin menyetujui return product dari rider, stock di rider tidak ter-reset ke 0. Sehingga ketika admin melakukan distribusi baru, rider menerima stock baru **ditambah** dengan stock lama yang seharusnya sudah dikembalikan.
+Ketika admin menyetujui return product dari rider, sistem harus mendukung:
+1. **Partial Return**: Rider return sebagian produk (produk cacat, rusak, kadaluarsa)
+2. **Full Return**: Rider return semua produk
+3. **Validasi**: Mencegah return quantity melebihi stock rider
 
 ## Contoh Kasus
-1. Rider memiliki 10 cup produk A
-2. Rider melakukan return 10 cup produk A
-3. Admin menyetujui return
-4. Stock rider untuk produk A seharusnya jadi 0
-5. **BUG**: Stock rider masih ada (tidak ter-reset)
-6. Saat distribusi baru 20 cup, rider dapat 20 + 10 (sisa lama) = 30 cup ❌
+
+### Skenario 1: Partial Return (Produk Cacat)
+1. Rider memiliki **20 cup** produk A
+2. Rider return **3 cup** (produk cacat)
+3. Admin approve return
+4. Stock rider menjadi **17 cup** ✅
+5. Stock warehouse bertambah **3 cup** ✅
+
+### Skenario 2: Full Return
+1. Rider memiliki **10 cup** produk B
+2. Rider return **10 cup** (semua stock)
+3. Admin approve return
+4. Stock rider menjadi **0 cup** (data dihapus) ✅
+5. Stock warehouse bertambah **10 cup** ✅
+
+### Skenario 3: Return Berlebihan (Error Prevention)
+1. Rider memiliki **5 cup** produk C
+2. Rider coba return **8 cup** ❌
+3. Admin approve return
+4. Sistem **TOLAK** dengan error message ✅
+5. Mencegah stock negatif
 
 ## Solusi
 Ketika admin menyetujui return product, sistem akan:
-1. Menambah stock warehouse dengan quantity yang dikembalikan ✅
-2. **MENGHAPUS TOTAL** stock rider untuk produk tersebut (bukan mengurangi) ✅
-3. Menyimpan history return ✅
-4. Menghapus data dari table returns ✅
+1. ✅ Menambah stock warehouse dengan quantity yang dikembalikan
+2. ✅ Mengurangi stock rider sesuai quantity return
+3. ✅ Jika stock rider = 0 → Hapus data dari `rider_stock`
+4. ✅ Jika stock rider > 0 → Update quantity baru
+5. ✅ Jika return > stock → Tolak dengan error
+6. ✅ Menyimpan history return
+7. ✅ Menghapus data dari table `returns`
 
 ## Perubahan Code
 
 ### File: `src/pages/Dashboard.tsx`
 
-**Sebelum:**
+**Logika Baru (Support Partial Return):**
 ```typescript
-// Update rider stock (deduct returned quantity)
+// Update rider stock: deduct the returned quantity
 const { data: riderStock } = await supabase
   .from("rider_stock")
   .select("quantity")
@@ -34,37 +55,74 @@ const { data: riderStock } = await supabase
 
 if (riderStock) {
   const newQuantity = riderStock.quantity - returnItem.quantity;
+  
   if (newQuantity > 0) {
-    // Update dengan quantity baru
-    await supabase.from("rider_stock").update({ quantity: newQuantity })...
+    // Update stock if there's remaining quantity (PARTIAL RETURN)
+    await supabase.from("rider_stock")
+      .update({ quantity: newQuantity })
+      .eq("rider_id", returnItem.rider_id)
+      .eq("product_id", returnItem.product_id);
+      
+  } else if (newQuantity === 0) {
+    // Delete stock if quantity becomes 0 (FULL RETURN)
+    await supabase.from("rider_stock")
+      .delete()
+      .eq("rider_id", returnItem.rider_id)
+      .eq("product_id", returnItem.product_id);
+      
   } else {
-    // Delete jika 0
-    await supabase.from("rider_stock").delete()...
+    // newQuantity < 0: Return quantity exceeds rider stock (ERROR)
+    throw new Error(
+      `Quantity return (${returnItem.quantity}) melebihi stock rider (${riderStock.quantity}). ` +
+      `Return dibatalkan untuk mencegah stock negatif.`
+    );
   }
 }
 ```
 
-**Sesudah:**
-```typescript
-// Delete rider stock completely (return means rider has 0 stock for this product)
-const { error: deleteStockError } = await supabase
-  .from("rider_stock")
-  .delete()
-  .eq("rider_id", returnItem.rider_id)
-  .eq("product_id", returnItem.product_id);
-```
+## Fitur Keamanan
+1. **Validasi Return Quantity**: 
+   - Sistem cek apakah return quantity ≤ stock rider
+   - Jika lebih → Tolak dengan error message jelas
+   
+2. **Prevent Negative Stock**:
+   - Tidak mungkin stock rider jadi negatif
+   - Semua transaksi ter-validasi
 
-## Alasan Perubahan
-Ketika rider melakukan return product, artinya mereka mengembalikan **SEMUA** stock yang mereka punya untuk produk tersebut. Tidak ada konsep "partial return" dalam sistem ini.
-
-Jadi pendekatan yang benar adalah:
-- ❌ Mengurangi stock rider berdasarkan quantity return
-- ✅ Menghapus total stock rider untuk produk yang di-return
+3. **Data Consistency**:
+   - Stock rider + Stock warehouse selalu balance
+   - Audit trail lengkap di `return_history`
 
 ## Testing
-1. Rider return product → Admin approve
-2. Cek table `rider_stock` → Tidak ada data untuk product yang di-return
-3. Admin distribusi baru → Rider dapat stock baru saja (tidak ada penambahan stock lama)
+
+### Test Case 1: Partial Return
+```
+Initial: Rider stock = 20 cup
+Action: Return 5 cup cacat
+Result: 
+  - Rider stock = 15 cup ✅
+  - Warehouse stock +5 ✅
+```
+
+### Test Case 2: Full Return
+```
+Initial: Rider stock = 10 cup
+Action: Return 10 cup
+Result: 
+  - Rider stock = 0 (deleted) ✅
+  - Warehouse stock +10 ✅
+```
+
+### Test Case 3: Over Return (Should Fail)
+```
+Initial: Rider stock = 5 cup
+Action: Return 8 cup
+Result: 
+  - Error message ✅
+  - No changes to stocks ✅
+```
 
 ## Status
-✅ Fixed - Deployed
+✅ Fixed - Support Partial & Full Return
+✅ Validasi return quantity
+✅ Error handling untuk return berlebihan

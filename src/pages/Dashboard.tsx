@@ -173,16 +173,48 @@ export default function Dashboard() {
 
       if (updateProductError) throw updateProductError;
 
-      // Delete rider stock completely (return means rider has 0 stock for this product)
-      const { error: deleteStockError } = await supabase
+      // Update rider stock: deduct the returned quantity
+      const { data: riderStock } = await supabase
         .from("rider_stock")
-        .delete()
+        .select("quantity")
         .eq("rider_id", returnItem.rider_id)
-        .eq("product_id", returnItem.product_id);
+        .eq("product_id", returnItem.product_id)
+        .single();
 
-      if (deleteStockError) {
-        console.error("Error deleting rider stock:", deleteStockError);
-        // Don't throw error if stock doesn't exist, just log it
+      if (riderStock) {
+        const newQuantity = riderStock.quantity - returnItem.quantity;
+        
+        if (newQuantity > 0) {
+          // Update stock if there's remaining quantity
+          const { error: updateStockError } = await supabase
+            .from("rider_stock")
+            .update({ quantity: newQuantity })
+            .eq("rider_id", returnItem.rider_id)
+            .eq("product_id", returnItem.product_id);
+
+          if (updateStockError) throw updateStockError;
+        } else if (newQuantity === 0) {
+          // Delete stock if quantity becomes 0
+          const { error: deleteStockError } = await supabase
+            .from("rider_stock")
+            .delete()
+            .eq("rider_id", returnItem.rider_id)
+            .eq("product_id", returnItem.product_id);
+
+          if (deleteStockError) throw deleteStockError;
+        } else {
+          // newQuantity < 0: Return quantity exceeds rider stock
+          throw new Error(
+            `Quantity return (${returnItem.quantity}) melebihi stock rider (${riderStock.quantity}). ` +
+            `Return dibatalkan untuk mencegah stock negatif.`
+          );
+        }
+      } else {
+        // No rider stock found - this shouldn't happen in normal flow
+        throw new Error(
+          `Stock rider tidak ditemukan untuk produk ini. ` +
+          `Kemungkinan data tidak sinkron.`
+        );
       }
 
       // Save to return history
