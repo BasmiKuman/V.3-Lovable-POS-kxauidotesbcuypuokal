@@ -26,8 +26,8 @@ UNION ALL
 SELECT 
     'transaction_items' as table_name,
     COUNT(*) as total_records,
-    MIN(ti.created_at) as earliest_date,
-    MAX(ti.created_at) as latest_date,
+    MIN(t.created_at) as earliest_date,
+    MAX(t.created_at) as latest_date,
     SUM(ti.quantity * ti.price_at_time) as total_amount
 FROM transaction_items ti
 INNER JOIN transactions t ON t.id = ti.transaction_id
@@ -51,8 +51,8 @@ UNION ALL
 SELECT 
     'distribution_items' as table_name,
     COUNT(*) as total_records,
-    MIN(di.created_at) as earliest_date,
-    MAX(di.created_at) as latest_date,
+    MIN(d.created_at) as earliest_date,
+    MAX(d.created_at) as latest_date,
     NULL as total_amount
 FROM distribution_items di
 INNER JOIN distributions d ON d.id = di.distribution_id
