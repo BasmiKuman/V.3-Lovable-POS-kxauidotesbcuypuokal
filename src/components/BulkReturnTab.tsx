@@ -57,6 +57,20 @@ export function BulkReturnTab({ riderStock, pendingReturns, onReturnSuccess }: B
     setSelectedProducts(newSelected);
   };
 
+  const returnAll = (productId: string) => {
+    const stock = availableStock.find(s => s.product_id === productId);
+    if (!stock) return;
+    
+    const newSelected = new Map(selectedProducts);
+    newSelected.set(productId, stock.quantity);
+    setSelectedProducts(newSelected);
+    
+    toast.success(`Return semua (${stock.quantity} pcs)`, {
+      description: stock.products.name,
+      duration: 2000,
+    });
+  };
+
   const updateQuantity = (productId: string, quantity: string) => {
     const qty = parseInt(quantity);
     
@@ -194,10 +208,11 @@ export function BulkReturnTab({ riderStock, pendingReturns, onReturnSuccess }: B
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-12"></TableHead>
+                  <TableHead className="w-8 sm:w-12"></TableHead>
                   <TableHead>Produk</TableHead>
                   <TableHead className="text-right">Stok</TableHead>
-                  <TableHead className="text-right w-32">Jumlah Return</TableHead>
+                  <TableHead className="text-center sm:text-right w-24 sm:w-32">Jumlah Return</TableHead>
+                  <TableHead className="w-20 sm:w-24"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -207,15 +222,35 @@ export function BulkReturnTab({ riderStock, pendingReturns, onReturnSuccess }: B
 
                   return (
                     <TableRow key={stock.product_id} className={isSelected ? "bg-primary/5" : ""}>
-                      <TableCell>
-                        <Checkbox
-                          checked={isSelected}
-                          onCheckedChange={(checked) => toggleProduct(stock.product_id, checked as boolean)}
-                        />
+                      <TableCell className="py-2 sm:py-4">
+                        <div 
+                          onClick={() => toggleProduct(stock.product_id, !isSelected)}
+                          className="cursor-pointer flex items-center justify-center"
+                        >
+                          {/* Mobile: Circle checkbox */}
+                          <div className="sm:hidden">
+                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
+                              isSelected 
+                                ? 'border-primary bg-primary' 
+                                : 'border-muted-foreground/30 bg-background'
+                            }`}>
+                              {isSelected && (
+                                <div className="w-2.5 h-2.5 rounded-full bg-primary-foreground" />
+                              )}
+                            </div>
+                          </div>
+                          {/* Desktop: Regular checkbox */}
+                          <div className="hidden sm:block">
+                            <Checkbox
+                              checked={isSelected}
+                              onCheckedChange={(checked) => toggleProduct(stock.product_id, checked as boolean)}
+                            />
+                          </div>
+                        </div>
                       </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+                      <TableCell className="py-2 sm:py-4">
+                        <div className="flex items-center gap-2 sm:gap-3">
+                          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
                             {stock.products.image_url ? (
                               <img
                                 src={stock.products.image_url}
@@ -223,25 +258,25 @@ export function BulkReturnTab({ riderStock, pendingReturns, onReturnSuccess }: B
                                 className="w-full h-full object-cover rounded-lg"
                               />
                             ) : (
-                              <Package className="w-6 h-6 text-muted-foreground" />
+                              <Package className="w-5 h-5 sm:w-6 sm:h-6 text-muted-foreground" />
                             )}
                           </div>
                           <div className="min-w-0">
-                            <p className="font-medium text-sm line-clamp-1">
+                            <p className="font-medium text-xs sm:text-sm line-clamp-1">
                               {stock.products.name}
                             </p>
                             {stock.products.sku && (
-                              <p className="text-xs text-muted-foreground">
+                              <p className="text-[10px] sm:text-xs text-muted-foreground">
                                 SKU: {stock.products.sku}
                               </p>
                             )}
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell className="text-right">
-                        <Badge variant="outline">{stock.quantity}</Badge>
+                      <TableCell className="text-right py-2 sm:py-4">
+                        <Badge variant="outline" className="text-xs">{stock.quantity}</Badge>
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-center sm:text-right py-2 sm:py-4">
                         {isSelected ? (
                           <Input
                             type="number"
@@ -249,10 +284,23 @@ export function BulkReturnTab({ riderStock, pendingReturns, onReturnSuccess }: B
                             max={stock.quantity}
                             value={returnQty}
                             onChange={(e) => updateQuantity(stock.product_id, e.target.value)}
-                            className="w-20 text-right ml-auto"
+                            className="w-16 sm:w-20 text-center sm:text-right text-sm font-semibold mx-auto sm:ml-auto sm:mr-0"
+                            placeholder={stock.quantity.toString()}
                           />
                         ) : (
                           <span className="text-muted-foreground text-sm">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="py-2 sm:py-4">
+                        {isSelected && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => returnAll(stock.product_id)}
+                            className="h-8 px-2 sm:px-3 text-xs whitespace-nowrap"
+                          >
+                            Semua
+                          </Button>
                         )}
                       </TableCell>
                     </TableRow>
