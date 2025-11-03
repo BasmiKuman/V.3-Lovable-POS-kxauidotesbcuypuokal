@@ -28,7 +28,7 @@ SELECT
     COUNT(*) as total_records,
     MIN(t.created_at) as earliest_date,
     MAX(t.created_at) as latest_date,
-    SUM(ti.quantity * ti.price_at_time) as total_amount
+    SUM(ti.subtotal) as total_amount
 FROM transaction_items ti
 INNER JOIN transactions t ON t.id = ti.transaction_id
 WHERE t.created_at >= '2025-10-01 00:00:00'
