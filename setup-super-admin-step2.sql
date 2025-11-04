@@ -1,15 +1,7 @@
 -- ============================================================================
--- SETUP SUPER ADMIN SYSTEM - PART 1
--- Add 'super_admin' to ENUM type
--- ⚠️ JALANKAN SCRIPT INI DULU, TUNGGU SELESAI, BARU JALANKAN PART 2!
--- ============================================================================
-
--- Step 0: Add 'super_admin' to ENUM type
--- HARUS DIJALANKAN TERPISAH DARI STEP LAINNYA!
-ALTER TYPE app_role ADD VALUE IF NOT EXISTS 'super_admin';
-
--- ============================================================================
--- SETELAH STEP 0 SELESAI, TUNGGU 2-3 DETIK, LALU JALANKAN SCRIPT DIBAWAH INI:
+-- SETUP SUPER ADMIN - STEP 2
+-- Setup super admin user & permissions
+-- ⚠️ JALANKAN INI SETELAH STEP 1 SELESAI!
 -- ============================================================================
 
 -- Step 1: Update role fadlannafian menjadi super_admin
@@ -39,7 +31,7 @@ FROM user_roles ur
 JOIN profiles p ON p.user_id = ur.user_id
 GROUP BY ur.role
 ORDER BY 
-    CASE ur.role
+    CASE ur.role::text
         WHEN 'super_admin' THEN 1
         WHEN 'admin' THEN 2
         WHEN 'rider' THEN 3
@@ -54,6 +46,7 @@ ORDER BY
 DROP POLICY IF EXISTS "Users can view own profile" ON profiles;
 DROP POLICY IF EXISTS "Admin can view all profiles" ON profiles;
 DROP POLICY IF EXISTS "Super admin can view all profiles" ON profiles;
+DROP POLICY IF EXISTS "Admin and Super admin can view all profiles" ON profiles;
 
 CREATE POLICY "Users can view own profile"
 ON profiles FOR SELECT
@@ -67,13 +60,14 @@ USING (
     EXISTS (
         SELECT 1 FROM user_roles
         WHERE user_roles.user_id = auth.uid()
-        AND user_roles.role IN ('admin', 'super_admin')
+        AND user_roles.role IN ('admin'::app_role, 'super_admin'::app_role)
     )
 );
 
 -- Policy untuk user_roles - Super admin bisa lihat semua
 DROP POLICY IF EXISTS "Admin can view roles" ON user_roles;
 DROP POLICY IF EXISTS "Super admin can view all roles" ON user_roles;
+DROP POLICY IF EXISTS "Admin and Super admin can view roles" ON user_roles;
 
 CREATE POLICY "Admin and Super admin can view roles"
 ON user_roles FOR SELECT
@@ -82,13 +76,14 @@ USING (
     EXISTS (
         SELECT 1 FROM user_roles ur
         WHERE ur.user_id = auth.uid()
-        AND ur.role IN ('admin', 'super_admin')
+        AND ur.role IN ('admin'::app_role, 'super_admin'::app_role)
     )
 );
 
 -- Policy untuk update roles - Super admin full access, admin terbatas
 DROP POLICY IF EXISTS "Admin can update roles" ON user_roles;
 DROP POLICY IF EXISTS "Super admin can update all roles" ON user_roles;
+DROP POLICY IF EXISTS "Admin can update rider roles only" ON user_roles;
 
 CREATE POLICY "Super admin can update all roles"
 ON user_roles FOR UPDATE
@@ -97,14 +92,14 @@ USING (
     EXISTS (
         SELECT 1 FROM user_roles ur
         WHERE ur.user_id = auth.uid()
-        AND ur.role = 'super_admin'
+        AND ur.role = 'super_admin'::app_role
     )
 )
 WITH CHECK (
     EXISTS (
         SELECT 1 FROM user_roles ur
         WHERE ur.user_id = auth.uid()
-        AND ur.role = 'super_admin'
+        AND ur.role = 'super_admin'::app_role
     )
 );
 
@@ -115,17 +110,17 @@ USING (
     EXISTS (
         SELECT 1 FROM user_roles ur
         WHERE ur.user_id = auth.uid()
-        AND ur.role = 'admin'
+        AND ur.role = 'admin'::app_role
     )
-    AND role = 'rider' -- Hanya bisa update rider
+    AND role = 'rider'::app_role -- Hanya bisa update rider
 )
 WITH CHECK (
     EXISTS (
         SELECT 1 FROM user_roles ur
         WHERE ur.user_id = auth.uid()
-        AND ur.role = 'admin'
+        AND ur.role = 'admin'::app_role
     )
-    AND role IN ('rider', 'admin') -- Hanya bisa ubah jadi rider atau admin
+    AND role IN ('rider'::app_role, 'admin'::app_role) -- Hanya bisa ubah jadi rider atau admin
 );
 
 -- ============================================================================
@@ -137,17 +132,17 @@ CREATE OR REPLACE FUNCTION prevent_super_admin_downgrade()
 RETURNS TRIGGER AS $$
 BEGIN
     -- Cek apakah user yang di-update adalah super admin
-    IF OLD.role = 'super_admin' AND NEW.role != 'super_admin' THEN
+    IF OLD.role::text = 'super_admin' AND NEW.role::text != 'super_admin' THEN
         -- Cek siapa yang mencoba downgrade
         DECLARE
-            current_user_role TEXT;
+            current_user_role app_role;
         BEGIN
             SELECT role INTO current_user_role 
             FROM user_roles 
             WHERE user_id = auth.uid();
             
             -- Hanya super admin lain yang boleh downgrade super admin
-            IF current_user_role != 'super_admin' THEN
+            IF current_user_role::text != 'super_admin' THEN
                 RAISE EXCEPTION 'Cannot downgrade super admin! Only super admin can change super admin role.';
             END IF;
         END;
@@ -170,6 +165,7 @@ CREATE TRIGGER trigger_prevent_super_admin_downgrade
 
 -- Update RLS policy untuk audit log
 DROP POLICY IF EXISTS "Admin can view role change logs" ON role_change_logs;
+DROP POLICY IF EXISTS "Admin and Super admin can view logs" ON role_change_logs;
 
 CREATE POLICY "Admin and Super admin can view logs"
 ON role_change_logs
@@ -179,7 +175,7 @@ USING (
     EXISTS (
         SELECT 1 FROM user_roles
         WHERE user_roles.user_id = auth.uid()
-        AND user_roles.role IN ('admin', 'super_admin')
+        AND user_roles.role IN ('admin'::app_role, 'super_admin'::app_role)
     )
 );
 
@@ -210,10 +206,10 @@ $$ LANGUAGE plpgsql;
 -- Query: Lihat hierarki semua user
 SELECT 
     CASE 
-        WHEN ur.role = 'super_admin' THEN '👑 Super Admin'
-        WHEN ur.role = 'admin' THEN '🔑 Admin'
-        WHEN ur.role = 'rider' THEN '🚴 Rider'
-        ELSE ur.role
+        WHEN ur.role::text = 'super_admin' THEN '👑 Super Admin'
+        WHEN ur.role::text = 'admin' THEN '🔑 Admin'
+        WHEN ur.role::text = 'rider' THEN '🚴 Rider'
+        ELSE ur.role::text
     END as role_display,
     p.full_name,
     p.phone,
@@ -221,7 +217,7 @@ SELECT
 FROM user_roles ur
 JOIN profiles p ON p.user_id = ur.user_id
 ORDER BY 
-    CASE ur.role
+    CASE ur.role::text
         WHEN 'super_admin' THEN 1
         WHEN 'admin' THEN 2
         WHEN 'rider' THEN 3
@@ -238,21 +234,20 @@ SELECT
 FROM user_roles ur
 JOIN profiles p ON p.user_id = ur.user_id
 JOIN auth.users u ON u.id = ur.user_id
-WHERE ur.role = 'super_admin';
+WHERE ur.role = 'super_admin'::app_role;
 
 -- Query: Test apakah user adalah super admin (untuk debugging)
--- Ganti auth.uid() dengan user_id yang mau dicek
 SELECT 
     CASE 
         WHEN EXISTS (
             SELECT 1 FROM user_roles 
             WHERE user_id = auth.uid() 
-            AND role = 'super_admin'
+            AND role = 'super_admin'::app_role
         ) THEN 'YES - Super Admin'
         WHEN EXISTS (
             SELECT 1 FROM user_roles 
             WHERE user_id = auth.uid() 
-            AND role = 'admin'
+            AND role = 'admin'::app_role
         ) THEN 'Admin Only'
         ELSE 'Not Admin'
     END as admin_status;
@@ -268,11 +263,15 @@ DECLARE
 BEGIN
     SELECT COUNT(*) INTO super_admin_count 
     FROM user_roles 
-    WHERE role = 'super_admin';
+    WHERE role = 'super_admin'::app_role;
     
     IF super_admin_count = 0 THEN
         RAISE WARNING 'No super admin found! Please run Step 1 again.';
     ELSE
-        RAISE NOTICE 'Super admin setup complete! Total super admins: %', super_admin_count;
+        RAISE NOTICE '✅ Super admin setup complete! Total super admins: %', super_admin_count;
     END IF;
 END $$;
+
+-- ============================================================================
+-- DONE! 🎉
+-- ============================================================================
