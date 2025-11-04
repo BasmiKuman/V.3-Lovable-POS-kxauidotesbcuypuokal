@@ -128,7 +128,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Pasang trigger (optional)
-DROP TRIGGER IF NOT EXISTS trigger_notify_role_promotion ON role_change_logs;
+DROP TRIGGER IF EXISTS trigger_notify_role_promotion ON role_change_logs;
 CREATE TRIGGER trigger_notify_role_promotion
     AFTER INSERT ON role_change_logs
     FOR EACH ROW
