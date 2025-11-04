@@ -74,17 +74,18 @@ export default function Settings() {
         return;
       }
 
-      // Check admin role
+      // Check admin role (including super_admin)
       const { data: role, error: roleError } = await supabase
         .from("user_roles")
         .select("role")
         .eq("user_id", user.id)
-        .eq("role", "admin")
         .maybeSingle();
 
       if (roleError) throw roleError;
 
-      const isUserAdmin = !!role;
+      const userRole = role?.role || "rider";
+      const isUserAdmin = userRole === "admin" || userRole === "super_admin";
+      const isSuperAdmin = userRole === "super_admin";
       setIsAdmin(isUserAdmin);
 
       // Get profile data
@@ -101,60 +102,73 @@ export default function Settings() {
           id: profileData.user_id, // Use user_id as id
           ...profileData,
           email: user.email || "",
-          role: isUserAdmin ? "admin" : "rider"
+          role: userRole
         });
       }
 
-      // If admin, fetch riders
+      // If admin or super admin, fetch users based on permission
       if (isUserAdmin) {
-        const { data: riderRoles, error: rolesError } = await supabase
+        let rolesToFetch: string[] = [];
+        
+        if (isSuperAdmin) {
+          // Super admin can see ALL users (rider, admin, super_admin)
+          rolesToFetch = ["rider", "admin", "super_admin"];
+        } else {
+          // Regular admin can only see riders and other admins (not super_admin)
+          rolesToFetch = ["rider", "admin"];
+        }
+
+        const { data: userRoles, error: rolesError } = await supabase
           .from("user_roles")
-          .select("user_id")
-          .eq("role", "rider");
+          .select("user_id, role")
+          .in("role", rolesToFetch);
 
         if (rolesError) throw rolesError;
 
-        if (riderRoles && riderRoles.length > 0) {
-          // Get profiles for these riders
-          const { data: riderProfiles, error: profilesError } = await supabase
+        if (userRoles && userRoles.length > 0) {
+          // Get profiles for these users
+          const { data: userProfiles, error: profilesError } = await supabase
             .from("profiles")
             .select("id, user_id, full_name, phone, address, avatar_url")
-            .in("user_id", riderRoles.map(r => r.user_id));
+            .in("user_id", userRoles.map(r => r.user_id));
 
           if (profilesError) throw profilesError;
 
-          if (riderProfiles) {
-            // Transform rider profiles with placeholder emails
-            const ridersWithEmail: Profile[] = riderProfiles.map(profile => ({
-              id: profile.id,
-              user_id: profile.user_id,
-              full_name: profile.full_name,
-              email: "",
-              phone: profile.phone,
-              address: profile.address,
-              role: "rider",
-              avatar_url: profile.avatar_url
-            }));
+          if (userProfiles) {
+            // Map profiles with their roles
+            const usersWithRoles: Profile[] = userProfiles.map(profile => {
+              const userRole = userRoles.find(r => r.user_id === profile.user_id);
+              return {
+                id: profile.id,
+                user_id: profile.user_id,
+                full_name: profile.full_name,
+                email: "",
+                phone: profile.phone,
+                address: profile.address,
+                role: userRole?.role || "rider",
+                avatar_url: profile.avatar_url
+              };
+            });
 
             // Set initial state
-            setUsers(ridersWithEmail);
+            setUsers(usersWithRoles);
 
             // Try to get emails from auth
             try {
               const { data: authData } = await supabase.auth.admin.listUsers();
               if (authData?.users && Array.isArray(authData.users)) {
-                const updatedRiders: Profile[] = ridersWithEmail.map(rider => {
-                  const authUser = authData.users.find((u: any) => u.id === rider.user_id);
+                const updatedUsers: Profile[] = usersWithRoles.map(user => {
+                  const authUser = authData.users.find((u: any) => u.id === user.user_id);
                   return {
-                    ...rider,
+                    ...user,
                     email: authUser?.email || ""
                   };
                 });
-                setUsers(updatedRiders);
+                setUsers(updatedUsers);
               }
             } catch (authError) {
-              console.warn("Could not fetch rider emails:", authError);
-              // Continue with ridersWithEmail (without emails)
+              console.warn("Could not fetch user emails:", authError);
+              // Continue with usersWithRoles (without emails)
             }
           }
         }
@@ -259,24 +273,56 @@ export default function Settings() {
 
   const handleRoleChange = async (userId: string, currentRole: string) => {
     try {
-      const newRole = currentRole === "admin" ? "rider" : "admin";
+      // Prevent changing super_admin role
+      if (currentRole === "super_admin") {
+        toast.error("🛡️ Super Admin tidak bisa diubah role-nya!");
+        return;
+      }
+      
+      // Check if current user is super admin
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser) return;
+      
+      const { data: currentUserRole } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", currentUser.id)
+        .single();
+      
+      const isSuperAdmin = currentUserRole?.role === "super_admin";
+      
+      // Determine new role based on permissions
+      let newRole: string;
+      if (currentRole === "admin") {
+        newRole = "rider";
+      } else if (currentRole === "rider") {
+        // Only super admin can promote to admin
+        if (isSuperAdmin) {
+          newRole = "admin";
+        } else {
+          toast.error("Hanya Super Admin yang bisa menaikkan rider menjadi admin");
+          return;
+        }
+      } else {
+        newRole = "rider";
+      }
       
       // Find user details for confirmation message
       const user = users.find(u => u.user_id === userId);
       const userName = user?.full_name || "User";
       
       // Show confirmation dialog
-      const confirmMessage = currentRole === "admin"
-        ? `⚠️ Anda akan menurunkan "${userName}" dari Admin ke Rider.\n\nUser ini akan kehilangan akses admin dashboard.\n\nLanjutkan?`
-        : `⚠️ Anda akan menaikkan "${userName}" dari Rider ke Admin.\n\nUser ini akan mendapat akses penuh ke admin dashboard dan bisa mengubah data.\n\nLanjutkan?`;
+      let confirmMessage: string;
+      if (currentRole === "admin") {
+        confirmMessage = `⚠️ Anda akan menurunkan "${userName}" dari Admin ke Rider.\n\nUser ini akan kehilangan akses admin dashboard.\n\nLanjutkan?`;
+      } else {
+        confirmMessage = `⚠️ Anda akan menaikkan "${userName}" dari Rider ke Admin.\n\nUser ini akan mendapat akses penuh ke admin dashboard dan bisa mengubah data.\n\nLanjutkan?`;
+      }
       
       if (!window.confirm(confirmMessage)) {
         toast.info("Perubahan role dibatalkan");
         return;
       }
-      
-      // Get current admin user for audit log
-      const { data: { user: currentUser } } = await supabase.auth.getUser();
       
       // Use upsert to update or insert role
       const { error: upsertError } = await supabase
@@ -957,8 +1003,19 @@ export default function Settings() {
                         )}
                         <TableCell>
                           <div className="flex flex-col gap-1 md:gap-2">
-                            <Badge variant={user.role === "admin" ? "default" : "outline"} className="w-fit text-[10px] md:text-xs">
-                              {user.role === "admin" ? "Admin" : "Rider"}
+                            <Badge 
+                              variant={
+                                user.role === "super_admin" ? "default" : 
+                                user.role === "admin" ? "secondary" : 
+                                "outline"
+                              } 
+                              className={`w-fit text-[10px] md:text-xs ${
+                                user.role === "super_admin" ? "bg-gradient-to-r from-yellow-500 to-orange-500 text-white" : ""
+                              }`}
+                            >
+                              {user.role === "super_admin" ? "👑 Super Admin" : 
+                               user.role === "admin" ? "🔑 Admin" : 
+                               "🚴 Rider"}
                             </Badge>
                             <div className="flex gap-1">
                               <Button 
@@ -974,15 +1031,20 @@ export default function Settings() {
                                 variant="ghost" 
                                 size="sm"
                                 onClick={() => handleRoleChange(user.user_id, user.role || "rider")}
-                                className="flex-1 text-[10px] md:text-xs h-7 md:h-8 px-1 md:px-2"
+                                disabled={user.role === "super_admin"}
+                                className="flex-1 text-[10px] md:text-xs h-7 md:h-8 px-1 md:px-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                title={user.role === "super_admin" ? "Super Admin tidak bisa diubah" : ""}
                               >
-                                {user.role === "admin" ? "→ R" : "→ A"}
+                                {user.role === "super_admin" ? "🔒" :
+                                 user.role === "admin" ? "→ R" : "→ A"}
                               </Button>
                               <Button 
                                 variant="destructive" 
                                 size="sm"
                                 onClick={() => handleDeleteUser(user.user_id, user.full_name)}
-                                className="h-7 md:h-8 w-7 md:w-8 p-0"
+                                disabled={user.role === "super_admin"}
+                                className="h-7 md:h-8 w-7 md:w-8 p-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                                title={user.role === "super_admin" ? "Super Admin tidak bisa dihapus" : ""}
                               >
                                 <Trash2 className="w-3 h-3" />
                               </Button>

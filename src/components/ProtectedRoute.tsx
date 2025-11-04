@@ -23,29 +23,18 @@ export const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRout
 
     const fetchIsAdmin = async (userId: string) => {
       try {
-        // Use the has_role function instead of direct query
-        const { data, error } = await supabase.rpc('has_role', {
-          _user_id: userId,
-          _role: 'admin'
-        });
+        // Check for admin or super_admin role
+        const { data: roles, error: queryError } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", userId)
+          .in("role", ["admin", "super_admin"])
+          .maybeSingle();
         
-        if (error) {
-          console.error("Roles check error:", error);
-          // Fallback to direct query if RPC fails
-          const { data: roles, error: queryError } = await supabase
-            .from("user_roles")
-            .select("role")
-            .eq("user_id", userId)
-            .eq("role", "admin")
-            .maybeSingle();
-          
-          if (queryError) {
-            console.error("Fallback query error:", queryError);
-          }
-          if (mounted) setIsAdmin(!!roles);
-        } else {
-          if (mounted) setIsAdmin(!!data);
+        if (queryError) {
+          console.error("Roles check error:", queryError);
         }
+        if (mounted) setIsAdmin(!!roles);
       } catch (e) {
         console.error("Roles check exception:", e);
         if (mounted) setIsAdmin(false);
