@@ -150,26 +150,10 @@ export default function Settings() {
               };
             });
 
-            // Set initial state
+            // Set users with roles
+            // Note: Emails are not shown to protect privacy
+            // Only phone numbers are displayed for identification
             setUsers(usersWithRoles);
-
-            // Try to get emails from auth
-            try {
-              const { data: authData } = await supabase.auth.admin.listUsers();
-              if (authData?.users && Array.isArray(authData.users)) {
-                const updatedUsers: Profile[] = usersWithRoles.map(user => {
-                  const authUser = authData.users.find((u: any) => u.id === user.user_id);
-                  return {
-                    ...user,
-                    email: authUser?.email || ""
-                  };
-                });
-                setUsers(updatedUsers);
-              }
-            } catch (authError) {
-              console.warn("Could not fetch user emails:", authError);
-              // Continue with usersWithRoles (without emails)
-            }
           }
         }
       }
