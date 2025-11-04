@@ -261,6 +261,23 @@ export default function Settings() {
     try {
       const newRole = currentRole === "admin" ? "rider" : "admin";
       
+      // Find user details for confirmation message
+      const user = users.find(u => u.user_id === userId);
+      const userName = user?.full_name || "User";
+      
+      // Show confirmation dialog
+      const confirmMessage = currentRole === "admin"
+        ? `⚠️ Anda akan menurunkan "${userName}" dari Admin ke Rider.\n\nUser ini akan kehilangan akses admin dashboard.\n\nLanjutkan?`
+        : `⚠️ Anda akan menaikkan "${userName}" dari Rider ke Admin.\n\nUser ini akan mendapat akses penuh ke admin dashboard dan bisa mengubah data.\n\nLanjutkan?`;
+      
+      if (!window.confirm(confirmMessage)) {
+        toast.info("Perubahan role dibatalkan");
+        return;
+      }
+      
+      // Get current admin user for audit log
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      
       // Use upsert to update or insert role
       const { error: upsertError } = await supabase
         .from("user_roles")
@@ -274,6 +291,20 @@ export default function Settings() {
         throw upsertError;
       }
 
+      // Log audit trail (optional - create table if needed)
+      try {
+        await supabase.from("role_change_logs").insert({
+          user_id: userId,
+          old_role: currentRole,
+          new_role: newRole,
+          changed_by: currentUser?.id,
+          changed_at: new Date().toISOString()
+        });
+      } catch (logError) {
+        // Ignore if table doesn't exist yet
+        console.log("Audit log skipped (table might not exist):", logError);
+      }
+
       // Update local state
       setUsers(prevUsers =>
         prevUsers.map(user =>
@@ -283,7 +314,7 @@ export default function Settings() {
         )
       );
 
-      toast.success(`Berhasil mengubah peran pengguna menjadi ${newRole}`);
+      toast.success(`✅ Berhasil mengubah peran "${userName}" menjadi ${newRole}`);
     } catch (error: any) {
       console.error("Error changing role:", error);
       toast.error("Gagal mengubah peran pengguna: " + error.message);
