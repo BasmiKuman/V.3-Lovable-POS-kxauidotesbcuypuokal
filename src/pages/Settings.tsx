@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 import { BottomNav } from "@/components/BottomNav";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Button } from "@/components/ui/button";
@@ -108,7 +109,8 @@ export default function Settings() {
 
       // If admin or super admin, fetch users based on permission
       if (isUserAdmin) {
-        let rolesToFetch: string[] = [];
+        type AppRole = "rider" | "admin" | "super_admin";
+        let rolesToFetch: AppRole[] = [];
         
         if (isSuperAdmin) {
           // Super admin can see ALL users (rider, admin, super_admin)
@@ -312,7 +314,7 @@ export default function Settings() {
       const { error: upsertError } = await supabase
         .from("user_roles")
         .upsert(
-          { user_id: userId, role: newRole },
+          { user_id: userId, role: newRole as Database["public"]["Enums"]["app_role"] },
           { onConflict: 'user_id' }
         );
 
@@ -321,18 +323,17 @@ export default function Settings() {
         throw upsertError;
       }
 
-      // Log audit trail (optional - create table if needed)
+      // Log audit trail
       try {
         await supabase.from("role_change_logs").insert({
           user_id: userId,
-          old_role: currentRole,
-          new_role: newRole,
-          changed_by: currentUser?.id,
+          old_role: currentRole as Database["public"]["Enums"]["app_role"],
+          new_role: newRole as Database["public"]["Enums"]["app_role"],
+          changed_by: currentUser?.id || "",
           changed_at: new Date().toISOString()
         });
       } catch (logError) {
-        // Ignore if table doesn't exist yet
-        console.log("Audit log skipped (table might not exist):", logError);
+        console.log("Audit log error:", logError);
       }
 
       // Update local state
