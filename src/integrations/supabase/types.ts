@@ -384,6 +384,36 @@ export type Database = {
         }
         Relationships: []
       }
+      role_change_logs: {
+        Row: {
+          id: string
+          user_id: string
+          old_role: Database["public"]["Enums"]["app_role"]
+          new_role: Database["public"]["Enums"]["app_role"]
+          changed_by: string
+          changed_at: string
+          reason: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          old_role: Database["public"]["Enums"]["app_role"]
+          new_role: Database["public"]["Enums"]["app_role"]
+          changed_by: string
+          changed_at?: string
+          reason?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          old_role?: Database["public"]["Enums"]["app_role"]
+          new_role?: Database["public"]["Enums"]["app_role"]
+          changed_by?: string
+          changed_at?: string
+          reason?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -422,7 +452,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "rider"
+      app_role: "admin" | "rider" | "super_admin"
       return_status: "pending" | "approved" | "rejected"
     }
     CompositeTypes: {
