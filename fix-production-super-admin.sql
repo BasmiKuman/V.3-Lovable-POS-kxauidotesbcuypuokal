@@ -62,6 +62,10 @@ CREATE POLICY "Admins can delete production history"
 -- STEP 3: UPDATE add_production FUNCTION
 -- ============================================================================
 
+-- Drop existing function first
+DROP FUNCTION IF EXISTS add_production(UUID, INTEGER, TEXT);
+
+-- Create new function with super_admin support
 CREATE OR REPLACE FUNCTION add_production(
   p_product_id UUID,
   p_quantity INTEGER,
