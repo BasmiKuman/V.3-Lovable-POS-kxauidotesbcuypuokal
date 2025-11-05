@@ -182,6 +182,11 @@ export default function Dashboard() {
         .eq("product_id", returnItem.product_id)
         .maybeSingle();
 
+      console.log(`📦 Return Processing - Product: ${returnItem.products.name}`);
+      console.log(`   Rider Stock Before: ${riderStock?.quantity || 0} pcs`);
+      console.log(`   Return Quantity: ${returnItem.quantity} pcs`);
+      console.log(`   Expected Stock After: ${(riderStock?.quantity || 0) - returnItem.quantity} pcs`);
+
       if (riderStockError) {
         console.error("Error fetching rider stock:", riderStockError);
         throw new Error(`Gagal mengambil data stock rider: ${riderStockError.message}`);
