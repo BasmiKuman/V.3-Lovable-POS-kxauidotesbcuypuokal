@@ -7,6 +7,33 @@
 
 ---
 
+## 🔥 CRITICAL FIX (Post-Release)
+
+### **Fixed 404 Error in Android App** 🐛
+**Problem:**
+- Rider Dashboard and Rider Reports showed "404 Page Not Found" in built Android APK
+- Routes worked fine in development but failed in production mobile build
+
+**Root Cause:**
+- `BrowserRouter` was used in `App.tsx`
+- `BrowserRouter` requires server-side routing to work
+- Capacitor apps use `file://` protocol (no server)
+- Browser couldn't resolve routes like `/rider-dashboard`
+
+**Solution:**
+- Changed `BrowserRouter` → `HashRouter`
+- `HashRouter` uses URL fragments (`#/path`) which work with `file://` protocol
+- Compatible with both web (PWA) and mobile (Capacitor) builds
+
+**URLs After Fix:**
+- Mobile: `file://.../index.html#/rider-dashboard` ✅
+- Web: `https://your-domain.com/#/rider-dashboard` ✅
+
+**Files Changed:**
+- `src/App.tsx`: Import and use `HashRouter` instead of `BrowserRouter`
+
+---
+
 ## 🎉 Major Features
 
 ### 1. **Rider Dashboard** 🏆
