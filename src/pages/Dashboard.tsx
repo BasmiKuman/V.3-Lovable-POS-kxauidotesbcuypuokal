@@ -215,11 +215,18 @@ export default function Dashboard() {
           );
         }
       } else {
-        // No rider stock found - this shouldn't happen in normal flow
-        throw new Error(
-          `Stock rider tidak ditemukan untuk produk ini. ` +
-          `Kemungkinan data tidak sinkron.`
+        // No rider stock found - could be:
+        // 1. Return already processed
+        // 2. Stock sold out via transactions
+        // 3. Data desync
+        // 
+        // Decision: Accept the return anyway and add to warehouse
+        // This prevents blocking legitimate returns due to data issues
+        console.warn(
+          `⚠️ Rider stock not found for product ${returnItem.product_id}. ` +
+          `Accepting return anyway and adding to warehouse.`
         );
+        // Continue to save history and delete return record below
       }
 
       // Save to return history
