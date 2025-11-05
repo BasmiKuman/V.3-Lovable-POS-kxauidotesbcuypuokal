@@ -78,7 +78,7 @@ export default function Warehouse() {
             .from("user_roles")
             .select("role")
             .eq("user_id", user.id)
-            .in("role", ["admin", "super_admin"])
+            .eq("role", "admin")
             .maybeSingle();
           
           setIsAdmin(!!roles);
@@ -221,29 +221,14 @@ export default function Warehouse() {
         .select("product_id, quantity")
         .eq("rider_id", selectedRider);
 
-      console.log("🚚 DISTRIBUTION STARTED");
-      console.log("   Rider ID:", selectedRider);
-      console.log("   Current Stocks:", currentStocks);
-
       const stockMap = new Map(currentStocks?.map(s => [s.product_id, s.quantity]));
 
       // Prepare upsert data
-      const upsertData = distributionItems.map(item => {
-        const existingStock = stockMap.get(item.productId) || 0;
-        const newStock = existingStock + item.quantity;
-        
-        const product = products.find(p => p.id === item.productId);
-        console.log(`   📦 ${product?.name || item.productId}:`);
-        console.log(`      Existing: ${existingStock} pcs`);
-        console.log(`      Distributing: ${item.quantity} pcs`);
-        console.log(`      New Total: ${newStock} pcs`);
-        
-        return {
-          rider_id: selectedRider,
-          product_id: item.productId,
-          quantity: newStock,
-        };
-      });
+      const upsertData = distributionItems.map(item => ({
+        rider_id: selectedRider,
+        product_id: item.productId,
+        quantity: (stockMap.get(item.productId) || 0) + item.quantity,
+      }));
 
       // Upsert to rider_stock
       const { error: upsertError } = await supabase
@@ -420,29 +405,11 @@ export default function Warehouse() {
                                 placeholder="0"
                                 value={distributionItems.find(d => d.productId === product.id)?.quantity || ""}
                                 onChange={(e) => {
-                                  const inputValue = e.target.value;
-                                  
-                                  // Allow empty input (to clear the field)
-                                  if (inputValue === "" || inputValue === null) {
-                                    setDistributionItems(prev => 
-                                      prev.filter(d => d.productId !== product.id)
-                                    );
-                                    return;
-                                  }
-
-                                  const value = parseInt(inputValue);
-                                  
-                                  // Validate: must be a valid number, >= 0, and <= stock
-                                  if (isNaN(value) || value < 0 || value > product.stock_in_warehouse) {
-                                    return;
-                                  }
+                                  const value = parseInt(e.target.value);
+                                  if (isNaN(value) || value < 0 || value > product.stock_in_warehouse) return;
 
                                   setDistributionItems(prev => {
                                     const existing = prev.find(d => d.productId === product.id);
-                                    if (value === 0) {
-                                      // Remove item if quantity is 0
-                                      return prev.filter(d => d.productId !== product.id);
-                                    }
                                     if (existing) {
                                       return prev.map(d =>
                                         d.productId === product.id

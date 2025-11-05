@@ -71,12 +71,12 @@ export default function Auth() {
       if (error) throw error;
 
       if (data.session) {
-        // Check if user is admin or super_admin
+        // Check if user is admin
         const { data: roles } = await supabase
           .from("user_roles")
           .select("role")
           .eq("user_id", data.session.user.id)
-          .in("role", ["admin", "super_admin"])
+          .eq("role", "admin")
           .maybeSingle();
 
         const redirectPath = roles ? "/dashboard" : "/pos";

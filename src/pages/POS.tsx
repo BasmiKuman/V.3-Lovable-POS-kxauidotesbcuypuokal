@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { BottomNav } from "@/components/BottomNav";
-import { LoadingScreen } from "@/components/LoadingScreen";
 import { WeatherWidget } from "@/components/WeatherWidget";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -107,8 +106,8 @@ export default function POS() {
     try {
       const { data: pendingReturn, error } = await supabase
         .rpc('has_pending_return', { 
-          p_product_id: product.product_id, 
-          p_rider_id: user.id 
+          product_id: product.product_id, 
+          rider_id: user.id 
         });
 
       if (error) {
@@ -259,7 +258,11 @@ export default function POS() {
     : riderProducts.filter(p => p.products.category_id === selectedCategory);
 
   if (loading) {
-    return <LoadingScreen message="Memuat POS..." />;
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <ShoppingCart className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
   }
 
   return (

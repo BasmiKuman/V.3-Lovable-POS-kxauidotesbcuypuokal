@@ -114,7 +114,11 @@ export default function Reports() {
     avgTransaction: transactions?.length 
       ? (transactions.reduce((sum, t) => sum + Number(t.total_amount), 0) / transactions.length)
       : 0,
-    totalTax: transactions?.reduce((sum, t) => sum + Number(t.tax_amount), 0) || 0
+    totalTax: transactions?.reduce((sum, t) => sum + Number(t.tax_amount), 0) || 0,
+    totalCups: transactions?.reduce((sum, t) => {
+      const cups = t.transaction_items?.reduce((itemSum: number, item: any) => itemSum + (item.quantity || 0), 0) || 0;
+      return sum + cups;
+    }, 0) || 0
   };
 
   // Prepare chart data - group by date
@@ -1121,19 +1125,19 @@ export default function Reports() {
             icon={DollarSign}
           />
           <StatsCard
+            title="Cup Terjual"
+            value={`${stats.totalCups} cup`}
+            icon={ShoppingCart}
+          />
+          <StatsCard
             title="Transaksi"
             value={stats.totalTransactions}
-            icon={ShoppingCart}
+            icon={BarChart3}
           />
           <StatsCard
             title="Rata-rata"
             value={formatCurrency(stats.avgTransaction)}
             icon={TrendingUp}
-          />
-          <StatsCard
-            title="Pajak"
-            value={formatCurrency(stats.totalTax)}
-            icon={BarChart3}
           />
         </div>
 

@@ -13,8 +13,6 @@ import Warehouse from "./pages/Warehouse";
 import Reports from "./pages/Reports";
 import POS from "./pages/POS";
 import Settings from "./pages/Settings";
-import RiderDashboard from "./pages/RiderDashboard";
-import RiderReports from "./pages/RiderReports";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -39,7 +37,7 @@ const App = () => {
             element={
               <ProtectedRoute>
                 {({ isAdmin }) => (
-                  <Navigate to={isAdmin ? "/dashboard" : "/rider-dashboard"} replace />
+                  <Navigate to={isAdmin ? "/dashboard" : "/pos"} replace />
                 )}
               </ProtectedRoute>
             }
@@ -93,22 +91,6 @@ const App = () => {
             element={
               <ProtectedRoute>
                 <Settings />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/rider-dashboard"
-            element={
-              <ProtectedRoute requireRider={true}>
-                <RiderDashboard />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/rider-reports"
-            element={
-              <ProtectedRoute requireRider={true}>
-                <RiderReports />
               </ProtectedRoute>
             }
           />

@@ -1,4 +1,4 @@
-import { Home, Package, BarChart3, Settings, ShoppingCart, Warehouse, Users, Trophy, FileText } from "lucide-react";
+import { Home, Package, BarChart3, Settings, ShoppingCart, Warehouse, Users } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
@@ -18,9 +18,7 @@ export const BottomNav = ({ isAdmin }: BottomNavProps) => {
   ];
 
   const riderNavItems = [
-    { icon: Trophy, label: "Dashboard", path: "/rider-dashboard" },
     { icon: ShoppingCart, label: "Kasir", path: "/pos" },
-    { icon: FileText, label: "Laporan", path: "/rider-reports" },
     { icon: Package, label: "Stok", path: "/products" },
     { icon: Settings, label: "Akun", path: "/settings" },
   ];

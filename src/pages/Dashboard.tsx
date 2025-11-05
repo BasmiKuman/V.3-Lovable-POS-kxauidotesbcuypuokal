@@ -4,11 +4,12 @@ import { BottomNav } from "@/components/BottomNav";
 import { StatsCard } from "@/components/StatsCard";
 import { WeatherWidget } from "@/components/WeatherWidget";
 import RiderTrackingMap from "@/components/RiderTrackingMap";
-import { ReturnsAccordion } from "@/components/ReturnsAccordion";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { Package, TrendingUp, Users, ShoppingCart, Undo2, RefreshCw } from "lucide-react";
+import { Package, TrendingUp, Users, ShoppingCart, Undo2, CheckCircle, X } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 
 interface ReturnRequest {
@@ -32,9 +33,6 @@ export default function Dashboard() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [returns, setReturns] = useState<ReturnRequest[]>([]);
   const [processingReturnId, setProcessingReturnId] = useState<string | null>(null);
-  const [removingReturnIds, setRemovingReturnIds] = useState<Set<string>>(new Set());
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [refreshKey, setRefreshKey] = useState(0);
   const isMobile = useIsMobile();
   const [stats, setStats] = useState({
     totalProducts: 0,
@@ -51,7 +49,7 @@ export default function Dashboard() {
           .from("user_roles")
           .select("role")
           .eq("user_id", user.id)
-          .in("role", ["admin", "super_admin"])
+          .eq("role", "admin")
           .maybeSingle();
         
         setIsAdmin(!!roles);
@@ -174,29 +172,17 @@ export default function Dashboard() {
 
       if (updateProductError) throw updateProductError;
 
-      // Update rider stock: deduct the returned quantity
-      const { data: riderStock, error: riderStockError } = await supabase
+      // Update rider stock (deduct returned quantity)
+      const { data: riderStock } = await supabase
         .from("rider_stock")
         .select("quantity")
         .eq("rider_id", returnItem.rider_id)
         .eq("product_id", returnItem.product_id)
-        .maybeSingle();
-
-      console.log(`📦 Return Processing - Product: ${returnItem.products.name}`);
-      console.log(`   Rider Stock Before: ${riderStock?.quantity || 0} pcs`);
-      console.log(`   Return Quantity: ${returnItem.quantity} pcs`);
-      console.log(`   Expected Stock After: ${(riderStock?.quantity || 0) - returnItem.quantity} pcs`);
-
-      if (riderStockError) {
-        console.error("Error fetching rider stock:", riderStockError);
-        throw new Error(`Gagal mengambil data stock rider: ${riderStockError.message}`);
-      }
+        .single();
 
       if (riderStock) {
         const newQuantity = riderStock.quantity - returnItem.quantity;
-        
         if (newQuantity > 0) {
-          // Update stock if there's remaining quantity
           const { error: updateStockError } = await supabase
             .from("rider_stock")
             .update({ quantity: newQuantity })
@@ -204,8 +190,7 @@ export default function Dashboard() {
             .eq("product_id", returnItem.product_id);
 
           if (updateStockError) throw updateStockError;
-        } else if (newQuantity === 0) {
-          // Delete stock if quantity becomes 0
+        } else {
           const { error: deleteStockError } = await supabase
             .from("rider_stock")
             .delete()
@@ -213,26 +198,7 @@ export default function Dashboard() {
             .eq("product_id", returnItem.product_id);
 
           if (deleteStockError) throw deleteStockError;
-        } else {
-          // newQuantity < 0: Return quantity exceeds rider stock
-          throw new Error(
-            `Quantity return (${returnItem.quantity}) melebihi stock rider (${riderStock.quantity}). ` +
-            `Return dibatalkan untuk mencegah stock negatif.`
-          );
         }
-      } else {
-        // No rider stock found - could be:
-        // 1. Return already processed
-        // 2. Stock sold out via transactions
-        // 3. Data desync
-        // 
-        // Decision: Accept the return anyway and add to warehouse
-        // This prevents blocking legitimate returns due to data issues
-        console.log(
-          `ℹ️ Rider stock not found for product ${returnItem.product_id}. ` +
-          `Accepting return and adding to warehouse (stock may have been sold or returned previously).`
-        );
-        // Continue to save history and delete return record below
       }
 
       // Save to return history
@@ -260,18 +226,8 @@ export default function Dashboard() {
 
       toast.success("Return berhasil disetujui");
 
-      // Add smooth removal animation
-      setRemovingReturnIds(prev => new Set(prev).add(returnItem.id));
-      
-      // Wait for fade-out animation before removing from list
-      setTimeout(() => {
-        setReturns(prev => prev.filter(r => r.id !== returnItem.id));
-        setRemovingReturnIds(prev => {
-          const next = new Set(prev);
-          next.delete(returnItem.id);
-          return next;
-        });
-      }, 300); // Match CSS transition duration
+      // Refresh returns list
+      setReturns(prev => prev.filter(r => r.id !== returnItem.id));
     } catch (error: any) {
       toast.error("Gagal menyetujui return: " + error.message);
       console.error(error);
@@ -321,91 +277,6 @@ export default function Dashboard() {
     }
   };
 
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    try {
-      // Fetch stats
-      const { count: productsCount } = await supabase
-        .from("products")
-        .select("*", { count: "exact", head: true });
-
-      const { count: transactionsCount } = await supabase
-        .from("transactions")
-        .select("*", { count: "exact", head: true });
-
-      const { data: transactions } = await supabase
-        .from("transactions")
-        .select("total_amount");
-
-      const totalRevenue = transactions?.reduce((sum, t) => sum + Number(t.total_amount), 0) || 0;
-
-      const { count: ridersCount } = await supabase
-        .from("user_roles")
-        .select("*", { count: "exact", head: true })
-        .eq("role", "rider");
-
-      setStats({
-        totalProducts: productsCount || 0,
-        totalTransactions: transactionsCount || 0,
-        totalRevenue,
-        activeRiders: ridersCount || 0,
-      });
-
-      // Fetch returns if admin
-      if (isAdmin) {
-        const { data: returnsData, error: returnsError } = await supabase
-          .from("returns")
-          .select(`
-            id,
-            quantity,
-            notes,
-            returned_at,
-            product_id,
-            rider_id,
-            status,
-            products (name, price)
-          `)
-          .eq("status", "pending")
-          .order("returned_at", { ascending: false });
-
-        if (returnsError) throw returnsError;
-
-        if (!returnsData || returnsData.length === 0) {
-          setReturns([]);
-        } else {
-          const riderIds = returnsData.map(r => r.rider_id);
-          const { data: profilesData, error: profilesError } = await supabase
-            .from("profiles")
-            .select("user_id, full_name")
-            .in("user_id", riderIds);
-
-          if (profilesError) throw profilesError;
-
-          const profilesMap = new Map(profilesData?.map(p => [p.user_id, p.full_name]) || []);
-
-          const enrichedReturns = returnsData.map(returnItem => ({
-            ...returnItem,
-            profiles: {
-              full_name: profilesMap.get(returnItem.rider_id) || "Unknown",
-            },
-          }));
-
-          setReturns(enrichedReturns);
-        }
-      }
-
-      // Force re-render of WeatherWidget and RiderTrackingMap
-      setRefreshKey(prev => prev + 1);
-      
-      toast.success("Dashboard diperbarui");
-    } catch (error) {
-      console.error("Error refreshing dashboard:", error);
-      toast.error("Gagal memperbarui dashboard");
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
-
   return (
     <div 
       className="min-h-screen bg-background w-full overflow-x-hidden"
@@ -432,18 +303,7 @@ export default function Dashboard() {
               <p className="text-xs sm:text-sm text-muted-foreground truncate">BK POS System - Ringkasan Sistem</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Button
-              onClick={handleRefresh}
-              disabled={isRefreshing}
-              size="icon"
-              variant="outline"
-              className="flex-shrink-0"
-            >
-              <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-            </Button>
-            <WeatherWidget key={refreshKey} />
-          </div>
+          <WeatherWidget />
         </div>
 
         {/* Stats Grid */}
@@ -491,13 +351,142 @@ export default function Dashboard() {
               <CardDescription className="text-xs sm:text-sm">Kelola return dari rider</CardDescription>
             </CardHeader>
             <CardContent className="p-3 sm:p-4">
-              <ReturnsAccordion
-                returns={returns}
-                processingReturnId={processingReturnId}
-                removingReturnIds={removingReturnIds}
-                onApprove={handleApproveReturn}
-                onReject={handleRejectReturn}
-              />
+              {isMobile ? (
+                /* Mobile: Card List */
+                <div className="space-y-3">
+                  {returns.map((returnItem) => (
+                    <Card key={returnItem.id} className="border-2">
+                      <CardContent className="p-3 space-y-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <Users className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                              <span className="font-semibold text-sm truncate">
+                                {(returnItem.profiles as any)?.full_name || "N/A"}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 mt-1">
+                              <Package className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+                              <span className="text-xs text-muted-foreground truncate">
+                                {returnItem.products.name}
+                              </span>
+                            </div>
+                          </div>
+                          <Badge variant="secondary" className="flex-shrink-0">
+                            {returnItem.quantity} pcs
+                          </Badge>
+                        </div>
+                        
+                        {returnItem.notes && (
+                          <div className="flex items-start gap-2 p-2 bg-muted/50 rounded">
+                            <span className="text-xs text-muted-foreground">💬</span>
+                            <p className="text-xs text-muted-foreground flex-1">
+                              {returnItem.notes}
+                            </p>
+                          </div>
+                        )}
+                        
+                        <div className="flex items-center justify-between pt-2 border-t">
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(returnItem.returned_at).toLocaleDateString("id-ID", {
+                              day: 'numeric',
+                              month: 'short',
+                              year: 'numeric'
+                            })}
+                          </span>
+                          {returnItem.status === "pending" ? (
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleRejectReturn(returnItem)}
+                                disabled={processingReturnId === returnItem.id}
+                                className="h-8 text-xs"
+                              >
+                                <X className="w-3 h-3 mr-1" />
+                                Tolak
+                              </Button>
+                              <Button
+                                size="sm"
+                                onClick={() => handleApproveReturn(returnItem)}
+                                disabled={processingReturnId === returnItem.id}
+                                className="h-8 text-xs"
+                              >
+                                <CheckCircle className="w-3 h-3 mr-1" />
+                                {processingReturnId === returnItem.id ? "Proses..." : "Setujui"}
+                              </Button>
+                            </div>
+                          ) : (
+                            <Badge variant="secondary" className="text-xs">
+                              ✓ Approved
+                            </Badge>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                /* Desktop: Table */
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Rider</TableHead>
+                        <TableHead>Produk</TableHead>
+                        <TableHead>Jumlah</TableHead>
+                        <TableHead>Catatan</TableHead>
+                        <TableHead>Tanggal</TableHead>
+                        <TableHead className="text-right">Aksi</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {returns.map((returnItem) => (
+                        <TableRow key={returnItem.id}>
+                          <TableCell className="font-medium">
+                            {(returnItem.profiles as any)?.full_name || "N/A"}
+                          </TableCell>
+                          <TableCell>{returnItem.products.name}</TableCell>
+                          <TableCell>
+                            <Badge variant="secondary">{returnItem.quantity}</Badge>
+                          </TableCell>
+                          <TableCell className="max-w-xs truncate">
+                            {returnItem.notes || "-"}
+                          </TableCell>
+                          <TableCell>
+                            {new Date(returnItem.returned_at).toLocaleDateString("id-ID")}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {returnItem.status === "pending" ? (
+                              <div className="flex justify-end gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleRejectReturn(returnItem)}
+                                  disabled={processingReturnId === returnItem.id}
+                                >
+                                  <X className="w-4 h-4 mr-1" />
+                                  Tolak
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleApproveReturn(returnItem)}
+                                  disabled={processingReturnId === returnItem.id}
+                                >
+                                  <CheckCircle className="w-4 h-4 mr-1" />
+                                  {processingReturnId === returnItem.id ? "Memproses..." : "Setujui"}
+                                </Button>
+                              </div>
+                            ) : (
+                              <Badge variant="secondary">Approved</Badge>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
@@ -523,7 +512,7 @@ export default function Dashboard() {
         {/* GPS Rider Tracking - Admin Only */}
         {isAdmin && (
           <div className="animate-fade-in" style={{ animationDelay: "0.2s" }}>
-            <RiderTrackingMap key={refreshKey} />
+            <RiderTrackingMap />
           </div>
         )}
       </div>
