@@ -1,8 +1,8 @@
-import { useState, useEffect } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
-import { Trophy, TrendingUp, Package, Calendar, Megaphone } from "lucide-react";
+import { Trophy, TrendingUp, Package, Calendar, Megaphone, Bell } from "lucide-react";
 import { BottomNav } from "@/components/BottomNav";
 import { StatsCard } from "@/components/StatsCard";
 import { RiderFeedCard } from "@/components/RiderFeedCard";
@@ -11,6 +11,7 @@ import { id as idLocale } from "date-fns/locale";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { useNewFeedNotification } from "@/hooks/useNewFeedNotification";
 
 interface LeaderboardEntry {
   rider_id: string;
@@ -23,6 +24,8 @@ interface LeaderboardEntry {
 export default function RiderDashboard() {
   const [currentUserId, setCurrentUserId] = useState<string>("");
   const [myRank, setMyRank] = useState<number>(0);
+  const { hasNewFeed, newFeedCount, markFeedsAsViewed } = useNewFeedNotification();
+  const feedSectionRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -31,6 +34,30 @@ export default function RiderDashboard() {
     };
     fetchUser();
   }, []);
+
+  // Auto-mark feeds as viewed when scrolled into view
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting && hasNewFeed) {
+            markFeedsAsViewed();
+          }
+        });
+      },
+      { threshold: 0.5 } // Trigger when 50% of the section is visible
+    );
+
+    if (feedSectionRef.current) {
+      observer.observe(feedSectionRef.current);
+    }
+
+    return () => {
+      if (feedSectionRef.current) {
+        observer.unobserve(feedSectionRef.current);
+      }
+    };
+  }, [hasNewFeed, markFeedsAsViewed]);
 
   // Fetch today's sales
   const { data: todaySales = 0 } = useQuery({
@@ -113,6 +140,9 @@ export default function RiderDashboard() {
         .in("user_id", riderIds);
 
       if (!profiles) return [];
+      
+      console.log("🔍 Total Riders Found:", profiles.length);
+      console.log("👥 Rider Profiles:", profiles.map(p => ({ name: p.full_name, id: p.user_id.substring(0, 8) })));
 
       // STEP 3: Get transactions for this month
       const { data: transactions } = await supabase
@@ -121,6 +151,8 @@ export default function RiderDashboard() {
         .in("rider_id", riderIds)
         .gte("created_at", monthStart.toISOString())
         .lte("created_at", monthEnd.toISOString());
+      
+      console.log("📦 Total Transactions This Month:", transactions?.length || 0);
 
       // STEP 4: Get transaction items
       const riderCups = new Map<string, number>();
@@ -133,6 +165,8 @@ export default function RiderDashboard() {
           .in("transaction_id", transactionIds);
 
         if (items) {
+          console.log("☕ Total Transaction Items:", items.length);
+          
           // Calculate total cups per rider
           items.forEach(item => {
             const transaction = transactions.find(t => t.id === item.transaction_id);
@@ -140,6 +174,12 @@ export default function RiderDashboard() {
               const current = riderCups.get(transaction.rider_id) || 0;
               riderCups.set(transaction.rider_id, current + item.quantity);
             }
+          });
+          
+          console.log("📊 Cups Per Rider:");
+          riderCups.forEach((cups, riderId) => {
+            const profile = profiles.find(p => p.user_id === riderId);
+            console.log(`   ${profile?.full_name}: ${cups} cups`);
           });
         }
       }
@@ -159,6 +199,11 @@ export default function RiderDashboard() {
       // Assign ranks
       entries.forEach((entry, index) => {
         entry.rank = index + 1;
+      });
+
+      console.log("🏆 FINAL LEADERBOARD:");
+      entries.forEach(entry => {
+        console.log(`   #${entry.rank} ${entry.rider_name}: ${entry.total_cups} cups`);
       });
 
       return entries;
@@ -228,10 +273,31 @@ export default function RiderDashboard() {
       }}
     >
       <div className="max-w-screen-xl mx-auto px-3 sm:px-4 space-y-3 sm:space-y-4">
-        {/* Header */}
-        <div className="space-y-0.5">
-          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gradient">Dashboard Saya</h1>
-          <p className="text-xs sm:text-sm text-muted-foreground">Performa & Peringkat Penjualan</p>
+        {/* Header with Notification */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="space-y-0.5 flex-1">
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gradient">Dashboard Saya</h1>
+            <p className="text-xs sm:text-sm text-muted-foreground">Performa & Peringkat Penjualan</p>
+          </div>
+          
+          {/* Feed Notification Badge */}
+          {hasNewFeed && (
+            <button
+              onClick={() => {
+                markFeedsAsViewed();
+                feedSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+              }}
+              className="relative flex flex-col items-center gap-1 px-3 py-2 bg-primary/10 hover:bg-primary/20 rounded-xl transition-all hover:scale-105 flex-shrink-0"
+            >
+              <div className="relative">
+                <Bell className="w-5 h-5 text-primary animate-pulse" />
+                <Badge variant="destructive" className="absolute -top-2 -right-2 h-4 min-w-4 px-1 text-[10px] leading-tight">
+                  {newFeedCount}
+                </Badge>
+              </div>
+              <span className="text-[10px] font-medium text-primary">Feed Baru</span>
+            </button>
+          )}
         </div>
 
         {/* Stats Grid */}
@@ -300,13 +366,17 @@ export default function RiderDashboard() {
                 Belum ada data penjualan bulan ini
               </p>
             ) : (
-              leaderboard.map((entry) => {
-                const isMe = entry.rider_id === currentUserId;
-                const badge = getRankBadge(entry.rank);
-                
-                return (
-                  <div
-                    key={entry.rider_id}
+              <>
+                {console.log("🎨 Rendering Leaderboard - Total Entries:", leaderboard.length)}
+                {leaderboard.map((entry) => {
+                  const isMe = entry.rider_id === currentUserId;
+                  const badge = getRankBadge(entry.rank);
+                  
+                  console.log(`🏅 Rendering ${entry.rider_name}: ${entry.total_cups} cups (isMe: ${isMe})`);
+                  
+                  return (
+                    <div
+                      key={entry.rider_id}
                     className={`flex items-center gap-3 p-3 rounded-lg transition-all ${
                       isMe 
                         ? 'bg-primary/10 border-2 border-primary' 
@@ -331,8 +401,8 @@ export default function RiderDashboard() {
                       <p className={`font-semibold text-sm truncate ${isMe ? 'text-primary' : ''}`}>
                         {entry.rider_name} {isMe && '(Saya)'}
                       </p>
-                      <p className="text-xs text-muted-foreground font-medium">
-                        {entry.total_cups} cup terjual
+                      <p className={`text-xs font-medium ${entry.total_cups > 0 ? 'text-foreground' : 'text-muted-foreground'}`}>
+                        {entry.total_cups || 0} cup terjual
                       </p>
                     </div>
 
@@ -343,14 +413,15 @@ export default function RiderDashboard() {
                       </Badge>
                     )}
                   </div>
-                );
-              })
+                  );
+                })}
+              </>
             )}
           </CardContent>
         </Card>
 
         {/* Feed Section */}
-        <div className="space-y-3">
+        <div ref={feedSectionRef} className="space-y-3">
           <div className="flex items-center gap-2">
             <Megaphone className="w-5 h-5 text-primary" />
             <h2 className="text-lg font-semibold">Pengumuman & Info</h2>
