@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,13 +20,27 @@ interface AddProductionDialogProps {
   onOpenChange: (open: boolean) => void;
   products: Product[];
   onSuccess: () => void;
+  preSelectedProductId?: string | null;
 }
 
-export function AddProductionDialog({ open, onOpenChange, products, onSuccess }: AddProductionDialogProps) {
+export function AddProductionDialog({ 
+  open, 
+  onOpenChange, 
+  products, 
+  onSuccess,
+  preSelectedProductId 
+}: AddProductionDialogProps) {
   const [selectedProductId, setSelectedProductId] = useState("");
   const [quantity, setQuantity] = useState("");
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Auto-select product when preSelectedProductId changes
+  useEffect(() => {
+    if (preSelectedProductId && open) {
+      setSelectedProductId(preSelectedProductId);
+    }
+  }, [preSelectedProductId, open]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

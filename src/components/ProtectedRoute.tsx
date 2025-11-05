@@ -4,50 +4,49 @@ import { supabase } from "@/integrations/supabase/client";
 import { User } from "@supabase/supabase-js";
 import { Loader2 } from "lucide-react";
 import { startTracking, stopTracking, resumeTracking } from "@/lib/gps-tracking";
+import { requestAllPermissions } from "@/lib/permissions";
 import GPSConsentCheck from "./GPSConsentCheck";
 
 interface ProtectedRouteProps {
   children: React.ReactNode | ((props: { isAdmin: boolean }) => React.ReactNode);
   requireAdmin?: boolean;
+  requireRider?: boolean;
 }
 
-export const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps) => {
+export const ProtectedRoute = ({ children, requireAdmin = false, requireRider = false }: ProtectedRouteProps) => {
   const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isRider, setIsRider] = useState(false);
   const [loading, setLoading] = useState(true);
   const location = useLocation();
 
   useEffect(() => {
     let mounted = true;
 
-    const fetchIsAdmin = async (userId: string) => {
+    const fetchUserRole = async (userId: string) => {
       try {
-        // Use the has_role function instead of direct query
-        const { data, error } = await supabase.rpc('has_role', {
-          _user_id: userId,
-          _role: 'admin'
-        });
+        // Get user role
+        const { data: roleData, error: queryError } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", userId)
+          .maybeSingle();
         
-        if (error) {
-          console.error("Roles check error:", error);
-          // Fallback to direct query if RPC fails
-          const { data: roles, error: queryError } = await supabase
-            .from("user_roles")
-            .select("role")
-            .eq("user_id", userId)
-            .eq("role", "admin")
-            .maybeSingle();
-          
-          if (queryError) {
-            console.error("Fallback query error:", queryError);
-          }
-          if (mounted) setIsAdmin(!!roles);
-        } else {
-          if (mounted) setIsAdmin(!!data);
+        if (queryError) {
+          console.error("Roles check error:", queryError);
+        }
+        
+        if (mounted && roleData) {
+          const role = roleData.role;
+          setIsAdmin(role === "admin" || role === "super_admin");
+          setIsRider(role === "rider");
         }
       } catch (e) {
         console.error("Roles check exception:", e);
-        if (mounted) setIsAdmin(false);
+        if (mounted) {
+          setIsAdmin(false);
+          setIsRider(false);
+        }
       }
     };
 
@@ -59,11 +58,16 @@ export const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRout
       
       if (session?.user) {
         // Defer any Supabase calls to avoid deadlocks
-        setTimeout(() => fetchIsAdmin(session.user!.id), 0);
+        setTimeout(() => fetchUserRole(session.user!.id), 0);
         
         // Auto-start GPS tracking on login (for riders only)
         if (event === 'SIGNED_IN') {
           setTimeout(async () => {
+            // Request all permissions on login
+            console.log('Requesting app permissions...');
+            const permissions = await requestAllPermissions();
+            console.log('Permissions granted:', permissions);
+            
             const { data: roles } = await supabase
               .from("user_roles")
               .select("role")
@@ -98,7 +102,7 @@ export const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRout
         }
         if (mounted) setUser(session?.user ?? null);
         if (session?.user) {
-          fetchIsAdmin(session.user.id).finally(() => {
+          fetchUserRole(session.user.id).finally(() => {
             if (mounted) setLoading(false);
           });
           
@@ -139,6 +143,20 @@ export const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRout
           <h1 className="text-xl font-semibold mb-2">Akses Dibatasi</h1>
           <p className="text-muted-foreground">
             Maaf, Anda tidak memiliki akses ke halaman ini
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (requireRider && !isRider) {
+    return (
+      <div className="min-h-screen bg-background pb-20">
+        <div className="max-w-screen-xl mx-auto p-4 text-center pt-12">
+          <div className="w-12 h-12 mx-auto text-muted-foreground opacity-50 mb-4">🔒</div>
+          <h1 className="text-xl font-semibold mb-2">Akses Dibatasi</h1>
+          <p className="text-muted-foreground">
+            Halaman ini khusus untuk rider
           </p>
         </div>
       </div>

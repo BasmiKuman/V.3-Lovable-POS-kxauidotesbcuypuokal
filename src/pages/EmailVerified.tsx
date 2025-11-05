@@ -73,7 +73,7 @@ export default function EmailVerified() {
         .from("user_roles")
         .select("role")
         .eq("user_id", session.user.id)
-        .eq("role", "admin")
+        .in("role", ["admin", "super_admin"])
         .maybeSingle();
       
       const redirectPath = roles ? "/dashboard" : "/pos";
