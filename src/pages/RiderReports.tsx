@@ -218,7 +218,7 @@ export default function RiderReports() {
                             {format(new Date(transaction.created_at), "dd MMM yyyy, HH:mm", { locale: idLocale })}
                           </TableCell>
                           <TableCell className="text-xs font-medium">
-                            Rp {transaction.total.toLocaleString("id-ID")}
+                            Rp {transaction.total_amount.toLocaleString("id-ID")}
                           </TableCell>
                           <TableCell className="text-right">
                             <Badge variant="outline" className="text-xs">

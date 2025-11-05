@@ -2,9 +2,10 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
-import { Trophy, TrendingUp, Package, Calendar } from "lucide-react";
+import { Trophy, TrendingUp, Package, Calendar, Megaphone } from "lucide-react";
 import { BottomNav } from "@/components/BottomNav";
 import { StatsCard } from "@/components/StatsCard";
+import { RiderFeedCard } from "@/components/RiderFeedCard";
 import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
@@ -335,6 +336,15 @@ export default function RiderDashboard() {
             )}
           </CardContent>
         </Card>
+
+        {/* Feed Section */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Megaphone className="w-5 h-5 text-primary" />
+            <h2 className="text-lg font-semibold">Pengumuman & Info</h2>
+          </div>
+          <RiderFeedCard />
+        </div>
       </div>
 
       <BottomNav isAdmin={false} />

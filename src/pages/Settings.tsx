@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { useRef } from "react";
 import { Switch } from "@/components/ui/switch";
 import { getGPSSettings, toggleTracking, getTrackingStatus, hasGPSConsent, saveGPSConsent } from "@/lib/gps-tracking";
+import { FeedManagement } from "@/components/FeedManagement";
 
 import { User as AuthUser } from "@supabase/supabase-js";
 
@@ -581,7 +582,7 @@ export default function Settings() {
     setLoading(true);
     try {
       // Use database function instead of Admin API
-      const { data, error: deleteError } = await supabase.rpc('delete_user_account', {
+      const { data, error: deleteError } = await supabase.rpc('delete_user_account' as any, {
         p_user_id: userId
       });
 
@@ -1171,6 +1172,13 @@ export default function Settings() {
             </Button>
           </CardContent>
         </Card>
+
+        {/* Feed Management - Admin Only */}
+        {isAdmin && (
+          <div className="animate-fade-in">
+            <FeedManagement />
+          </div>
+        )}
       </div>
 
       {/* Avatar View Dialog */}
