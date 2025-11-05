@@ -89,42 +89,24 @@ export default function RiderDashboard() {
     enabled: !!currentUserId,
   });
 
-  // Fetch leaderboard (ALL riders)
-  const { data: leaderboard = [] } = useQuery({
-    queryKey: ["leaderboard-all"],
+    // Fetch leaderboard - ALL riders
+  const { data: leaderboard = [] } = useQuery<LeaderboardEntry[]>({
+    queryKey: ["rider-leaderboard"],
     queryFn: async () => {
-      const today = new Date();
-      
-      // Get all transactions this month
-      const { data: transactions } = await supabase
-        .from("transactions")
-        .select("id, rider_id, created_at")
-        .gte("created_at", startOfMonth(today).toISOString())
-        .lte("created_at", endOfMonth(today).toISOString());
+      const now = new Date();
+      const monthStart = startOfMonth(now);
+      const monthEnd = endOfMonth(now);
 
-      if (!transactions || transactions.length === 0) return [];
+      // STEP 1: Get ALL riders from user_roles
+      const { data: allRiders } = await supabase
+        .from("user_roles")
+        .select("user_id")
+        .eq("role", "rider");
 
-      // Get all transaction items
-      const transactionIds = transactions.map(t => t.id);
-      const { data: items } = await supabase
-        .from("transaction_items")
-        .select("transaction_id, quantity")
-        .in("transaction_id", transactionIds);
+      if (!allRiders || allRiders.length === 0) return [];
 
-      if (!items) return [];
-
-      // Calculate total cups per rider
-      const riderCups = new Map<string, number>();
-      items.forEach(item => {
-        const transaction = transactions.find(t => t.id === item.transaction_id);
-        if (transaction) {
-          const current = riderCups.get(transaction.rider_id) || 0;
-          riderCups.set(transaction.rider_id, current + item.quantity);
-        }
-      });
-
-      // Get rider profiles
-      const riderIds = Array.from(riderCups.keys());
+      // STEP 2: Get ALL rider profiles
+      const riderIds = allRiders.map(r => r.user_id);
       const { data: profiles } = await supabase
         .from("profiles")
         .select("user_id, full_name, avatar_url")
@@ -132,12 +114,42 @@ export default function RiderDashboard() {
 
       if (!profiles) return [];
 
-      // Build leaderboard
+      // STEP 3: Get transactions for this month
+      const { data: transactions } = await supabase
+        .from("transactions")
+        .select("id, rider_id")
+        .in("rider_id", riderIds)
+        .gte("created_at", monthStart.toISOString())
+        .lte("created_at", monthEnd.toISOString());
+
+      // STEP 4: Get transaction items
+      const riderCups = new Map<string, number>();
+      
+      if (transactions && transactions.length > 0) {
+        const transactionIds = transactions.map(t => t.id);
+        const { data: items } = await supabase
+          .from("transaction_items")
+          .select("transaction_id, quantity")
+          .in("transaction_id", transactionIds);
+
+        if (items) {
+          // Calculate total cups per rider
+          items.forEach(item => {
+            const transaction = transactions.find(t => t.id === item.transaction_id);
+            if (transaction) {
+              const current = riderCups.get(transaction.rider_id) || 0;
+              riderCups.set(transaction.rider_id, current + item.quantity);
+            }
+          });
+        }
+      }
+
+      // STEP 5: Build leaderboard for ALL riders
       const entries: LeaderboardEntry[] = profiles.map(profile => ({
         rider_id: profile.user_id,
         rider_name: profile.full_name,
         rider_avatar: profile.avatar_url,
-        total_cups: riderCups.get(profile.user_id) || 0,
+        total_cups: riderCups.get(profile.user_id) || 0, // 0 if no sales
         rank: 0,
       }));
 
