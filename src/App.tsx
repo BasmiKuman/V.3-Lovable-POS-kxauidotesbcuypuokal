@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import Auth from "./pages/Auth";
 import EmailVerified from "./pages/EmailVerified";
@@ -13,6 +13,8 @@ import Warehouse from "./pages/Warehouse";
 import Reports from "./pages/Reports";
 import POS from "./pages/POS";
 import Settings from "./pages/Settings";
+import RiderDashboard from "./pages/RiderDashboard";
+import RiderReports from "./pages/RiderReports";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -30,14 +32,14 @@ const App = () => {
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
+      <HashRouter>
         <Routes>
           <Route 
             path="/" 
             element={
               <ProtectedRoute>
                 {({ isAdmin }) => (
-                  <Navigate to={isAdmin ? "/dashboard" : "/pos"} replace />
+                  <Navigate to={isAdmin ? "/dashboard" : "/rider-dashboard"} replace />
                 )}
               </ProtectedRoute>
             }
@@ -94,12 +96,28 @@ const App = () => {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/rider-dashboard"
+            element={
+              <ProtectedRoute requireRider={true}>
+                <RiderDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/rider-reports"
+            element={
+              <ProtectedRoute requireRider={true}>
+                <RiderReports />
+              </ProtectedRoute>
+            }
+          />
 
           
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
-      </BrowserRouter>
+      </HashRouter>
     </TooltipProvider>
   </QueryClientProvider>
   );
