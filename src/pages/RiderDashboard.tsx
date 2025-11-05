@@ -140,9 +140,6 @@ export default function RiderDashboard() {
         .in("user_id", riderIds);
 
       if (!profiles) return [];
-      
-      console.log("🔍 Total Riders Found:", profiles.length);
-      console.log("👥 Rider Profiles:", profiles.map(p => ({ name: p.full_name, id: p.user_id.substring(0, 8) })));
 
       // STEP 3: Get transactions for this month
       const { data: transactions } = await supabase
@@ -151,8 +148,6 @@ export default function RiderDashboard() {
         .in("rider_id", riderIds)
         .gte("created_at", monthStart.toISOString())
         .lte("created_at", monthEnd.toISOString());
-      
-      console.log("📦 Total Transactions This Month:", transactions?.length || 0);
 
       // STEP 4: Get transaction items
       const riderCups = new Map<string, number>();
@@ -165,8 +160,6 @@ export default function RiderDashboard() {
           .in("transaction_id", transactionIds);
 
         if (items) {
-          console.log("☕ Total Transaction Items:", items.length);
-          
           // Calculate total cups per rider
           items.forEach(item => {
             const transaction = transactions.find(t => t.id === item.transaction_id);
@@ -174,12 +167,6 @@ export default function RiderDashboard() {
               const current = riderCups.get(transaction.rider_id) || 0;
               riderCups.set(transaction.rider_id, current + item.quantity);
             }
-          });
-          
-          console.log("📊 Cups Per Rider:");
-          riderCups.forEach((cups, riderId) => {
-            const profile = profiles.find(p => p.user_id === riderId);
-            console.log(`   ${profile?.full_name}: ${cups} cups`);
           });
         }
       }
@@ -199,11 +186,6 @@ export default function RiderDashboard() {
       // Assign ranks
       entries.forEach((entry, index) => {
         entry.rank = index + 1;
-      });
-
-      console.log("🏆 FINAL LEADERBOARD:");
-      entries.forEach(entry => {
-        console.log(`   #${entry.rank} ${entry.rider_name}: ${entry.total_cups} cups`);
       });
 
       return entries;
@@ -366,17 +348,13 @@ export default function RiderDashboard() {
                 Belum ada data penjualan bulan ini
               </p>
             ) : (
-              <>
-                {console.log("🎨 Rendering Leaderboard - Total Entries:", leaderboard.length)}
-                {leaderboard.map((entry) => {
-                  const isMe = entry.rider_id === currentUserId;
-                  const badge = getRankBadge(entry.rank);
-                  
-                  console.log(`🏅 Rendering ${entry.rider_name}: ${entry.total_cups} cups (isMe: ${isMe})`);
-                  
-                  return (
-                    <div
-                      key={entry.rider_id}
+              leaderboard.map((entry) => {
+                const isMe = entry.rider_id === currentUserId;
+                const badge = getRankBadge(entry.rank);
+                
+                return (
+                  <div
+                    key={entry.rider_id}
                     className={`flex items-center gap-3 p-3 rounded-lg transition-all ${
                       isMe 
                         ? 'bg-primary/10 border-2 border-primary' 
@@ -401,7 +379,7 @@ export default function RiderDashboard() {
                       <p className={`font-semibold text-sm truncate ${isMe ? 'text-primary' : ''}`}>
                         {entry.rider_name} {isMe && '(Saya)'}
                       </p>
-                      <p className={`text-xs font-medium ${entry.total_cups > 0 ? 'text-foreground' : 'text-muted-foreground'}`}>
+                      <p className="text-xs font-medium text-foreground/80">
                         {entry.total_cups || 0} cup terjual
                       </p>
                     </div>
@@ -413,9 +391,8 @@ export default function RiderDashboard() {
                       </Badge>
                     )}
                   </div>
-                  );
-                })}
-              </>
+                )
+              })
             )}
           </CardContent>
         </Card>
