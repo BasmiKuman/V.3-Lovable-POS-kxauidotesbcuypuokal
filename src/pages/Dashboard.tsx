@@ -174,12 +174,17 @@ export default function Dashboard() {
       if (updateProductError) throw updateProductError;
 
       // Update rider stock: deduct the returned quantity
-      const { data: riderStock } = await supabase
+      const { data: riderStock, error: riderStockError } = await supabase
         .from("rider_stock")
         .select("quantity")
         .eq("rider_id", returnItem.rider_id)
         .eq("product_id", returnItem.product_id)
-        .single();
+        .maybeSingle();
+
+      if (riderStockError) {
+        console.error("Error fetching rider stock:", riderStockError);
+        throw new Error(`Gagal mengambil data stock rider: ${riderStockError.message}`);
+      }
 
       if (riderStock) {
         const newQuantity = riderStock.quantity - returnItem.quantity;
