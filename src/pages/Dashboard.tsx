@@ -222,9 +222,9 @@ export default function Dashboard() {
         // 
         // Decision: Accept the return anyway and add to warehouse
         // This prevents blocking legitimate returns due to data issues
-        console.warn(
-          `⚠️ Rider stock not found for product ${returnItem.product_id}. ` +
-          `Accepting return anyway and adding to warehouse.`
+        console.log(
+          `ℹ️ Rider stock not found for product ${returnItem.product_id}. ` +
+          `Accepting return and adding to warehouse (stock may have been sold or returned previously).`
         );
         // Continue to save history and delete return record below
       }
