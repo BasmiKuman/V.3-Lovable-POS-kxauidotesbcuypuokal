@@ -27,6 +27,11 @@ export default function RiderDashboard() {
   const { hasNewFeed, newFeedCount, markFeedsAsViewed } = useNewFeedNotification();
   const feedSectionRef = useRef<HTMLDivElement>(null);
 
+  // Debug notification state
+  useEffect(() => {
+    console.log("🔔 Notification State:", { hasNewFeed, newFeedCount });
+  }, [hasNewFeed, newFeedCount]);
+
   useEffect(() => {
     const fetchUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -124,49 +129,102 @@ export default function RiderDashboard() {
       const monthStart = startOfMonth(now);
       const monthEnd = endOfMonth(now);
 
+      console.log("📅 Fetching leaderboard for:", format(monthStart, "MMMM yyyy", { locale: idLocale }));
+
       // STEP 1: Get ALL riders from user_roles
-      const { data: allRiders } = await supabase
+      const { data: allRiders, error: ridersError } = await supabase
         .from("user_roles")
         .select("user_id")
         .eq("role", "rider");
 
-      if (!allRiders || allRiders.length === 0) return [];
+      if (ridersError) console.error("❌ Error fetching riders:", ridersError);
+      if (!allRiders || allRiders.length === 0) {
+        console.log("⚠️ No riders found");
+        return [];
+      }
+
+      console.log("👥 Total riders:", allRiders.length);
 
       // STEP 2: Get ALL rider profiles
       const riderIds = allRiders.map(r => r.user_id);
-      const { data: profiles } = await supabase
+      const { data: profiles, error: profilesError } = await supabase
         .from("profiles")
         .select("user_id, full_name, avatar_url")
         .in("user_id", riderIds);
 
+      if (profilesError) console.error("❌ Error fetching profiles:", profilesError);
       if (!profiles) return [];
 
-      // STEP 3: Get transactions for this month
-      const { data: transactions } = await supabase
+      // STEP 3: Get ALL transactions with items in ONE query (JOIN)
+      const { data: transactionsWithItems, error: transError } = await supabase
         .from("transactions")
-        .select("id, rider_id")
+        .select(`
+          id,
+          rider_id,
+          created_at,
+          transaction_items (
+            quantity
+          )
+        `)
         .in("rider_id", riderIds)
         .gte("created_at", monthStart.toISOString())
         .lte("created_at", monthEnd.toISOString());
 
-      // STEP 4: Get transaction items
+      if (transError) console.error("❌ Error fetching transactions:", transError);
+
+      console.log("📦 Total transactions this month:", transactionsWithItems?.length || 0);
+      console.log("📅 Date range:", {
+        from: format(monthStart, "dd MMM yyyy HH:mm", { locale: idLocale }),
+        to: format(monthEnd, "dd MMM yyyy HH:mm", { locale: idLocale })
+      });
+      
+      // Log sample transactions per rider
+      if (transactionsWithItems && transactionsWithItems.length > 0) {
+        const transPerRider = new Map<string, number>();
+        transactionsWithItems.forEach(t => {
+          transPerRider.set(t.rider_id, (transPerRider.get(t.rider_id) || 0) + 1);
+        });
+        console.log("📊 Transactions per rider:");
+        transPerRider.forEach((count, riderId) => {
+          const profile = profiles.find(p => p.user_id === riderId);
+          console.log(`   ${profile?.full_name}: ${count} transactions`);
+        });
+      }
+
+      // STEP 4: Calculate cups per rider
       const riderCups = new Map<string, number>();
       
-      if (transactions && transactions.length > 0) {
-        const transactionIds = transactions.map(t => t.id);
-        const { data: items } = await supabase
-          .from("transaction_items")
-          .select("transaction_id, quantity")
-          .in("transaction_id", transactionIds);
+      if (transactionsWithItems && transactionsWithItems.length > 0) {
+        console.log("🔍 Analyzing transaction items...");
+        
+        transactionsWithItems.forEach((transaction, index) => {
+          const riderId = transaction.rider_id;
+          const items = transaction.transaction_items || [];
+          
+          // Debug first few transactions
+          if (index < 3) {
+            console.log(`   Transaction ${index + 1}:`, {
+              rider_id: riderId.substring(0, 8),
+              items_count: items.length,
+              items: items
+            });
+          }
+          
+          const totalCups = items.reduce((sum, item) => sum + (item.quantity || 0), 0);
+          
+          if (totalCups > 0) {
+            const current = riderCups.get(riderId) || 0;
+            riderCups.set(riderId, current + totalCups);
+          }
+        });
 
-        if (items) {
-          // Calculate total cups per rider
-          items.forEach(item => {
-            const transaction = transactions.find(t => t.id === item.transaction_id);
-            if (transaction) {
-              const current = riderCups.get(transaction.rider_id) || 0;
-              riderCups.set(transaction.rider_id, current + item.quantity);
-            }
+        console.log("☕ Riders with sales:");
+        if (riderCups.size === 0) {
+          console.log("   ⚠️ NO RIDERS WITH CUPS! transaction_items might be empty!");
+        } else {
+          riderCups.forEach((cups, riderId) => {
+            const profile = profiles.find(p => p.user_id === riderId);
+            console.log(`   ${profile?.full_name}: ${cups} cups`);
           });
         }
       }
@@ -186,6 +244,11 @@ export default function RiderDashboard() {
       // Assign ranks
       entries.forEach((entry, index) => {
         entry.rank = index + 1;
+      });
+
+      console.log("🏆 FINAL LEADERBOARD:");
+      entries.forEach(entry => {
+        console.log(`   #${entry.rank} ${entry.rider_name}: ${entry.total_cups} cups (ID: ${entry.rider_id.substring(0, 8)})`);
       });
 
       return entries;
@@ -262,24 +325,23 @@ export default function RiderDashboard() {
             <p className="text-xs sm:text-sm text-muted-foreground">Performa & Peringkat Penjualan</p>
           </div>
           
-          {/* Feed Notification Badge */}
-          {hasNewFeed && (
-            <button
-              onClick={() => {
-                markFeedsAsViewed();
-                feedSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-              }}
-              className="relative flex flex-col items-center gap-1 px-3 py-2 bg-primary/10 hover:bg-primary/20 rounded-xl transition-all hover:scale-105 flex-shrink-0"
-            >
-              <div className="relative">
-                <Bell className="w-5 h-5 text-primary animate-pulse" />
+          {/* Feed Notification Badge - Always Visible */}
+          <button
+            onClick={() => {
+              feedSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+            }}
+            className="relative flex flex-col items-center gap-1 px-3 py-2 bg-primary/10 hover:bg-primary/20 rounded-xl transition-all hover:scale-105 flex-shrink-0"
+          >
+            <div className="relative">
+              <Bell className={`w-5 h-5 text-primary ${hasNewFeed ? 'animate-pulse' : ''}`} />
+              {hasNewFeed && (
                 <Badge variant="destructive" className="absolute -top-2 -right-2 h-4 min-w-4 px-1 text-[10px] leading-tight">
                   {newFeedCount}
                 </Badge>
-              </div>
-              <span className="text-[10px] font-medium text-primary">Feed Baru</span>
-            </button>
-          )}
+              )}
+            </div>
+            <span className="text-[10px] font-medium text-primary">Pengumuman</span>
+          </button>
         </div>
 
         {/* Stats Grid */}
