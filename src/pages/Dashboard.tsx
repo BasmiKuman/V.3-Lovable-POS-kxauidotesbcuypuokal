@@ -32,6 +32,7 @@ export default function Dashboard() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [returns, setReturns] = useState<ReturnRequest[]>([]);
   const [processingReturnId, setProcessingReturnId] = useState<string | null>(null);
+  const [removingReturnIds, setRemovingReturnIds] = useState<Set<string>>(new Set());
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const isMobile = useIsMobile();
@@ -254,8 +255,18 @@ export default function Dashboard() {
 
       toast.success("Return berhasil disetujui");
 
-      // Refresh returns list
-      setReturns(prev => prev.filter(r => r.id !== returnItem.id));
+      // Add smooth removal animation
+      setRemovingReturnIds(prev => new Set(prev).add(returnItem.id));
+      
+      // Wait for fade-out animation before removing from list
+      setTimeout(() => {
+        setReturns(prev => prev.filter(r => r.id !== returnItem.id));
+        setRemovingReturnIds(prev => {
+          const next = new Set(prev);
+          next.delete(returnItem.id);
+          return next;
+        });
+      }, 300); // Match CSS transition duration
     } catch (error: any) {
       toast.error("Gagal menyetujui return: " + error.message);
       console.error(error);
@@ -478,6 +489,7 @@ export default function Dashboard() {
               <ReturnsAccordion
                 returns={returns}
                 processingReturnId={processingReturnId}
+                removingReturnIds={removingReturnIds}
                 onApprove={handleApproveReturn}
                 onReject={handleRejectReturn}
               />

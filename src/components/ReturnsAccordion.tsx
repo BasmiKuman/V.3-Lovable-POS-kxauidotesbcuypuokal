@@ -43,13 +43,15 @@ interface GroupedReturn {
 interface ReturnsAccordionProps {
   returns: ReturnRequest[];
   processingReturnId: string | null;
+  removingReturnIds: Set<string>;
   onApprove: (returnItem: ReturnRequest) => void;
   onReject: (returnItem: ReturnRequest) => void;
 }
 
 export function ReturnsAccordion({ 
   returns, 
-  processingReturnId, 
+  processingReturnId,
+  removingReturnIds,
   onApprove, 
   onReject 
 }: ReturnsAccordionProps) {
@@ -112,9 +114,16 @@ export function ReturnsAccordion({
           
           <AccordionContent className="pb-4">
             <div className="space-y-3 pt-2">
-              {group.returns.map((returnItem) => (
-                <Card key={returnItem.id} className="border-2">
-                  <CardContent className="p-3 sm:p-4">
+              {group.returns.map((returnItem) => {
+                const isRemoving = removingReturnIds.has(returnItem.id);
+                return (
+                  <Card 
+                    key={returnItem.id} 
+                    className={`border-2 transition-all duration-300 ${
+                      isRemoving ? 'opacity-0 scale-95' : 'opacity-100 scale-100'
+                    }`}
+                  >
+                    <CardContent className="p-3 sm:p-4">
                     <div className="flex items-start gap-3">
                       {/* Product Image */}
                       <div className="w-16 h-16 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
@@ -197,7 +206,8 @@ export function ReturnsAccordion({
                     </div>
                   </CardContent>
                 </Card>
-              ))}
+                );
+              })}
             </div>
           </AccordionContent>
         </AccordionItem>
