@@ -178,13 +178,36 @@ export default function RiderDashboard() {
         to: format(monthEnd, "dd MMM yyyy HH:mm", { locale: idLocale })
       });
       
-      // Log sample transactions per rider
+      // EXTRA: Check ALL transactions (without date filter) to verify data exists
+      const { data: allTransactions } = await supabase
+        .from("transactions")
+        .select("id, rider_id, created_at")
+        .in("rider_id", riderIds);
+      
+      if (allTransactions && allTransactions.length > 0) {
+        const allTransPerRider = new Map<string, any[]>();
+        allTransactions.forEach(t => {
+          if (!allTransPerRider.has(t.rider_id)) {
+            allTransPerRider.set(t.rider_id, []);
+          }
+          allTransPerRider.get(t.rider_id)?.push(t.created_at);
+        });
+        
+        console.log("📊 ALL TIME transactions per rider (for verification):");
+        allTransPerRider.forEach((dates, riderId) => {
+          const profile = profiles.find(p => p.user_id === riderId);
+          const latestDate = dates.length > 0 ? new Date(Math.max(...dates.map(d => new Date(d).getTime()))) : null;
+          console.log(`   ${profile?.full_name}: ${dates.length} total transactions (latest: ${latestDate ? format(latestDate, "dd MMM yyyy", { locale: idLocale }) : 'N/A'})`);
+        });
+      }
+      
+      // Log sample transactions per rider (THIS MONTH only)
       if (transactionsWithItems && transactionsWithItems.length > 0) {
         const transPerRider = new Map<string, number>();
         transactionsWithItems.forEach(t => {
           transPerRider.set(t.rider_id, (transPerRider.get(t.rider_id) || 0) + 1);
         });
-        console.log("📊 Transactions per rider:");
+        console.log("📊 Transactions THIS MONTH per rider:");
         transPerRider.forEach((count, riderId) => {
           const profile = profiles.find(p => p.user_id === riderId);
           console.log(`   ${profile?.full_name}: ${count} transactions`);
@@ -203,10 +226,13 @@ export default function RiderDashboard() {
           
           // Debug first few transactions
           if (index < 3) {
+            const profile = profiles.find(p => p.user_id === riderId);
             console.log(`   Transaction ${index + 1}:`, {
+              rider_name: profile?.full_name,
               rider_id: riderId.substring(0, 8),
               items_count: items.length,
-              items: items
+              items: items,
+              total_cups: items.reduce((sum, item) => sum + (item.quantity || 0), 0)
             });
           }
           
