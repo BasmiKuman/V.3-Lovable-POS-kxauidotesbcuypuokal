@@ -318,27 +318,27 @@ export default function RiderDashboard() {
                       <span className="text-sm">{badge.emoji}</span>
                     </div>
 
-                    {/* Avatar */}
-                    <Avatar className="h-10 w-10">
+                    {/* Avatar & Info */}
+                    <Avatar className="h-10 w-10 flex-shrink-0">
                       <AvatarImage src={entry.rider_avatar || undefined} alt={entry.rider_name} />
                       <AvatarFallback className="bg-primary/20 text-primary">
                         {entry.rider_name.charAt(0).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
 
-                    {/* Name */}
+                    {/* Name & Stats */}
                     <div className="flex-1 min-w-0">
                       <p className={`font-semibold text-sm truncate ${isMe ? 'text-primary' : ''}`}>
                         {entry.rider_name} {isMe && '(Saya)'}
                       </p>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-xs text-muted-foreground font-medium">
                         {entry.total_cups} cup terjual
                       </p>
                     </div>
 
-                    {/* Medal for top 3 */}
+                    {/* Medal/Badge for top 3 */}
                     {entry.rank <= 3 && (
-                      <Badge variant="outline" className="text-xs">
+                      <Badge variant="outline" className="text-xs flex-shrink-0">
                         Top {entry.rank}
                       </Badge>
                     )}

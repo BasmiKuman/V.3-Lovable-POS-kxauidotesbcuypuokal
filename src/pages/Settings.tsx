@@ -19,7 +19,7 @@ type Profile = {
   role?: string;
 };
 
-export default function SettingsNew() {
+export default function Settings() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -93,28 +93,28 @@ export default function SettingsNew() {
         </div>
 
         <Tabs defaultValue="profile" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 gap-2">
-            <TabsTrigger value="profile" className="gap-2">
+          <TabsList className={`grid w-full gap-1 ${isAdmin ? 'grid-cols-4' : 'grid-cols-2'}`}>
+            <TabsTrigger value="profile" className="flex-col gap-1 h-auto py-2 text-xs">
               <User className="h-4 w-4" />
-              <span className="hidden sm:inline">Profil</span>
+              <span>Profil</span>
             </TabsTrigger>
             
             {!isAdmin && (
-              <TabsTrigger value="gps" className="gap-2">
+              <TabsTrigger value="gps" className="flex-col gap-1 h-auto py-2 text-xs">
                 <MapPin className="h-4 w-4" />
-                <span className="hidden sm:inline">GPS</span>
+                <span>GPS</span>
               </TabsTrigger>
             )}
             
             {isAdmin && (
               <>
-                <TabsTrigger value="users" className="gap-2">
+                <TabsTrigger value="users" className="flex-col gap-1 h-auto py-2 text-xs">
                   <Users className="h-4 w-4" />
-                  <span className="hidden sm:inline">Pengguna</span>
+                  <span>Pengguna</span>
                 </TabsTrigger>
-                <TabsTrigger value="feeds" className="gap-2">
+                <TabsTrigger value="feeds" className="flex-col gap-1 h-auto py-2 text-xs">
                   <Megaphone className="h-4 w-4" />
-                  <span className="hidden sm:inline">Feed</span>
+                  <span>Feed</span>
                 </TabsTrigger>
               </>
             )}
