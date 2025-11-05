@@ -20,9 +20,6 @@ export function useNewFeedNotification() {
       const lastViewed = localStorage.getItem('last_feed_viewed');
       const lastViewedDate = lastViewed ? new Date(lastViewed) : new Date(0);
 
-      console.log("🔔 Checking for new feeds...");
-      console.log("   Last viewed:", lastViewed || "Never");
-
       // Get feeds published after last viewed
       const { data: feeds, error } = await supabase
         .from("feeds" as any)
@@ -30,21 +27,11 @@ export function useNewFeedNotification() {
         .eq("status", "published")
         .gt("published_at", lastViewedDate.toISOString());
 
-      if (error) {
-        console.error("❌ Error fetching feeds:", error);
-        throw error;
-      }
-
-      console.log("📢 New feeds found:", feeds?.length || 0);
-      if (feeds && feeds.length > 0) {
-        console.log("   Feeds:", feeds.map((f: any) => f.title));
-      }
+      if (error) throw error;
 
       const count = feeds?.length || 0;
       setNewFeedCount(count);
       setHasNewFeed(count > 0);
-      
-      console.log("   hasNewFeed:", count > 0);
     } catch (error) {
       console.error("Error checking new feeds:", error);
     }

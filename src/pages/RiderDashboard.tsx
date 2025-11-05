@@ -29,7 +29,9 @@ export default function RiderDashboard() {
 
   // Debug notification state
   useEffect(() => {
-    console.log("🔔 Notification State:", { hasNewFeed, newFeedCount });
+    if (hasNewFeed) {
+      console.log("🔔 New feeds available:", newFeedCount);
+    }
   }, [hasNewFeed, newFeedCount]);
 
   useEffect(() => {
@@ -129,21 +131,13 @@ export default function RiderDashboard() {
       const monthStart = startOfMonth(now);
       const monthEnd = endOfMonth(now);
 
-      console.log("📅 Fetching leaderboard for:", format(monthStart, "MMMM yyyy", { locale: idLocale }));
-
       // STEP 1: Get ALL riders from user_roles
       const { data: allRiders, error: ridersError } = await supabase
         .from("user_roles")
         .select("user_id")
         .eq("role", "rider");
 
-      if (ridersError) console.error("❌ Error fetching riders:", ridersError);
-      if (!allRiders || allRiders.length === 0) {
-        console.log("⚠️ No riders found");
-        return [];
-      }
-
-      console.log("👥 Total riders:", allRiders.length);
+      if (ridersError || !allRiders || allRiders.length === 0) return [];
 
       // STEP 2: Get ALL rider profiles
       const riderIds = allRiders.map(r => r.user_id);
@@ -152,11 +146,11 @@ export default function RiderDashboard() {
         .select("user_id, full_name, avatar_url")
         .in("user_id", riderIds);
 
-      if (profilesError) console.error("❌ Error fetching profiles:", profilesError);
-      if (!profiles) return [];
+      if (profilesError || !profiles) return [];
 
-      // STEP 3: Get ALL transactions with items in ONE query (JOIN)
-      const { data: transactionsWithItems, error: transError } = await supabase
+      // STEP 3: Get ALL transactions for this month (with rider_id OR created_by rider)
+      // First try with rider_id
+      const { data: transactionsWithItems } = await supabase
         .from("transactions")
         .select(`
           id,
@@ -170,103 +164,21 @@ export default function RiderDashboard() {
         .gte("created_at", monthStart.toISOString())
         .lte("created_at", monthEnd.toISOString());
 
-      if (transError) console.error("❌ Error fetching transactions:", transError);
-
-      console.log("📦 Total transactions this month:", transactionsWithItems?.length || 0);
-      console.log("📅 Date range:", {
-        from: format(monthStart, "dd MMM yyyy HH:mm", { locale: idLocale }),
-        to: format(monthEnd, "dd MMM yyyy HH:mm", { locale: idLocale })
-      });
-      
-      // EXTRA: Check ALL transactions (without date filter) to verify data exists
-      const { data: allTransactions } = await supabase
-        .from("transactions")
-        .select("id, rider_id, created_at")
-        .in("rider_id", riderIds);
-      
-      // ALSO check transactions with NULL rider_id
-      const { data: orphanTransactions } = await supabase
-        .from("transactions")
-        .select("id, rider_id, created_at")
-        .is("rider_id", null)
-        .gte("created_at", monthStart.toISOString())
-        .lte("created_at", monthEnd.toISOString());
-      
-      if (orphanTransactions && orphanTransactions.length > 0) {
-        console.log("⚠️ WARNING: Found transactions with NULL rider_id!");
-        console.log(`   ${orphanTransactions.length} transactions this month have no rider assigned!`);
-        console.log("   This is a DATA PROBLEM - transactions must have rider_id!");
-      }
-      
-      if (allTransactions && allTransactions.length > 0) {
-        const allTransPerRider = new Map<string, any[]>();
-        allTransactions.forEach(t => {
-          if (!allTransPerRider.has(t.rider_id)) {
-            allTransPerRider.set(t.rider_id, []);
-          }
-          allTransPerRider.get(t.rider_id)?.push(t.created_at);
-        });
-        
-        console.log("📊 ALL TIME transactions per rider (for verification):");
-        profiles.forEach(profile => {
-          const dates = allTransPerRider.get(profile.user_id) || [];
-          const latestDate = dates.length > 0 ? new Date(Math.max(...dates.map(d => new Date(d).getTime()))) : null;
-          console.log(`   ${profile.full_name}: ${dates.length} total transactions (latest: ${latestDate ? format(latestDate, "dd MMM yyyy", { locale: idLocale }) : 'NONE'})`);
-        });
-      }
-      
-      // Log sample transactions per rider (THIS MONTH only)
-      if (transactionsWithItems && transactionsWithItems.length > 0) {
-        const transPerRider = new Map<string, number>();
-        transactionsWithItems.forEach(t => {
-          transPerRider.set(t.rider_id, (transPerRider.get(t.rider_id) || 0) + 1);
-        });
-        console.log("📊 Transactions THIS MONTH per rider:");
-        transPerRider.forEach((count, riderId) => {
-          const profile = profiles.find(p => p.user_id === riderId);
-          console.log(`   ${profile?.full_name}: ${count} transactions`);
-        });
-      }
-
       // STEP 4: Calculate cups per rider
       const riderCups = new Map<string, number>();
       
       if (transactionsWithItems && transactionsWithItems.length > 0) {
-        console.log("🔍 Analyzing transaction items...");
-        
-        transactionsWithItems.forEach((transaction, index) => {
+        transactionsWithItems.forEach(transaction => {
           const riderId = transaction.rider_id;
           const items = transaction.transaction_items || [];
           
-          // Debug first few transactions
-          if (index < 3) {
-            const profile = profiles.find(p => p.user_id === riderId);
-            console.log(`   Transaction ${index + 1}:`, {
-              rider_name: profile?.full_name,
-              rider_id: riderId.substring(0, 8),
-              items_count: items.length,
-              items: items,
-              total_cups: items.reduce((sum, item) => sum + (item.quantity || 0), 0)
-            });
-          }
-          
           const totalCups = items.reduce((sum, item) => sum + (item.quantity || 0), 0);
           
-          if (totalCups > 0) {
+          if (totalCups > 0 && riderId) {
             const current = riderCups.get(riderId) || 0;
             riderCups.set(riderId, current + totalCups);
           }
         });
-
-        console.log("☕ Riders with sales:");
-        if (riderCups.size === 0) {
-          console.log("   ⚠️ NO RIDERS WITH CUPS! transaction_items might be empty!");
-        } else {
-          riderCups.forEach((cups, riderId) => {
-            const profile = profiles.find(p => p.user_id === riderId);
-            console.log(`   ${profile?.full_name}: ${cups} cups`);
-          });
-        }
       }
 
       // STEP 5: Build leaderboard for ALL riders
@@ -284,11 +196,6 @@ export default function RiderDashboard() {
       // Assign ranks
       entries.forEach((entry, index) => {
         entry.rank = index + 1;
-      });
-
-      console.log("🏆 FINAL LEADERBOARD:");
-      entries.forEach(entry => {
-        console.log(`   #${entry.rank} ${entry.rider_name}: ${entry.total_cups} cups (ID: ${entry.rider_id.substring(0, 8)})`);
       });
 
       return entries;
