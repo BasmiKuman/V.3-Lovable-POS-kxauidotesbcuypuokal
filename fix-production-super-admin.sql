@@ -7,13 +7,20 @@
 -- ============================================================================
 
 -- ============================================================================
--- STEP 1: DROP OLD PRODUCTION_HISTORY POLICIES
+-- STEP 1: DROP ALL OLD AND NEW PRODUCTION_HISTORY POLICIES
 -- ============================================================================
 
+-- Drop old policy names
 DROP POLICY IF EXISTS "Admin can view all production history" ON production_history;
 DROP POLICY IF EXISTS "Admin can insert production history" ON production_history;
 DROP POLICY IF EXISTS "Admin can update production history" ON production_history;
 DROP POLICY IF EXISTS "Admin can delete production history" ON production_history;
+
+-- Drop new policy names (in case they already exist)
+DROP POLICY IF EXISTS "Admins can view all production history" ON production_history;
+DROP POLICY IF EXISTS "Admins can insert production history" ON production_history;
+DROP POLICY IF EXISTS "Admins can update production history" ON production_history;
+DROP POLICY IF EXISTS "Admins can delete production history" ON production_history;
 
 -- ============================================================================
 -- STEP 2: CREATE NEW POLICIES WITH SUPER ADMIN SUPPORT
