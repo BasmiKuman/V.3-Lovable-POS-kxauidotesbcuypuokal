@@ -184,6 +184,20 @@ export default function RiderDashboard() {
         .select("id, rider_id, created_at")
         .in("rider_id", riderIds);
       
+      // ALSO check transactions with NULL rider_id
+      const { data: orphanTransactions } = await supabase
+        .from("transactions")
+        .select("id, rider_id, created_at")
+        .is("rider_id", null)
+        .gte("created_at", monthStart.toISOString())
+        .lte("created_at", monthEnd.toISOString());
+      
+      if (orphanTransactions && orphanTransactions.length > 0) {
+        console.log("⚠️ WARNING: Found transactions with NULL rider_id!");
+        console.log(`   ${orphanTransactions.length} transactions this month have no rider assigned!`);
+        console.log("   This is a DATA PROBLEM - transactions must have rider_id!");
+      }
+      
       if (allTransactions && allTransactions.length > 0) {
         const allTransPerRider = new Map<string, any[]>();
         allTransactions.forEach(t => {
@@ -194,10 +208,10 @@ export default function RiderDashboard() {
         });
         
         console.log("📊 ALL TIME transactions per rider (for verification):");
-        allTransPerRider.forEach((dates, riderId) => {
-          const profile = profiles.find(p => p.user_id === riderId);
+        profiles.forEach(profile => {
+          const dates = allTransPerRider.get(profile.user_id) || [];
           const latestDate = dates.length > 0 ? new Date(Math.max(...dates.map(d => new Date(d).getTime()))) : null;
-          console.log(`   ${profile?.full_name}: ${dates.length} total transactions (latest: ${latestDate ? format(latestDate, "dd MMM yyyy", { locale: idLocale }) : 'N/A'})`);
+          console.log(`   ${profile.full_name}: ${dates.length} total transactions (latest: ${latestDate ? format(latestDate, "dd MMM yyyy", { locale: idLocale }) : 'NONE'})`);
         });
       }
       
