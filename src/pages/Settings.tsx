@@ -580,8 +580,10 @@ export default function Settings() {
 
     setLoading(true);
     try {
-      // Delete from auth (this will cascade delete profile and roles due to foreign key)
-      const { error: deleteError } = await supabase.auth.admin.deleteUser(userId);
+      // Use database function instead of Admin API
+      const { data, error: deleteError } = await supabase.rpc('delete_user_account', {
+        p_user_id: userId
+      });
 
       if (deleteError) throw deleteError;
 
