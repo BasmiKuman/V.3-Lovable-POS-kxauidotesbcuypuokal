@@ -75,12 +75,13 @@ export default function RiderDashboard() {
       const today = new Date();
       const { data: items } = await supabase
         .from("transaction_items")
-        .select("quantity, products!inner(categories(name)), transactions!inner(rider_id, created_at)")
+        .select("quantity, products(categories(name)), transactions!inner(rider_id, created_at)")
         .eq("transactions.rider_id", currentUserId)
         .gte("transactions.created_at", startOfDay(today).toISOString())
         .lte("transactions.created_at", endOfDay(today).toISOString());
 
       // Count cups ONLY (exclude Add On category)
+      // Use LEFT JOIN - so products without categories still counted
       return items?.reduce((sum, item: any) => {
         const categoryName = item.products?.categories?.name?.toLowerCase() || '';
         const isAddOn = categoryName === 'add on' || categoryName === 'addon' || categoryName === 'add-on';
@@ -99,7 +100,7 @@ export default function RiderDashboard() {
       const today = new Date();
       const { data: items } = await supabase
         .from("transaction_items")
-        .select("quantity, products!inner(categories(name)), transactions!inner(rider_id, created_at)")
+        .select("quantity, products(categories(name)), transactions!inner(rider_id, created_at)")
         .eq("transactions.rider_id", currentUserId)
         .gte("transactions.created_at", startOfWeek(today, { locale: idLocale }).toISOString())
         .lte("transactions.created_at", endOfWeek(today, { locale: idLocale }).toISOString());
@@ -123,7 +124,7 @@ export default function RiderDashboard() {
       const today = new Date();
       const { data: items } = await supabase
         .from("transaction_items")
-        .select("quantity, products!inner(categories(name)), transactions!inner(rider_id, created_at)")
+        .select("quantity, products(categories(name)), transactions!inner(rider_id, created_at)")
         .eq("transactions.rider_id", currentUserId)
         .gte("transactions.created_at", startOfMonth(today).toISOString())
         .lte("transactions.created_at", endOfMonth(today).toISOString());
@@ -155,38 +156,74 @@ export default function RiderDashboard() {
       if (ridersError) console.error("Error fetching user_roles:", ridersError);
       const riderRoleIds = (allRiders || []).map((r: any) => r.user_id);
 
-      // STEP 2: Get ALL transactions for this month (do NOT filter by rider list)
-      // This ensures we include transactions even if user_roles is out-of-sync
-      const { data: transactionsWithItems, error: transError } = await supabase
+      // STEP 2: Get ALL transactions for this month with items
+      const { data: transactions, error: transError } = await supabase
         .from("transactions")
-        .select(`
-          id,
-          rider_id,
-          created_at,
-          transaction_items (
-            quantity,
-            products (
-              categories (
-                name
-              )
-            )
-          )
-        `)
+        .select("id, rider_id, created_at")
         .gte("created_at", monthStart.toISOString())
         .lte("created_at", monthEnd.toISOString());
 
-      if (transError) console.error("Error fetching transactions:", transError);
+      if (transError) {
+        console.error("Error fetching transactions:", transError);
+        return [];
+      }
 
-      // Collect rider IDs seen in transactions (non-null)
-      const transactionRiderIds = new Set<string>();
-      (transactionsWithItems || []).forEach((t: any) => {
-        if (t.rider_id) transactionRiderIds.add(t.rider_id);
+      // Get transaction IDs
+      const transactionIds = (transactions || []).map((t: any) => t.id);
+
+      // STEP 3: Get ALL transaction items for these transactions
+      const { data: allItems, error: itemsError } = await supabase
+        .from("transaction_items")
+        .select(`
+          transaction_id,
+          quantity,
+          products (
+            id,
+            categories (
+              name
+            )
+          )
+        `)
+        .in("transaction_id", transactionIds.length > 0 ? transactionIds : [""]);
+
+      if (itemsError) {
+        console.error("Error fetching transaction_items:", itemsError);
+      }
+
+      // STEP 4: Build map of transaction_id -> total cups (exclude Add On)
+      const transactionCups = new Map<string, number>();
+      (allItems || []).forEach((item: any) => {
+        const transId = item.transaction_id;
+        const categoryName = item.products?.categories?.name?.toLowerCase() || '';
+        const isAddOn = categoryName === 'add on' || categoryName === 'addon' || categoryName === 'add-on';
+        
+        if (!isAddOn) {
+          const current = transactionCups.get(transId) || 0;
+          transactionCups.set(transId, current + (item.quantity || 0));
+        }
       });
 
-      // Union: riders from roles + riders seen in transactions
+      // STEP 5: Aggregate cups per rider
+      const riderCups = new Map<string, number>();
+      const transactionRiderIds = new Set<string>();
+      
+      (transactions || []).forEach((transaction: any) => {
+        const riderId = transaction.rider_id;
+        if (!riderId) return;
+        
+        transactionRiderIds.add(riderId);
+        const cups = transactionCups.get(transaction.id) || 0;
+        
+        if (cups > 0) {
+          const current = riderCups.get(riderId) || 0;
+          riderCups.set(riderId, current + cups);
+        }
+      });
+
+      // STEP 6: Union - riders from roles + riders seen in transactions
       const unionIds = Array.from(new Set<string>([...riderRoleIds, ...Array.from(transactionRiderIds)]));
 
-      // STEP 3: Fetch profiles for everyone in the union set
+      // STEP 7: Fetch profiles for everyone
       const { data: profiles, error: profilesError } = await supabase
         .from("profiles")
         .select("user_id, full_name, avatar_url")
@@ -195,26 +232,7 @@ export default function RiderDashboard() {
       if (profilesError) console.error("Error fetching profiles:", profilesError);
       const profilesList = profiles || [];
 
-      // STEP 4: Calculate cups per rider (EXCLUDE Add On category)
-      const riderCups = new Map<string, number>();
-      (transactionsWithItems || []).forEach((transaction: any) => {
-        const riderId = transaction.rider_id;
-        const items = transaction.transaction_items || [];
-        
-        // Count cups ONLY (exclude Add On)
-        const totalCups = items.reduce((sum: number, item: any) => {
-          const categoryName = item.products?.categories?.name?.toLowerCase() || '';
-          const isAddOn = categoryName === 'add on' || categoryName === 'addon' || categoryName === 'add-on';
-          return isAddOn ? sum : sum + (item.quantity || 0);
-        }, 0);
-        
-        if (riderId && totalCups > 0) {
-          const current = riderCups.get(riderId) || 0;
-          riderCups.set(riderId, current + totalCups);
-        }
-      });
-
-      // STEP 5: Build leaderboard for ALL riders (profilesList may include riders without sales)
+      // STEP 8: Build leaderboard
       const entries: LeaderboardEntry[] = profilesList.map((profile: any) => ({
         rider_id: profile.user_id,
         rider_name: profile.full_name,
@@ -261,7 +279,7 @@ export default function RiderDashboard() {
         days.map(async (day) => {
           const { data: items } = await supabase
             .from("transaction_items")
-            .select("quantity, products!inner(categories(name)), transactions!inner(rider_id, created_at)")
+            .select("quantity, products(categories(name)), transactions!inner(rider_id, created_at)")
             .eq("transactions.rider_id", currentUserId)
             .gte("transactions.created_at", startOfDay(day).toISOString())
             .lte("transactions.created_at", endOfDay(day).toISOString());
