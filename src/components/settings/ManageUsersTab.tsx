@@ -31,6 +31,8 @@ export function ManageUsersTab() {
   const [isAddingUser, setIsAddingUser] = useState(false);
   const [isEditingUser, setIsEditingUser] = useState(false);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [viewAvatarUrl, setViewAvatarUrl] = useState<string | null>(null);
+  const [isViewingAvatar, setIsViewingAvatar] = useState(false);
   
   const [newUser, setNewUser] = useState({
     email: "",
@@ -384,94 +386,195 @@ export function ManageUsersTab() {
         </Dialog>
       </CardHeader>
       <CardContent>
-        <div className="overflow-x-auto -mx-6 px-6">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[25%]">Nama</TableHead>
-                {!isMobile && (
-                  <>
-                    <TableHead>Email</TableHead>
-                    <TableHead>No. Telepon</TableHead>
-                    <TableHead>Alamat</TableHead>
-                  </>
-                )}
-                <TableHead>Status & Aksi</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {users.map((user) => (
-                <TableRow key={user.id}>
-                  <TableCell className="font-medium">
-                    <div className="flex items-center space-x-3">
-                      <Avatar className="w-10 h-10">
-                        <AvatarImage src={user.avatar_url || undefined} alt={user.full_name} />
-                        <AvatarFallback>{user.full_name.charAt(0).toUpperCase()}</AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <div className="font-bold text-sm">{user.full_name}</div>
-                        {isMobile && (
-                          <>
-                            <div className="text-xs text-muted-foreground truncate max-w-[150px]">
-                              {user.email}
-                            </div>
-                            {user.phone && (
-                              <div className="text-xs text-muted-foreground">{user.phone}</div>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </TableCell>
-                  {!isMobile && (
-                    <>
-                      <TableCell>{user.email}</TableCell>
-                      <TableCell>{user.phone || "-"}</TableCell>
-                      <TableCell>
-                        <div className="max-w-xs truncate" title={user.address || "-"}>
-                          {user.address || "-"}
-                        </div>
-                      </TableCell>
-                    </>
-                  )}
-                  <TableCell>
-                    <div className="flex flex-col gap-2">
+        {/* Mobile View - Card Layout */}
+        {isMobile ? (
+          <div className="space-y-3">
+            {users.map((user) => (
+              <Card key={user.id} className="overflow-hidden">
+                <CardContent className="p-3">
+                  <div className="flex items-start gap-3 mb-2">
+                    <Avatar 
+                      className="w-12 h-12 flex-shrink-0 cursor-pointer hover:ring-2 hover:ring-primary transition-all rounded-full"
+                      onClick={() => {
+                        if (user.avatar_url) {
+                          setViewAvatarUrl(user.avatar_url);
+                          setIsViewingAvatar(true);
+                        }
+                      }}
+                    >
+                      <AvatarImage 
+                        src={user.avatar_url || undefined} 
+                        alt={user.full_name}
+                        className="object-cover rounded-full"
+                      />
+                      <AvatarFallback className="text-base rounded-full">
+                        {user.full_name.charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-sm mb-1 truncate">{user.full_name}</h3>
                       <Badge 
                         variant={
                           user.role === "super_admin" ? "default" : 
                           user.role === "admin" ? "secondary" : 
                           "outline"
                         }
+                        className="text-[10px] px-2 py-0"
                       >
                         {user.role === "super_admin" ? "Super Admin" : 
                          user.role === "admin" ? "Admin" : "Rider"}
                       </Badge>
-                      <div className="flex gap-1">
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => openEditDialog(user)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        {user.role !== "super_admin" && (
-                          <Button 
-                            variant="destructive" 
-                            size="sm"
-                            onClick={() => handleDeleteUser(user.user_id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </div>
                     </div>
-                  </TableCell>
+                  </div>
+                  
+                  <div className="space-y-1 text-xs mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-muted-foreground w-12 flex-shrink-0">Email:</span>
+                      <span className="truncate">{user.email}</span>
+                    </div>
+                    {user.phone && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-muted-foreground w-12 flex-shrink-0">Phone:</span>
+                        <span>{user.phone}</span>
+                      </div>
+                    )}
+                    {user.address && (
+                      <div className="flex items-start gap-2">
+                        <span className="text-muted-foreground w-12 flex-shrink-0">Alamat:</span>
+                        <span className="line-clamp-2 text-[11px]">{user.address}</span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      className="flex-1 h-8 text-xs"
+                      onClick={() => openEditDialog(user)}
+                    >
+                      <Edit className="h-3 w-3 mr-1" />
+                      Edit
+                    </Button>
+                    {user.role !== "super_admin" && (
+                      <Button 
+                        variant="destructive" 
+                        size="sm"
+                        className="flex-1 h-8 text-xs"
+                        onClick={() => handleDeleteUser(user.user_id)}
+                      >
+                        <Trash2 className="h-3 w-3 mr-1" />
+                        Hapus
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          /* Desktop View - Table Layout */
+          <div className="overflow-x-auto -mx-6 px-6">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[25%]">Nama</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>No. Telepon</TableHead>
+                  <TableHead>Alamat</TableHead>
+                  <TableHead>Status & Aksi</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+              </TableHeader>
+              <TableBody>
+                {users.map((user) => (
+                  <TableRow key={user.id}>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center space-x-3">
+                        <Avatar 
+                          className="w-10 h-10 cursor-pointer hover:ring-2 hover:ring-primary transition-all rounded-full"
+                          onClick={() => {
+                            if (user.avatar_url) {
+                              setViewAvatarUrl(user.avatar_url);
+                              setIsViewingAvatar(true);
+                            }
+                          }}
+                        >
+                          <AvatarImage 
+                            src={user.avatar_url || undefined} 
+                            alt={user.full_name}
+                            className="object-cover rounded-full"
+                          />
+                          <AvatarFallback className="rounded-full">
+                            {user.full_name.charAt(0).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="font-bold text-sm">{user.full_name}</div>
+                      </div>
+                    </TableCell>
+                    <TableCell>{user.email}</TableCell>
+                    <TableCell>{user.phone || "-"}</TableCell>
+                    <TableCell>
+                      <div className="max-w-xs truncate" title={user.address || "-"}>
+                        {user.address || "-"}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-col gap-2">
+                        <Badge 
+                          variant={
+                            user.role === "super_admin" ? "default" : 
+                            user.role === "admin" ? "secondary" : 
+                            "outline"
+                          }
+                        >
+                          {user.role === "super_admin" ? "Super Admin" : 
+                           user.role === "admin" ? "Admin" : "Rider"}
+                        </Badge>
+                        <div className="flex gap-1">
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => openEditDialog(user)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          {user.role !== "super_admin" && (
+                            <Button 
+                              variant="destructive" 
+                              size="sm"
+                              onClick={() => handleDeleteUser(user.user_id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
       </CardContent>
+
+      {/* Avatar View Dialog */}
+      <Dialog open={isViewingAvatar} onOpenChange={setIsViewingAvatar}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Foto Profile</DialogTitle>
+          </DialogHeader>
+          {viewAvatarUrl && (
+            <div className="flex items-center justify-center p-4">
+              <img 
+                src={viewAvatarUrl} 
+                alt="Profile" 
+                className="max-w-full max-h-[70vh] rounded-lg object-contain"
+              />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
