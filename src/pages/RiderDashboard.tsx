@@ -66,7 +66,7 @@ export default function RiderDashboard() {
     };
   }, [hasNewFeed, markFeedsAsViewed]);
 
-  // Fetch today's sales
+  // Fetch today's sales (EXCLUDE Add On)
   const { data: todaySales = 0 } = useQuery({
     queryKey: ["rider-sales-today", currentUserId],
     queryFn: async () => {
@@ -75,17 +75,22 @@ export default function RiderDashboard() {
       const today = new Date();
       const { data: items } = await supabase
         .from("transaction_items")
-        .select("quantity, transactions!inner(rider_id, created_at)")
+        .select("quantity, products!inner(categories(name)), transactions!inner(rider_id, created_at)")
         .eq("transactions.rider_id", currentUserId)
         .gte("transactions.created_at", startOfDay(today).toISOString())
         .lte("transactions.created_at", endOfDay(today).toISOString());
 
-      return items?.reduce((sum, item) => sum + item.quantity, 0) || 0;
+      // Count cups ONLY (exclude Add On category)
+      return items?.reduce((sum, item: any) => {
+        const categoryName = item.products?.categories?.name?.toLowerCase() || '';
+        const isAddOn = categoryName === 'add on' || categoryName === 'addon' || categoryName === 'add-on';
+        return isAddOn ? sum : sum + item.quantity;
+      }, 0) || 0;
     },
     enabled: !!currentUserId,
   });
 
-  // Fetch week's sales
+  // Fetch week's sales (EXCLUDE Add On)
   const { data: weekSales = 0 } = useQuery({
     queryKey: ["rider-sales-week", currentUserId],
     queryFn: async () => {
@@ -94,17 +99,22 @@ export default function RiderDashboard() {
       const today = new Date();
       const { data: items } = await supabase
         .from("transaction_items")
-        .select("quantity, transactions!inner(rider_id, created_at)")
+        .select("quantity, products!inner(categories(name)), transactions!inner(rider_id, created_at)")
         .eq("transactions.rider_id", currentUserId)
         .gte("transactions.created_at", startOfWeek(today, { locale: idLocale }).toISOString())
         .lte("transactions.created_at", endOfWeek(today, { locale: idLocale }).toISOString());
 
-      return items?.reduce((sum, item) => sum + item.quantity, 0) || 0;
+      // Count cups ONLY (exclude Add On category)
+      return items?.reduce((sum, item: any) => {
+        const categoryName = item.products?.categories?.name?.toLowerCase() || '';
+        const isAddOn = categoryName === 'add on' || categoryName === 'addon' || categoryName === 'add-on';
+        return isAddOn ? sum : sum + item.quantity;
+      }, 0) || 0;
     },
     enabled: !!currentUserId,
   });
 
-  // Fetch month's sales
+  // Fetch month's sales (EXCLUDE Add On)
   const { data: monthSales = 0 } = useQuery({
     queryKey: ["rider-sales-month", currentUserId],
     queryFn: async () => {
@@ -113,12 +123,17 @@ export default function RiderDashboard() {
       const today = new Date();
       const { data: items } = await supabase
         .from("transaction_items")
-        .select("quantity, transactions!inner(rider_id, created_at)")
+        .select("quantity, products!inner(categories(name)), transactions!inner(rider_id, created_at)")
         .eq("transactions.rider_id", currentUserId)
         .gte("transactions.created_at", startOfMonth(today).toISOString())
         .lte("transactions.created_at", endOfMonth(today).toISOString());
 
-      return items?.reduce((sum, item) => sum + item.quantity, 0) || 0;
+      // Count cups ONLY (exclude Add On category)
+      return items?.reduce((sum, item: any) => {
+        const categoryName = item.products?.categories?.name?.toLowerCase() || '';
+        const isAddOn = categoryName === 'add on' || categoryName === 'addon' || categoryName === 'add-on';
+        return isAddOn ? sum : sum + item.quantity;
+      }, 0) || 0;
     },
     enabled: !!currentUserId,
   });
@@ -149,7 +164,12 @@ export default function RiderDashboard() {
           rider_id,
           created_at,
           transaction_items (
-            quantity
+            quantity,
+            products (
+              categories (
+                name
+              )
+            )
           )
         `)
         .gte("created_at", monthStart.toISOString())
@@ -175,12 +195,19 @@ export default function RiderDashboard() {
       if (profilesError) console.error("Error fetching profiles:", profilesError);
       const profilesList = profiles || [];
 
-      // STEP 4: Calculate cups per rider using transactionsWithItems
+      // STEP 4: Calculate cups per rider (EXCLUDE Add On category)
       const riderCups = new Map<string, number>();
       (transactionsWithItems || []).forEach((transaction: any) => {
         const riderId = transaction.rider_id;
         const items = transaction.transaction_items || [];
-        const totalCups = items.reduce((sum: number, item: any) => sum + (item.quantity || 0), 0);
+        
+        // Count cups ONLY (exclude Add On)
+        const totalCups = items.reduce((sum: number, item: any) => {
+          const categoryName = item.products?.categories?.name?.toLowerCase() || '';
+          const isAddOn = categoryName === 'add on' || categoryName === 'addon' || categoryName === 'add-on';
+          return isAddOn ? sum : sum + (item.quantity || 0);
+        }, 0);
+        
         if (riderId && totalCups > 0) {
           const current = riderCups.get(riderId) || 0;
           riderCups.set(riderId, current + totalCups);
@@ -217,7 +244,7 @@ export default function RiderDashboard() {
     }
   }, [currentUserId, leaderboard]);
 
-  // Fetch 7-day sales chart data
+  // Fetch 7-day sales chart data (EXCLUDE Add On)
   const { data: chartData = [] } = useQuery({
     queryKey: ["rider-chart-7days", currentUserId],
     queryFn: async () => {
@@ -234,12 +261,17 @@ export default function RiderDashboard() {
         days.map(async (day) => {
           const { data: items } = await supabase
             .from("transaction_items")
-            .select("quantity, transactions!inner(rider_id, created_at)")
+            .select("quantity, products!inner(categories(name)), transactions!inner(rider_id, created_at)")
             .eq("transactions.rider_id", currentUserId)
             .gte("transactions.created_at", startOfDay(day).toISOString())
             .lte("transactions.created_at", endOfDay(day).toISOString());
 
-          const total = items?.reduce((sum, item) => sum + item.quantity, 0) || 0;
+          // Count cups ONLY (exclude Add On)
+          const total = items?.reduce((sum, item: any) => {
+            const categoryName = item.products?.categories?.name?.toLowerCase() || '';
+            const isAddOn = categoryName === 'add on' || categoryName === 'addon' || categoryName === 'add-on';
+            return isAddOn ? sum : sum + item.quantity;
+          }, 0) || 0;
 
           return {
             date: format(day, "dd MMM", { locale: idLocale }),
