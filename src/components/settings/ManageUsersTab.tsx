@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { UserPlus, Edit, Trash2 } from "lucide-react";
+import { UserPlus, Edit, Trash2, ShieldCheck, Shield } from "lucide-react";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -186,6 +186,48 @@ export function ManageUsersTab() {
     } catch (error: any) {
       console.error("Error updating user:", error);
       toast.error(error.message || "Gagal mengupdate pengguna");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRoleChange = async (userId: string, currentRole: string) => {
+    // Determine next role in cycle: rider -> admin -> rider
+    const nextRole = currentRole === "rider" ? "admin" : "rider";
+    
+    const confirmMessage = currentRole === "rider" 
+      ? "Apakah Anda yakin ingin mengubah pengguna ini menjadi Admin?"
+      : "Apakah Anda yakin ingin mengubah Admin ini menjadi Rider?";
+    
+    if (!confirm(confirmMessage)) return;
+
+    setLoading(true);
+    try {
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser) throw new Error("User not authenticated");
+
+      // Update role in user_roles table
+      const { error: roleError } = await supabase
+        .from("user_roles")
+        .update({ role: nextRole })
+        .eq("user_id", userId);
+
+      if (roleError) throw roleError;
+
+      // Log role change
+      await supabase.from("role_change_logs" as any).insert({
+        user_id: userId,
+        old_role: currentRole,
+        new_role: nextRole,
+        changed_by: currentUser.id,
+        changed_at: new Date().toISOString(),
+      });
+
+      toast.success(`Role berhasil diubah menjadi ${nextRole === "admin" ? "Admin" : "Rider"}`);
+      loadUsers();
+    } catch (error: any) {
+      console.error("Error changing role:", error);
+      toast.error(error.message || "Gagal mengubah role");
     } finally {
       setLoading(false);
     }
@@ -457,15 +499,30 @@ export function ManageUsersTab() {
                       Edit
                     </Button>
                     {user.role !== "super_admin" && (
-                      <Button 
-                        variant="destructive" 
-                        size="sm"
-                        className="flex-1 h-8 text-xs"
-                        onClick={() => handleDeleteUser(user.user_id)}
-                      >
-                        <Trash2 className="h-3 w-3 mr-1" />
-                        Hapus
-                      </Button>
+                      <>
+                        <Button 
+                          variant="secondary" 
+                          size="sm"
+                          className="flex-1 h-8 text-xs"
+                          onClick={() => handleRoleChange(user.user_id, user.role || "rider")}
+                        >
+                          {user.role === "admin" ? (
+                            <Shield className="h-3 w-3 mr-1" />
+                          ) : (
+                            <ShieldCheck className="h-3 w-3 mr-1" />
+                          )}
+                          {user.role === "admin" ? "→ Rider" : "→ Admin"}
+                        </Button>
+                        <Button 
+                          variant="destructive" 
+                          size="sm"
+                          className="flex-1 h-8 text-xs"
+                          onClick={() => handleDeleteUser(user.user_id)}
+                        >
+                          <Trash2 className="h-3 w-3 mr-1" />
+                          Hapus
+                        </Button>
+                      </>
                     )}
                   </div>
                 </CardContent>
@@ -535,17 +592,33 @@ export function ManageUsersTab() {
                             variant="outline" 
                             size="sm"
                             onClick={() => openEditDialog(user)}
+                            title="Edit User"
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
                           {user.role !== "super_admin" && (
-                            <Button 
-                              variant="destructive" 
-                              size="sm"
-                              onClick={() => handleDeleteUser(user.user_id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            <>
+                              <Button 
+                                variant="secondary" 
+                                size="sm"
+                                onClick={() => handleRoleChange(user.user_id, user.role || "rider")}
+                                title={user.role === "admin" ? "Change to Rider" : "Change to Admin"}
+                              >
+                                {user.role === "admin" ? (
+                                  <Shield className="h-4 w-4" />
+                                ) : (
+                                  <ShieldCheck className="h-4 w-4" />
+                                )}
+                              </Button>
+                              <Button 
+                                variant="destructive" 
+                                size="sm"
+                                onClick={() => handleDeleteUser(user.user_id)}
+                                title="Delete User"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </>
                           )}
                         </div>
                       </div>
