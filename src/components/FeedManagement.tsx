@@ -324,7 +324,7 @@ export function FeedManagement() {
                     onChange={(e) => setFormData(prev => ({ ...prev, video_url: e.target.value }))}
                   />
                   <p className="text-xs text-muted-foreground mt-1">
-                    ✅ YouTube | ✅ Facebook | ⚠️ Instagram (tombol tonton)
+                    ✅ YouTube (embed langsung, klik play) | ✅ Facebook (embed langsung) | ⚠️ Instagram (buka link)
                   </p>
                 </div>
               </div>
@@ -479,7 +479,7 @@ export function FeedManagement() {
                     onChange={(e) => setFormData(prev => ({ ...prev, video_url: e.target.value }))}
                   />
                   <p className="text-xs text-muted-foreground mt-1">
-                    ✅ YouTube | ✅ Facebook | ⚠️ Instagram (tombol tonton)
+                    ✅ YouTube (embed langsung, klik play) | ✅ Facebook (embed langsung) | ⚠️ Instagram (buka link)
                   </p>
                 </div>
               </div>

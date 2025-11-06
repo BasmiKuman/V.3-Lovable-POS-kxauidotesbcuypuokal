@@ -139,9 +139,9 @@ export function RiderFeedCard() {
 
             {/* Video */}
             {feed.video_url && (
-              <div className="rounded-lg overflow-hidden border">
+              <div className="rounded-lg overflow-hidden border bg-black/5">
                 {getVideoType(feed.video_url) === "youtube" && (
-                  <div className="aspect-video">
+                  <div className="aspect-video relative group">
                     <iframe
                       src={getYouTubeEmbedUrl(feed.video_url)}
                       className="w-full h-full"
@@ -149,12 +149,17 @@ export function RiderFeedCard() {
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                       allowFullScreen
                       title={feed.title}
+                      loading="lazy"
                     />
+                    {/* Play indicator overlay */}
+                    <div className="absolute bottom-2 right-2 bg-black/70 text-white px-2 py-1 rounded text-xs pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
+                      ▶ Klik untuk play
+                    </div>
                   </div>
                 )}
                 
                 {getVideoType(feed.video_url) === "facebook" && (
-                  <div className="aspect-video">
+                  <div className="aspect-video relative group">
                     <iframe
                       src={getFacebookEmbedUrl(feed.video_url)}
                       className="w-full h-full"
@@ -162,34 +167,38 @@ export function RiderFeedCard() {
                       allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
                       allowFullScreen
                       title={feed.title}
+                      loading="lazy"
                     />
+                    <div className="absolute bottom-2 right-2 bg-black/70 text-white px-2 py-1 rounded text-xs pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
+                      ▶ Klik untuk play
+                    </div>
                   </div>
                 )}
 
                 {(getVideoType(feed.video_url) === "instagram" || getVideoType(feed.video_url) === "other") && (
-                  <div className="p-4 bg-muted/50 flex flex-col items-center gap-3">
+                  <div className="p-6 bg-muted/30 flex flex-col items-center gap-3 min-h-[200px] justify-center">
                     <div className="flex items-center gap-2 text-muted-foreground">
-                      <Video className="h-5 w-5" />
-                      <span className="text-sm">
+                      <Video className="h-6 w-6" />
+                      <span className="text-sm font-medium">
                         {getVideoType(feed.video_url) === "instagram" 
                           ? "Video Instagram" 
                           : "Video"}
                       </span>
                     </div>
+                    <p className="text-xs text-muted-foreground text-center max-w-[250px]">
+                      {getVideoType(feed.video_url) === "instagram" 
+                        ? "Instagram tidak support video embed. Gunakan YouTube untuk video yang bisa diputar langsung." 
+                        : "Platform ini belum support embed. Gunakan YouTube atau Facebook untuk hasil terbaik."}
+                    </p>
                     <Button
                       variant="default"
                       size="sm"
-                      className="gap-2"
+                      className="gap-2 mt-1"
                       onClick={() => window.open(feed.video_url!, "_blank")}
                     >
                       <ExternalLink className="h-4 w-4" />
-                      Tonton Video
+                      Buka Video
                     </Button>
-                    <p className="text-xs text-muted-foreground text-center">
-                      {getVideoType(feed.video_url) === "instagram" 
-                        ? "Instagram video akan dibuka di aplikasi/browser" 
-                        : "Video akan dibuka di tab baru"}
-                    </p>
                   </div>
                 )}
               </div>
