@@ -49,7 +49,20 @@ export function RiderFeedCard() {
     }
   };
 
-  const getEmbedUrl = (url: string) => {
+  const getVideoType = (url: string): "youtube" | "instagram" | "facebook" | "other" => {
+    if (url.includes("youtube.com") || url.includes("youtu.be")) {
+      return "youtube";
+    }
+    if (url.includes("instagram.com")) {
+      return "instagram";
+    }
+    if (url.includes("facebook.com") || url.includes("fb.watch")) {
+      return "facebook";
+    }
+    return "other";
+  };
+
+  const getYouTubeEmbedUrl = (url: string) => {
     // Convert YouTube watch URL to embed URL
     if (url.includes("youtube.com/watch?v=")) {
       const videoId = url.split("v=")[1]?.split("&")[0];
@@ -60,7 +73,17 @@ export function RiderFeedCard() {
       const videoId = url.split("youtu.be/")[1]?.split("?")[0];
       return `https://www.youtube.com/embed/${videoId}`;
     }
+    // Convert YouTube Shorts URL to embed URL
+    if (url.includes("youtube.com/shorts/")) {
+      const videoId = url.split("shorts/")[1]?.split("?")[0];
+      return `https://www.youtube.com/embed/${videoId}`;
+    }
     return url;
+  };
+
+  const getFacebookEmbedUrl = (url: string) => {
+    // Facebook video embed
+    return `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(url)}&show_text=false&width=500`;
   };
 
   if (loading) {
@@ -116,15 +139,59 @@ export function RiderFeedCard() {
 
             {/* Video */}
             {feed.video_url && (
-              <div className="rounded-lg overflow-hidden border aspect-video">
-                <iframe
-                  src={getEmbedUrl(feed.video_url)}
-                  className="w-full h-full"
-                  frameBorder="0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                  title={feed.title}
-                />
+              <div className="rounded-lg overflow-hidden border">
+                {getVideoType(feed.video_url) === "youtube" && (
+                  <div className="aspect-video">
+                    <iframe
+                      src={getYouTubeEmbedUrl(feed.video_url)}
+                      className="w-full h-full"
+                      frameBorder="0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                      title={feed.title}
+                    />
+                  </div>
+                )}
+                
+                {getVideoType(feed.video_url) === "facebook" && (
+                  <div className="aspect-video">
+                    <iframe
+                      src={getFacebookEmbedUrl(feed.video_url)}
+                      className="w-full h-full"
+                      frameBorder="0"
+                      allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share"
+                      allowFullScreen
+                      title={feed.title}
+                    />
+                  </div>
+                )}
+
+                {(getVideoType(feed.video_url) === "instagram" || getVideoType(feed.video_url) === "other") && (
+                  <div className="p-4 bg-muted/50 flex flex-col items-center gap-3">
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Video className="h-5 w-5" />
+                      <span className="text-sm">
+                        {getVideoType(feed.video_url) === "instagram" 
+                          ? "Video Instagram" 
+                          : "Video"}
+                      </span>
+                    </div>
+                    <Button
+                      variant="default"
+                      size="sm"
+                      className="gap-2"
+                      onClick={() => window.open(feed.video_url!, "_blank")}
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                      Tonton Video
+                    </Button>
+                    <p className="text-xs text-muted-foreground text-center">
+                      {getVideoType(feed.video_url) === "instagram" 
+                        ? "Instagram video akan dibuka di aplikasi/browser" 
+                        : "Video akan dibuka di tab baru"}
+                    </p>
+                  </div>
+                )}
               </div>
             )}
 

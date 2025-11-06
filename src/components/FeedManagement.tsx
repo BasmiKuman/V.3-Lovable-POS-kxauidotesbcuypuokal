@@ -314,7 +314,7 @@ export function FeedManagement() {
                 <div>
                   <Label htmlFor="video_url" className="flex items-center gap-2">
                     <Video className="h-4 w-4" />
-                    URL Video (YouTube/IG)
+                    URL Video
                   </Label>
                   <Input
                     id="video_url"
@@ -323,6 +323,9 @@ export function FeedManagement() {
                     value={formData.video_url}
                     onChange={(e) => setFormData(prev => ({ ...prev, video_url: e.target.value }))}
                   />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    ✅ YouTube | ✅ Facebook | ⚠️ Instagram (tombol tonton)
+                  </p>
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -466,7 +469,7 @@ export function FeedManagement() {
                 <div>
                   <Label htmlFor="edit-video_url" className="flex items-center gap-2">
                     <Video className="h-4 w-4" />
-                    URL Video (YouTube/IG)
+                    URL Video
                   </Label>
                   <Input
                     id="edit-video_url"
@@ -475,6 +478,9 @@ export function FeedManagement() {
                     value={formData.video_url}
                     onChange={(e) => setFormData(prev => ({ ...prev, video_url: e.target.value }))}
                   />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    ✅ YouTube | ✅ Facebook | ⚠️ Instagram (tombol tonton)
+                  </p>
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
