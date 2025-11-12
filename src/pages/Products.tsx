@@ -230,18 +230,26 @@ export default function Products() {
 
         if (profilesError) throw profilesError;
 
-        // Group by product_id
+        // Group by product_id (filter out riders without profiles - orphaned data)
         const stocksByProduct: Record<string, ProductRiderStock[]> = {};
         stockData.forEach(stock => {
+          const profile = profilesData?.find(p => p.user_id === stock.rider_id);
+          
+          // Skip if rider profile not found (orphaned data)
+          if (!profile) {
+            console.warn(`Skipping orphaned stock for rider_id: ${stock.rider_id}, product_id: ${stock.product_id}`);
+            return;
+          }
+          
           if (!stocksByProduct[stock.product_id]) {
             stocksByProduct[stock.product_id] = [];
           }
-          const profile = profilesData?.find(p => p.user_id === stock.rider_id);
+          
           stocksByProduct[stock.product_id].push({
             rider_id: stock.rider_id,
             quantity: stock.quantity,
             profiles: {
-              full_name: profile?.full_name || "N/A"
+              full_name: profile.full_name
             }
           });
         });

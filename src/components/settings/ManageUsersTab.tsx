@@ -234,17 +234,50 @@ export function ManageUsersTab() {
   };
 
   const handleDeleteUser = async (userId: string) => {
-    if (!confirm("Apakah Anda yakin ingin menghapus pengguna ini?")) return;
-
     setLoading(true);
     try {
+      // Check if user has any rider_stock
+      const { data: stockData, error: stockError } = await supabase
+        .from("rider_stock")
+        .select("product_id, quantity")
+        .eq("rider_id", userId)
+        .gt("quantity", 0);
+
+      if (stockError) throw stockError;
+
+      // Warn if user has stock
+      if (stockData && stockData.length > 0) {
+        const totalStock = stockData.reduce((sum, item) => sum + item.quantity, 0);
+        const confirmWithStock = confirm(
+          `⚠️ PERHATIAN!\n\n` +
+          `User ini masih memiliki ${totalStock} item produk di stock mereka (${stockData.length} produk berbeda).\n\n` +
+          `Jika Anda menghapus user ini, semua data berikut akan OTOMATIS DIHAPUS:\n` +
+          `• Rider stock (${totalStock} items)\n` +
+          `• Distribusi produk\n` +
+          `• Data return\n` +
+          `• Transaksi penjualan\n\n` +
+          `Apakah Anda yakin ingin melanjutkan?`
+        );
+        
+        if (!confirmWithStock) {
+          setLoading(false);
+          return;
+        }
+      } else {
+        // Regular confirmation for users without stock
+        if (!confirm("Apakah Anda yakin ingin menghapus pengguna ini?")) {
+          setLoading(false);
+          return;
+        }
+      }
+
       const { error } = await supabase.rpc('delete_user_account' as any, {
         target_user_id: userId,
       });
 
       if (error) throw error;
 
-      toast.success("Pengguna berhasil dihapus");
+      toast.success("Pengguna berhasil dihapus (data terkait otomatis dibersihkan)");
       loadUsers();
     } catch (error: any) {
       console.error("Error deleting user:", error);
