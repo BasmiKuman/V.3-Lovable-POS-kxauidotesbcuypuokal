@@ -169,25 +169,32 @@ export default function RiderDashboard() {
       }
 
       // Get transaction IDs
-      const transactionIds = (transactions || []).map((t: any) => t.id);
+      const transactionIds = (transactions || []).map((t: any) => t.id).filter(Boolean);
 
-      // STEP 3: Get ALL transaction items for these transactions
-      const { data: allItems, error: itemsError } = await supabase
-        .from("transaction_items")
-        .select(`
-          transaction_id,
-          quantity,
-          products (
-            id,
-            categories (
-              name
+      // STEP 3: Get ALL transaction items for these transactions (batched)
+      let allItems: any[] = [];
+      const batchSize = 50;
+      for (let i = 0; i < transactionIds.length; i += batchSize) {
+        const batchIds = transactionIds.slice(i, i + batchSize);
+        if (batchIds.length === 0) continue;
+        const { data: batchItems, error: itemsError } = await supabase
+          .from("transaction_items")
+          .select(`
+            transaction_id,
+            quantity,
+            products (
+              id,
+              categories (
+                name
+              )
             )
-          )
-        `)
-        .in("transaction_id", transactionIds.length > 0 ? transactionIds : [""]);
-
-      if (itemsError) {
-        console.error("Error fetching transaction_items:", itemsError);
+          `)
+          .in("transaction_id", batchIds);
+        if (itemsError) {
+          console.error("Error fetching transaction_items (batch):", itemsError);
+          continue;
+        }
+        if (batchItems) allItems = allItems.concat(batchItems);
       }
 
       // STEP 4: Build map of transaction_id -> total cups (exclude Add On)
