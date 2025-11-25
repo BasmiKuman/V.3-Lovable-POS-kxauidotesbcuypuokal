@@ -94,9 +94,23 @@ export default function Reports() {
         .in("user_id", riderIds);
 
       const { data: items } = await supabase
-        .from("transaction_items")
-        .select("*, products(name, sku, category_id, categories(name))")
-        .in("transaction_id", transactionsData.map(t => t.id));
+      // Batching fetch for transaction_items to avoid 400 error
+      const allTransactionIds = transactionsData.map(t => t.id).filter(Boolean);
+      let items: any[] = [];
+      const batchSize = 50;
+      for (let i = 0; i < allTransactionIds.length; i += batchSize) {
+        const batchIds = allTransactionIds.slice(i, i + batchSize);
+        if (batchIds.length === 0) continue;
+        const { data: batchItems, error: itemsError } = await supabase
+          .from("transaction_items")
+          .select("*, products(name, sku, category_id, categories(name))")
+          .in("transaction_id", batchIds);
+        if (itemsError) {
+          console.error("Error fetching transaction_items (batch):", itemsError);
+          continue;
+        }
+        if (batchItems) items = items.concat(batchItems);
+      }
 
       // Combine data
       return transactionsData.map(transaction => ({
