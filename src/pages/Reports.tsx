@@ -93,7 +93,6 @@ export default function Reports() {
         .select("user_id, full_name")
         .in("user_id", riderIds);
 
-      const { data: items } = await supabase
       // Batching fetch for transaction_items to avoid 400 error
       const allTransactionIds = transactionsData.map(t => t.id).filter(Boolean);
       let items: any[] = [];
