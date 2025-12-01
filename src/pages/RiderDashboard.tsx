@@ -12,6 +12,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useNewFeedNotification } from "@/hooks/useNewFeedNotification";
+import { useNavigate } from "react-router-dom";
 
 interface LeaderboardEntry {
   rider_id: string;
@@ -22,6 +23,7 @@ interface LeaderboardEntry {
 }
 
 export default function RiderDashboard() {
+  const navigate = useNavigate();
   const [currentUserId, setCurrentUserId] = useState<string>("");
   const [myRank, setMyRank] = useState<number>(0);
   const { hasNewFeed, newFeedCount, markFeedsAsViewed } = useNewFeedNotification();
@@ -427,9 +429,10 @@ export default function RiderDashboard() {
                 return (
                   <div
                     key={entry.rider_id}
-                    className={`flex items-center gap-3 p-3 rounded-lg transition-all ${
+                    onClick={() => navigate(`/reports?rider=${entry.rider_id}`)}
+                    className={`flex items-center gap-3 p-3 rounded-lg transition-all cursor-pointer ${
                       isMe 
-                        ? 'bg-primary/10 border-2 border-primary' 
+                        ? 'bg-primary/10 border-2 border-primary hover:bg-primary/20' 
                         : 'bg-muted/50 hover:bg-muted'
                     }`}
                   >

@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { format, startOfMonth, endOfMonth, startOfDay, endOfDay, startOfWeek, endOfWeek } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { useState, useEffect, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
@@ -29,6 +30,7 @@ import { Share } from '@capacitor/share';
 
 export default function Reports() {
   const isMobile = useIsMobile();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [dateRange, setDateRange] = useState({
     start: startOfMonth(new Date()),
     end: endOfMonth(new Date())
@@ -56,6 +58,18 @@ export default function Reports() {
 
   // Ref for scrolling to main filter
   const mainFilterRef = useRef<HTMLDivElement>(null);
+
+  // Handle URL params for rider filter
+  useEffect(() => {
+    const riderParam = searchParams.get('rider');
+    if (riderParam && riderParam !== 'all') {
+      setSelectedRider(riderParam);
+      setAppliedRider(riderParam);
+      // Clear the param after applying
+      searchParams.delete('rider');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   // Fetch riders list
   useEffect(() => {
