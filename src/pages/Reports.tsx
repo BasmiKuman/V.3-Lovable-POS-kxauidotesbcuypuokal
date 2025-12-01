@@ -197,8 +197,10 @@ export default function Reports() {
     totalTransactions: monthlyData?.transactions?.length || 0,
     totalCups: monthlyData?.transactions?.reduce((sum, t) => {
       const cups = t.transaction_items?.reduce((itemSum: number, item: any) => {
-        // Exclude Add-On category
-        if (item.products?.categories?.name !== "Add-On") {
+        // Exclude Add-On category (case insensitive)
+        const categoryName = item.products?.categories?.name?.toLowerCase() || '';
+        const isAddOn = categoryName === 'add on' || categoryName === 'addon' || categoryName === 'add-on';
+        if (!isAddOn) {
           return itemSum + item.quantity;
         }
         return itemSum;
@@ -1798,7 +1800,10 @@ export default function Reports() {
                     const totalSales = filteredTransactions.reduce((sum: number, t: any) => sum + Number(t.total_amount), 0);
                     const totalCups = filteredTransactions.reduce((sum: number, t: any) => {
                       return sum + (t.transaction_items?.reduce((itemSum: number, item: any) => {
-                        if (item.products?.categories?.name !== "Add-On") {
+                        // Exclude Add-On category (case insensitive)
+                        const categoryName = item.products?.categories?.name?.toLowerCase() || '';
+                        const isAddOn = categoryName === 'add on' || categoryName === 'addon' || categoryName === 'add-on';
+                        if (!isAddOn) {
                           return itemSum + item.quantity;
                         }
                         return itemSum;
