@@ -87,17 +87,21 @@ export default function Dashboard() {
 
         const totalRevenue = transactions?.reduce((sum, t) => sum + Number(t.total_amount), 0) || 0;
 
-        // Get active riders (users with rider role)
-        const { count: ridersCount } = await supabase
-          .from("user_roles")
-          .select("*", { count: "exact", head: true })
-          .eq("role", "rider");
+        // Get active riders - CURRENT MONTH ONLY (riders who made transactions this month)
+        const { data: transactionsWithRiders } = await supabase
+          .from("transactions")
+          .select("rider_id")
+          .gte("created_at", monthStart.toISOString())
+          .lte("created_at", monthEnd.toISOString());
+
+        // Count unique riders who have transactions this month
+        const uniqueRiders = new Set(transactionsWithRiders?.map(t => t.rider_id).filter(Boolean));
 
         setStats({
           totalProducts: productsCount || 0,
           totalTransactions: transactionsCount || 0,
           totalRevenue,
-          activeRiders: ridersCount || 0,
+          activeRiders: uniqueRiders.size,
         });
       } catch (error) {
         console.error("Error fetching stats:", error);
@@ -334,31 +338,46 @@ export default function Dashboard() {
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
+      const now = new Date();
+      const monthStart = startOfMonth(now);
+      const monthEnd = endOfMonth(now);
+
       // Fetch stats
       const { count: productsCount } = await supabase
         .from("products")
         .select("*", { count: "exact", head: true });
 
+      // Get total transactions - CURRENT MONTH ONLY
       const { count: transactionsCount } = await supabase
         .from("transactions")
-        .select("*", { count: "exact", head: true });
+        .select("*", { count: "exact", head: true })
+        .gte("created_at", monthStart.toISOString())
+        .lte("created_at", monthEnd.toISOString());
 
+      // Get total revenue - CURRENT MONTH ONLY
       const { data: transactions } = await supabase
         .from("transactions")
-        .select("total_amount");
+        .select("total_amount")
+        .gte("created_at", monthStart.toISOString())
+        .lte("created_at", monthEnd.toISOString());
 
       const totalRevenue = transactions?.reduce((sum, t) => sum + Number(t.total_amount), 0) || 0;
 
-      const { count: ridersCount } = await supabase
-        .from("user_roles")
-        .select("*", { count: "exact", head: true })
-        .eq("role", "rider");
+      // Get active riders - CURRENT MONTH ONLY (riders who made transactions this month)
+      const { data: transactionsWithRiders } = await supabase
+        .from("transactions")
+        .select("rider_id")
+        .gte("created_at", monthStart.toISOString())
+        .lte("created_at", monthEnd.toISOString());
+
+      // Count unique riders who have transactions this month
+      const uniqueRiders = new Set(transactionsWithRiders?.map(t => t.rider_id).filter(Boolean));
 
       setStats({
         totalProducts: productsCount || 0,
         totalTransactions: transactionsCount || 0,
         totalRevenue,
-        activeRiders: ridersCount || 0,
+        activeRiders: uniqueRiders.size,
       });
 
       // Fetch returns if admin
@@ -480,7 +499,7 @@ export default function Dashboard() {
             variant="accent"
           />
           <StatsCard
-            title="Rider Aktif"
+            title="Rider Aktif Bulan Ini"
             value={stats.activeRiders}
             icon={Users}
             className="animate-fade-in"
