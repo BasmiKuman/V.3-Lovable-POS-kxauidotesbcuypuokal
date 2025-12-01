@@ -12,6 +12,7 @@ interface LeaderboardEntry {
   rider_avatar: string | null;
   total_cups: number;
   rank: number;
+  sales_target: number;
 }
 
 interface LeaderboardCardProps {
@@ -113,10 +114,10 @@ export function LeaderboardCard({ currentUserId, showTitle = true }: Leaderboard
       // STEP 6: Union - riders from roles + riders seen in transactions
       const unionIds = Array.from(new Set<string>([...riderRoleIds, ...Array.from(transactionRiderIds)]));
 
-      // STEP 7: Fetch profiles for everyone
+      // STEP 7: Fetch profiles for everyone (including sales_target)
       const { data: profiles, error: profilesError } = await supabase
         .from("profiles")
-        .select("user_id, full_name, avatar_url")
+        .select("user_id, full_name, avatar_url, sales_target")
         .in("user_id", unionIds.length > 0 ? unionIds : [""]);
 
       if (profilesError) console.error("Error fetching profiles:", profilesError);
@@ -128,6 +129,7 @@ export function LeaderboardCard({ currentUserId, showTitle = true }: Leaderboard
         rider_name: profile.full_name,
         rider_avatar: profile.avatar_url,
         total_cups: riderCups.get(profile.user_id) || 0,
+        sales_target: profile.sales_target || 30,
         rank: 0,
       }));
 
@@ -171,14 +173,19 @@ export function LeaderboardCard({ currentUserId, showTitle = true }: Leaderboard
           leaderboard.map((entry) => {
             const isMe = currentUserId && entry.rider_id === currentUserId;
             const badge = getRankBadge(entry.rank);
+            const targetMet = entry.total_cups >= entry.sales_target;
+            const targetColor = targetMet ? 'text-green-600' : 'text-red-600';
+            const targetBg = targetMet ? 'bg-green-50' : 'bg-red-50';
             
             return (
               <div
                 key={entry.rider_id}
-                className={`flex items-center gap-3 p-3 rounded-lg transition-all ${
+                className={`flex items-center gap-3 p-3 rounded-lg transition-all border-2 ${
                   isMe 
-                    ? 'bg-primary/10 border-2 border-primary' 
-                    : 'bg-muted/50 hover:bg-muted'
+                    ? 'bg-primary/10 border-primary' 
+                    : targetMet
+                    ? 'bg-green-50/50 border-green-200 hover:bg-green-50'
+                    : 'bg-red-50/50 border-red-200 hover:bg-red-50'
                 }`}
               >
                 {/* Rank Badge */}
@@ -199,9 +206,17 @@ export function LeaderboardCard({ currentUserId, showTitle = true }: Leaderboard
                   <p className={`font-semibold text-sm truncate ${isMe ? 'text-primary' : ''}`}>
                     {entry.rider_name} {isMe && '(Saya)'}
                   </p>
-                  <p className="text-xs font-medium text-foreground/80">
-                    {entry.total_cups || 0} cup terjual
-                  </p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className={`text-xs font-medium ${targetColor}`}>
+                      {entry.total_cups || 0} / {entry.sales_target} cup
+                    </p>
+                    <Badge 
+                      variant="outline" 
+                      className={`text-xs ${targetColor} ${targetBg} border-current`}
+                    >
+                      {targetMet ? '✓ Target Tercapai' : '✗ Belum Tercapai'}
+                    </Badge>
+                  </div>
                 </div>
 
                 {/* Medal/Badge for top 3 */}

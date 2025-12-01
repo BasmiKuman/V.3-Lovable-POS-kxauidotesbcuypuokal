@@ -22,6 +22,7 @@ type User = {
   address?: string | null;
   avatar_url?: string | null;
   role?: string;
+  sales_target?: number;
 };
 
 export function ManageUsersTab() {
@@ -48,6 +49,7 @@ export function ManageUsersTab() {
     fullName: "",
     phone: "",
     address: "",
+    salesTarget: 30,
   });
 
   useEffect(() => {
@@ -63,7 +65,7 @@ export function ManageUsersTab() {
       // Get all profiles
       const { data: profiles, error: profileError } = await supabase
         .from("profiles")
-        .select("user_id, full_name, phone, address, avatar_url");
+        .select("user_id, full_name, phone, address, avatar_url, sales_target");
 
       if (profileError) throw profileError;
 
@@ -89,6 +91,7 @@ export function ManageUsersTab() {
             address: profile.address,
             avatar_url: profile.avatar_url,
             role: roleData?.role || "rider",
+            sales_target: profile.sales_target || 30,
           };
         })
       );
@@ -164,6 +167,7 @@ export function ManageUsersTab() {
           full_name: editUser.fullName.trim(),
           phone: editUser.phone.trim(),
           address: editUser.address.trim(),
+          sales_target: editUser.salesTarget || 30,
         })
         .eq("user_id", editingUserId);
 
@@ -182,7 +186,7 @@ export function ManageUsersTab() {
       toast.success("Data pengguna berhasil diupdate!");
       setIsEditingUser(false);
       setEditingUserId(null);
-      setEditUser({ email: "", password: "", fullName: "", phone: "", address: "" });
+      setEditUser({ email: "", password: "", fullName: "", phone: "", address: "", salesTarget: 30 });
       loadUsers();
     } catch (error: any) {
       console.error("Error updating user:", error);
@@ -295,6 +299,7 @@ export function ManageUsersTab() {
       fullName: user.full_name,
       phone: user.phone || "",
       address: user.address || "",
+      salesTarget: user.sales_target || 30,
     });
     setEditingUserId(user.user_id);
     setIsEditingUser(true);
@@ -388,7 +393,7 @@ export function ManageUsersTab() {
         <Dialog open={isEditingUser} onOpenChange={(open) => {
           if (!open) {
             setEditingUserId(null);
-            setEditUser({ email: "", password: "", fullName: "", phone: "", address: "" });
+            setEditUser({ email: "", password: "", fullName: "", phone: "", address: "", salesTarget: 30 });
           }
           setIsEditingUser(open);
         }}>
@@ -448,6 +453,20 @@ export function ManageUsersTab() {
                   onChange={(e) => setEditUser(prev => ({ ...prev, address: e.target.value }))}
                   rows={3}
                 />
+              </div>
+              <div>
+                <Label htmlFor="edit-salesTarget">Target Penjualan (Cup/Bulan) *</Label>
+                <Input
+                  id="edit-salesTarget"
+                  type="number"
+                  placeholder="30"
+                  min="1"
+                  value={editUser.salesTarget}
+                  onChange={(e) => setEditUser(prev => ({ ...prev, salesTarget: parseInt(e.target.value) || 30 }))}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Target penjualan bulanan untuk rider (default: 30 cup)
+                </p>
               </div>
             </div>
             <DialogFooter>
@@ -572,6 +591,7 @@ export function ManageUsersTab() {
                   <TableHead className="w-[25%]">Nama</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>No. Telepon</TableHead>
+                  <TableHead>Target (Cup)</TableHead>
                   <TableHead>Alamat</TableHead>
                   <TableHead>Status & Aksi</TableHead>
                 </TableRow>
@@ -604,6 +624,13 @@ export function ManageUsersTab() {
                     </TableCell>
                     <TableCell>{user.email}</TableCell>
                     <TableCell>{user.phone || "-"}</TableCell>
+                    <TableCell>
+                      {user.role === "rider" ? (
+                        <Badge variant="secondary">{user.sales_target || 30} cup</Badge>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
                     <TableCell>
                       <div className="max-w-xs truncate" title={user.address || "-"}>
                         {user.address || "-"}

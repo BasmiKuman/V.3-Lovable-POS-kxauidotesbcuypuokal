@@ -48,6 +48,10 @@ export default function Reports() {
 
   // Transaction history filter (separate from main filter)
   const [historyRiderFilter, setHistoryRiderFilter] = useState<string>("all");
+  const [historyDateRange, setHistoryDateRange] = useState({
+    start: startOfMonth(new Date()),
+    end: endOfMonth(new Date())
+  });
 
   // Fetch riders list
   useEffect(() => {
@@ -1442,25 +1446,63 @@ export default function Reports() {
         {/* Transaction History - Grouped by Rider */}
         <Card>
           <CardHeader>
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <CardTitle>Riwayat Transaksi per Rider</CardTitle>
-                <CardDescription>Daftar transaksi dikelompokkan berdasarkan rider</CardDescription>
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <CardTitle>Riwayat Transaksi per Rider</CardTitle>
+                  <CardDescription>Daftar transaksi dikelompokkan berdasarkan rider</CardDescription>
+                </div>
+                {/* Rider Filter */}
+                <Select value={historyRiderFilter} onValueChange={setHistoryRiderFilter}>
+                  <SelectTrigger className="w-full sm:w-[200px] text-xs sm:text-sm h-9">
+                    <SelectValue placeholder="Filter Rider" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Semua Rider</SelectItem>
+                    {riders.map((rider) => (
+                      <SelectItem key={rider.user_id} value={rider.user_id}>
+                        {rider.full_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-              {/* Simple Filter */}
-              <Select value={historyRiderFilter} onValueChange={setHistoryRiderFilter}>
-                <SelectTrigger className="w-full sm:w-[200px] text-xs sm:text-sm h-9">
-                  <SelectValue placeholder="Filter Rider" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Semua Rider</SelectItem>
-                  {riders.map((rider) => (
-                    <SelectItem key={rider.user_id} value={rider.user_id}>
-                      {rider.full_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {/* Date Filter Quick Buttons */}
+              <div className="grid grid-cols-3 gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full text-xs"
+                  onClick={() => setHistoryDateRange({
+                    start: startOfDay(new Date()),
+                    end: endOfDay(new Date())
+                  })}
+                >
+                  Hari Ini
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full text-xs"
+                  onClick={() => setHistoryDateRange({
+                    start: startOfMonth(new Date()),
+                    end: endOfMonth(new Date())
+                  })}
+                >
+                  Bulan Ini
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full text-xs"
+                  onClick={() => setHistoryDateRange({
+                    start: appliedDateRange.start,
+                    end: appliedDateRange.end
+                  })}
+                >
+                  Filter Utama
+                </Button>
+              </div>
             </div>
           </CardHeader>
           <CardContent>
@@ -1470,6 +1512,36 @@ export default function Reports() {
               (() => {
                 const filteredEntries = Object.entries(transactionsByRider)
                   .filter(([riderId]) => historyRiderFilter === "all" || riderId === historyRiderFilter)
+                  .map(([riderId, riderData]: any) => {
+                    // Filter transactions by historyDateRange
+                    const filteredTransactions = riderData.transactions.filter((t: any) => {
+                      const transDate = new Date(t.created_at);
+                      return transDate >= historyDateRange.start && transDate <= historyDateRange.end;
+                    });
+                    
+                    // Recalculate stats for filtered transactions
+                    const totalSales = filteredTransactions.reduce((sum: number, t: any) => sum + Number(t.total_amount), 0);
+                    const totalCups = filteredTransactions.reduce((sum: number, t: any) => {
+                      return sum + (t.transaction_items?.reduce((itemSum: number, item: any) => {
+                        if (item.products?.categories?.name !== "Add-On") {
+                          return itemSum + item.quantity;
+                        }
+                        return itemSum;
+                      }, 0) || 0);
+                    }, 0);
+                    
+                    return [
+                      riderId,
+                      {
+                        ...riderData,
+                        transactions: filteredTransactions,
+                        totalTransactions: filteredTransactions.length,
+                        totalSales,
+                        totalCups
+                      }
+                    ];
+                  })
+                  .filter(([, riderData]: any) => riderData.transactions.length > 0)
                   .sort(([, a]: any, [, b]: any) => b.totalSales - a.totalSales);
                 
                 return filteredEntries.length > 0 ? (
