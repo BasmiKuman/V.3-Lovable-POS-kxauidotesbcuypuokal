@@ -33,7 +33,7 @@ export default function Reports() {
     end: endOfMonth(new Date())
   });
   const [selectedRider, setSelectedRider] = useState<string>("all");
-  const [riders, setRiders] = useState<Array<{ user_id: string; full_name: string }>>([]);
+  const [riders, setRiders] = useState<Array<{ user_id: string; full_name: string; sales_target?: number }>>([]);
   
   // Applied filters (actual filters used in query)
   const [appliedDateRange, setAppliedDateRange] = useState({
@@ -65,7 +65,7 @@ export default function Reports() {
         const riderIds = riderRoles.map(r => r.user_id);
         const { data: profiles } = await supabase
           .from("profiles")
-          .select("user_id, full_name")
+          .select("user_id, full_name, sales_target")
           .in("user_id", riderIds);
 
         if (profiles) {
@@ -1546,8 +1546,18 @@ export default function Reports() {
                 
                 return filteredEntries.length > 0 ? (
                   <Accordion type="single" collapsible className="w-full">
-                    {filteredEntries.map(([riderId, riderData]: any) => (
-                  <AccordionItem key={riderId} value={riderId}>
+                    {filteredEntries.map(([riderId, riderData]: any) => {
+                      // Get rider's sales target
+                      const rider = riders.find(r => r.user_id === riderId);
+                      const salesTarget = rider?.sales_target || 30;
+                      const targetMet = riderData.totalCups >= salesTarget;
+                      
+                      // Set colors based on target
+                      const targetColor = targetMet ? "text-green-600 dark:text-green-500" : "text-red-600 dark:text-red-500";
+                      const targetBg = targetMet ? "bg-green-100 dark:bg-green-950 border-green-200 dark:border-green-800" : "bg-red-100 dark:bg-red-950 border-red-200 dark:border-red-800";
+                      
+                      return (
+                  <AccordionItem key={riderId} value={riderId} className={`border ${targetBg}`}>
                     <AccordionTrigger className="hover:no-underline">
                       <div className="flex items-center justify-between w-full pr-4">
                         <div className="flex items-center gap-2">
@@ -1555,9 +1565,12 @@ export default function Reports() {
                           <span className="font-semibold">{riderData.riderName}</span>
                         </div>
                         <div className="flex items-center gap-3 text-sm text-muted-foreground flex-wrap justify-end">
-                          <div className="flex items-center gap-1 px-2 py-1 rounded-md bg-primary/10">
-                            <Package className="w-3 h-3 text-primary" />
-                            <span className="font-semibold text-primary">{riderData.totalCups} cup</span>
+                          <div className={`flex items-center gap-1 px-2 py-1 rounded-md ${targetMet ? 'bg-green-600/10' : 'bg-red-600/10'}`}>
+                            <Package className={`w-3 h-3 ${targetColor}`} />
+                            <span className={`font-semibold ${targetColor}`}>{riderData.totalCups} / {salesTarget} cup</span>
+                          </div>
+                          <div className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs ${targetMet ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}>
+                            {targetMet ? '✓ Target Tercapai' : '✗ Belum Tercapai'}
                           </div>
                           <span>{riderData.totalTransactions} transaksi</span>
                           <span className="font-semibold text-foreground">
@@ -1607,7 +1620,8 @@ export default function Reports() {
                       </div>
                     </AccordionContent>
                   </AccordionItem>
-                ))}
+                      );
+                    })}
               </Accordion>
                 ) : (
                   <div className="text-center py-12 text-muted-foreground">

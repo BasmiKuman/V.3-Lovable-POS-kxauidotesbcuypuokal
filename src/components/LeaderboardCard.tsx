@@ -173,19 +173,14 @@ export function LeaderboardCard({ currentUserId, showTitle = true }: Leaderboard
           leaderboard.map((entry) => {
             const isMe = currentUserId && entry.rider_id === currentUserId;
             const badge = getRankBadge(entry.rank);
-            const targetMet = entry.total_cups >= entry.sales_target;
-            const targetColor = targetMet ? 'text-green-600' : 'text-red-600';
-            const targetBg = targetMet ? 'bg-green-50' : 'bg-red-50';
             
             return (
               <div
                 key={entry.rider_id}
-                className={`flex items-center gap-3 p-3 rounded-lg transition-all border-2 ${
+                className={`flex items-center gap-3 p-3 rounded-lg transition-all ${
                   isMe 
-                    ? 'bg-primary/10 border-primary' 
-                    : targetMet
-                    ? 'bg-green-50/50 border-green-200 hover:bg-green-50'
-                    : 'bg-red-50/50 border-red-200 hover:bg-red-50'
+                    ? 'bg-primary/10 border-2 border-primary' 
+                    : 'bg-muted/50 hover:bg-muted'
                 }`}
               >
                 {/* Rank Badge */}
@@ -206,17 +201,9 @@ export function LeaderboardCard({ currentUserId, showTitle = true }: Leaderboard
                   <p className={`font-semibold text-sm truncate ${isMe ? 'text-primary' : ''}`}>
                     {entry.rider_name} {isMe && '(Saya)'}
                   </p>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <p className={`text-xs font-medium ${targetColor}`}>
-                      {entry.total_cups || 0} / {entry.sales_target} cup
-                    </p>
-                    <Badge 
-                      variant="outline" 
-                      className={`text-xs ${targetColor} ${targetBg} border-current`}
-                    >
-                      {targetMet ? '✓ Target Tercapai' : '✗ Belum Tercapai'}
-                    </Badge>
-                  </div>
+                  <p className="text-xs font-medium text-foreground/80">
+                    {entry.total_cups || 0} cup terjual
+                  </p>
                 </div>
 
                 {/* Medal/Badge for top 3 */}
