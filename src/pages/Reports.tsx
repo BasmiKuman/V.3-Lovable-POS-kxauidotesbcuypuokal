@@ -198,6 +198,36 @@ export default function Reports() {
     activeRiders: monthlyData?.riders?.length || 0
   };
 
+  // Calculate monthly leaderboard (total cups per rider)
+  const monthlyLeaderboard = monthlyData?.transactions?.reduce((acc: any[], transaction) => {
+    const riderId = transaction.rider_id;
+    const riderName = transaction.rider?.full_name || "Unknown";
+    
+    // Calculate cups for this transaction (exclude Add-On)
+    const transactionCups = transaction.transaction_items?.reduce((sum: number, item: any) => {
+      const categoryName = item.products?.categories?.name?.toLowerCase() || '';
+      const isAddOn = categoryName === 'add-on' || categoryName === 'addon' || categoryName === 'add on';
+      if (!isAddOn) {
+        return sum + (item.quantity || 0);
+      }
+      return sum;
+    }, 0) || 0;
+    
+    const existing = acc.find(r => r.riderId === riderId);
+    if (existing) {
+      existing.totalCups += transactionCups;
+      existing.totalSales += Number(transaction.total_amount);
+    } else {
+      acc.push({
+        riderId,
+        riderName,
+        totalCups: transactionCups,
+        totalSales: Number(transaction.total_amount)
+      });
+    }
+    return acc;
+  }, [])?.sort((a, b) => b.totalCups - a.totalCups) || [];
+
   // Calculate statistics
   const stats = {
     totalSales: transactions?.reduce((sum, t) => sum + Number(t.total_amount), 0) || 0,
@@ -1667,6 +1697,74 @@ export default function Reports() {
                   <div className="text-center py-12 text-muted-foreground">
                     <Calendar className="w-12 h-12 mx-auto mb-2 opacity-50" />
                     <p>Tidak ada transaksi di bulan ini</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Monthly Leaderboard */}
+            <Card className="shadow-lg">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="w-5 h-5 text-primary" />
+                  Leaderboard Bulan {['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'][selectedMonth]} {selectedYear}
+                </CardTitle>
+                <CardDescription>
+                  Ranking rider berdasarkan total cup terjual
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {isLoadingMonthly ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Users className="w-12 h-12 mx-auto mb-2 opacity-50 animate-pulse" />
+                    <p>Memuat data...</p>
+                  </div>
+                ) : monthlyLeaderboard && monthlyLeaderboard.length > 0 ? (
+                  <div className="space-y-2">
+                    {monthlyLeaderboard.map((entry, index) => {
+                      const rank = index + 1;
+                      const getRankBadge = () => {
+                        if (rank === 1) return { emoji: "🥇", color: "bg-yellow-500" };
+                        if (rank === 2) return { emoji: "🥈", color: "bg-gray-400" };
+                        if (rank === 3) return { emoji: "🥉", color: "bg-orange-400" };
+                        return { emoji: `#${rank}`, color: "bg-blue-500" };
+                      };
+                      const badge = getRankBadge();
+                      
+                      return (
+                        <div
+                          key={entry.riderId}
+                          className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-all"
+                        >
+                          {/* Rank Badge */}
+                          <div className={`w-10 h-10 rounded-full ${badge.color} flex items-center justify-center text-white font-bold flex-shrink-0`}>
+                            <span className="text-sm">{badge.emoji}</span>
+                          </div>
+
+                          {/* Name & Stats */}
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-sm truncate">
+                              {entry.riderName}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {entry.totalCups} cup • {formatCurrency(entry.totalSales)}
+                            </p>
+                          </div>
+
+                          {/* Medal Badge for top 3 */}
+                          {rank <= 3 && (
+                            <div className="text-xs font-semibold text-primary flex-shrink-0">
+                              Top {rank}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Users className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                    <p>Tidak ada data rider di bulan ini</p>
                   </div>
                 )}
               </CardContent>
