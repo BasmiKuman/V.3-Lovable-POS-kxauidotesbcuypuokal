@@ -183,7 +183,8 @@ export function ManageUsersTab() {
       setIsEditingUser(false);
       setEditingUserId(null);
       setEditUser({ email: "", password: "", fullName: "", phone: "", address: "", salesTarget: 30 });
-      loadUsers();
+      // Force refresh with a small delay to ensure DB has updated
+      setTimeout(() => loadUsers(), 300);
     } catch (error: any) {
       console.error("Error updating user:", error);
       toast.error(error.message || "Gagal mengupdate pengguna");

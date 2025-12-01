@@ -21,6 +21,7 @@ import * as z from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { AddProductionDialog } from "@/components/AddProductionDialog";
 import { ProductionHistory } from "@/components/ProductionHistory";
+import { ProductChangesHistory } from "@/components/ProductChangesHistory";
 
 interface Product {
   id: string;
@@ -87,6 +88,7 @@ export default function Products() {
   const [selectedProductForProduction, setSelectedProductForProduction] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("products");
   const [riderActiveTab, setRiderActiveTab] = useState("stock"); // Tab for rider: stock or return
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>("all"); // Category filter for products tab
 
   const form = useForm<z.infer<typeof productSchema>>({
     resolver: zodResolver(productSchema),
@@ -416,6 +418,41 @@ export default function Products() {
     if (!selectedProductForEdit) return;
 
     try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("User not authenticated");
+
+      // Track changes
+      const changes: Array<{ field: string; oldValue: string; newValue: string }> = [];
+      
+      if (values.name !== selectedProductForEdit.name) {
+        changes.push({ field: "name", oldValue: selectedProductForEdit.name, newValue: values.name });
+      }
+      if (values.sku !== (selectedProductForEdit.sku || "")) {
+        changes.push({ field: "sku", oldValue: selectedProductForEdit.sku || "", newValue: values.sku || "" });
+      }
+      if (parseFloat(values.price) !== selectedProductForEdit.price) {
+        changes.push({ field: "price", oldValue: selectedProductForEdit.price.toString(), newValue: values.price });
+      }
+      if (parseInt(values.stock_in_warehouse) !== selectedProductForEdit.stock_in_warehouse) {
+        const stockDiff = parseInt(values.stock_in_warehouse) - selectedProductForEdit.stock_in_warehouse;
+        changes.push({ field: "stock", oldValue: selectedProductForEdit.stock_in_warehouse.toString(), newValue: values.stock_in_warehouse });
+        
+        // Log stock change separately
+        // @ts-ignore - product_changes table will be created after migration
+        await supabase.from("product_changes").insert({
+          product_id: selectedProductForEdit.id,
+          changed_by: user.id,
+          change_type: "manual_adjustment",
+          quantity_change: stockDiff,
+          notes: "Penyesuaian stok dari halaman produk"
+        });
+      }
+      if (parseInt(values.min_stock) !== (selectedProductForEdit.min_stock || 10)) {
+        changes.push({ field: "min_stock", oldValue: (selectedProductForEdit.min_stock || 10).toString(), newValue: values.min_stock });
+      }
+
+      // Update product
       const { error } = await supabase
         .from("products")
         .update({
@@ -431,6 +468,22 @@ export default function Products() {
         .eq("id", selectedProductForEdit.id);
 
       if (error) throw error;
+
+      // Log info changes
+      for (const change of changes) {
+        if (change.field !== "stock") { // Stock already logged above
+          // @ts-ignore - product_changes table will be created after migration
+          await supabase.from("product_changes").insert({
+            product_id: selectedProductForEdit.id,
+            changed_by: user.id,
+            change_type: "info_update",
+            field_changed: change.field,
+            old_value: change.oldValue,
+            new_value: change.newValue,
+            notes: `Update ${change.field} produk`
+          });
+        }
+      }
 
       toast.success("Produk berhasil diupdate");
       setEditDialogOpen(false);
@@ -963,19 +1016,48 @@ export default function Products() {
             />
 
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
+              <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="products" className="text-xs sm:text-sm">
                   <Package className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                   Produk
                 </TabsTrigger>
                 <TabsTrigger value="production" className="text-xs sm:text-sm">
-                <Factory className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                Produksi
-              </TabsTrigger>
-            </TabsList>
+                  <Factory className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                  Produksi
+                </TabsTrigger>
+                <TabsTrigger value="history" className="text-xs sm:text-sm">
+                  <Tag className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                  Riwayat
+                </TabsTrigger>
+              </TabsList>
 
             <TabsContent value="products" className="mt-4">
-              {products.length === 0 ? (
+              {/* Category Filter */}
+              <div className="mb-4">
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant={selectedCategoryFilter === "all" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setSelectedCategoryFilter("all")}
+                    className="text-xs"
+                  >
+                    Semua
+                  </Button>
+                  {categories.map((category) => (
+                    <Button
+                      key={category.id}
+                      variant={selectedCategoryFilter === category.id ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setSelectedCategoryFilter(category.id)}
+                      className="text-xs"
+                    >
+                      {category.name}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              {products.filter(p => selectedCategoryFilter === "all" || p.category_id === selectedCategoryFilter).length === 0 ? (
                 <Card>
                   <CardContent className="flex flex-col items-center justify-center py-12 text-center">
                     <Package className="w-16 h-16 text-muted-foreground mb-4" />
@@ -988,7 +1070,7 @@ export default function Products() {
                 </Card>
               ) : (
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3">
-                  {products.map((product) => (
+                  {products.filter(p => selectedCategoryFilter === "all" || p.category_id === selectedCategoryFilter).map((product) => (
                     <Card key={product.id} className="overflow-hidden hover:shadow-lg transition-shadow">
                       <CardContent className="p-2 sm:p-3">
                         <div className="space-y-2">
@@ -1056,6 +1138,10 @@ export default function Products() {
 
             <TabsContent value="production" className="mt-4">
               <ProductionHistory />
+            </TabsContent>
+
+            <TabsContent value="history" className="mt-4">
+              <ProductChangesHistory />
             </TabsContent>
           </Tabs>
           </>
