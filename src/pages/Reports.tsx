@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { BarChart3, DollarSign, ShoppingCart, TrendingUp, Calendar, Download, Filter, ChevronDown, Users, FileText, Package } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { format, startOfMonth, endOfMonth, startOfDay, endOfDay } from "date-fns";
+import { format, startOfMonth, endOfMonth, startOfDay, endOfDay, startOfWeek, endOfWeek } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { useState, useEffect } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts";
@@ -1468,7 +1468,7 @@ export default function Reports() {
                 </Select>
               </div>
               {/* Date Filter Quick Buttons */}
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 <Button
                   variant="outline"
                   size="sm"
@@ -1485,6 +1485,17 @@ export default function Reports() {
                   size="sm"
                   className="w-full text-xs"
                   onClick={() => setHistoryDateRange({
+                    start: startOfWeek(new Date(), { weekStartsOn: 1 }),
+                    end: endOfWeek(new Date(), { weekStartsOn: 1 })
+                  })}
+                >
+                  Minggu Ini
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full text-xs"
+                  onClick={() => setHistoryDateRange({
                     start: startOfMonth(new Date()),
                     end: endOfMonth(new Date())
                   })}
@@ -1495,12 +1506,16 @@ export default function Reports() {
                   variant="outline"
                   size="sm"
                   className="w-full text-xs"
-                  onClick={() => setHistoryDateRange({
-                    start: appliedDateRange.start,
-                    end: appliedDateRange.end
-                  })}
+                  onClick={() => {
+                    setHistoryDateRange({
+                      start: appliedDateRange.start,
+                      end: appliedDateRange.end
+                    });
+                    // Scroll to top filter section
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
                 >
-                  Filter Utama
+                  Top Filter
                 </Button>
               </div>
             </div>
@@ -1554,10 +1569,11 @@ export default function Reports() {
                       
                       // Set colors based on target
                       const targetColor = targetMet ? "text-green-600 dark:text-green-500" : "text-red-600 dark:text-red-500";
-                      const targetBg = targetMet ? "bg-green-100 dark:bg-green-950 border-green-200 dark:border-green-800" : "bg-red-100 dark:bg-red-950 border-red-200 dark:border-red-800";
+                      const cupBadgeBg = targetMet ? "bg-green-50 dark:bg-green-950/30" : "bg-red-50 dark:bg-red-950/30";
+                      const cupBadgeBorder = targetMet ? "border-green-200 dark:border-green-800" : "border-red-200 dark:border-red-800";
                       
                       return (
-                  <AccordionItem key={riderId} value={riderId} className={`border ${targetBg}`}>
+                  <AccordionItem key={riderId} value={riderId}>
                     <AccordionTrigger className="hover:no-underline">
                       <div className="flex items-center justify-between w-full pr-4">
                         <div className="flex items-center gap-2">
@@ -1565,11 +1581,11 @@ export default function Reports() {
                           <span className="font-semibold">{riderData.riderName}</span>
                         </div>
                         <div className="flex items-center gap-3 text-sm text-muted-foreground flex-wrap justify-end">
-                          <div className={`flex items-center gap-1 px-2 py-1 rounded-md ${targetMet ? 'bg-green-600/10' : 'bg-red-600/10'}`}>
-                            <Package className={`w-3 h-3 ${targetColor}`} />
+                          <div className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md border ${cupBadgeBg} ${cupBadgeBorder}`}>
+                            <Package className={`w-3.5 h-3.5 ${targetColor}`} />
                             <span className={`font-semibold ${targetColor}`}>{riderData.totalCups} / {salesTarget} cup</span>
                           </div>
-                          <div className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs ${targetMet ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}>
+                          <div className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium ${targetMet ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}>
                             {targetMet ? '✓ Target Tercapai' : '✗ Belum Tercapai'}
                           </div>
                           <span>{riderData.totalTransactions} transaksi</span>
