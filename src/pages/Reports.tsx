@@ -46,6 +46,9 @@ export default function Reports() {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
+  // Transaction history filter (separate from main filter)
+  const [historyRiderFilter, setHistoryRiderFilter] = useState<string>("all");
+
   // Fetch riders list
   useEffect(() => {
     const fetchRiders = async () => {
@@ -1439,17 +1442,39 @@ export default function Reports() {
         {/* Transaction History - Grouped by Rider */}
         <Card>
           <CardHeader>
-            <CardTitle>Riwayat Transaksi per Rider</CardTitle>
-            <CardDescription>Daftar transaksi dikelompokkan berdasarkan rider</CardDescription>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <CardTitle>Riwayat Transaksi per Rider</CardTitle>
+                <CardDescription>Daftar transaksi dikelompokkan berdasarkan rider</CardDescription>
+              </div>
+              {/* Simple Filter */}
+              <Select value={historyRiderFilter} onValueChange={setHistoryRiderFilter}>
+                <SelectTrigger className="w-full sm:w-[200px] text-xs sm:text-sm h-9">
+                  <SelectValue placeholder="Filter Rider" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Semua Rider</SelectItem>
+                  {riders.map((rider) => (
+                    <SelectItem key={rider.user_id} value={rider.user_id}>
+                      {rider.full_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </CardHeader>
           <CardContent>
             {isLoading ? (
               <div className="text-center py-8 text-muted-foreground">Memuat data...</div>
             ) : transactionsByRider && Object.keys(transactionsByRider).length > 0 ? (
-              <Accordion type="single" collapsible className="w-full">
-                {Object.entries(transactionsByRider)
-                  .sort(([, a]: any, [, b]: any) => b.totalSales - a.totalSales)
-                  .map(([riderId, riderData]: any) => (
+              (() => {
+                const filteredEntries = Object.entries(transactionsByRider)
+                  .filter(([riderId]) => historyRiderFilter === "all" || riderId === historyRiderFilter)
+                  .sort(([, a]: any, [, b]: any) => b.totalSales - a.totalSales);
+                
+                return filteredEntries.length > 0 ? (
+                  <Accordion type="single" collapsible className="w-full">
+                    {filteredEntries.map(([riderId, riderData]: any) => (
                   <AccordionItem key={riderId} value={riderId}>
                     <AccordionTrigger className="hover:no-underline">
                       <div className="flex items-center justify-between w-full pr-4">
@@ -1512,6 +1537,13 @@ export default function Reports() {
                   </AccordionItem>
                 ))}
               </Accordion>
+                ) : (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Users className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                    <p>Tidak ada transaksi untuk rider yang dipilih</p>
+                  </div>
+                );
+              })()
             ) : (
               <div className="text-center py-12 text-muted-foreground">
                 <Calendar className="w-12 h-12 mx-auto mb-2 opacity-50" />
