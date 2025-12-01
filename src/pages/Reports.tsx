@@ -1451,29 +1451,36 @@ export default function Reports() {
           </CardHeader>
           <CardContent>
             {riderPerformance && riderPerformance.length > 0 ? (
-              <div className="space-y-3">
-                {riderPerformance.map((rider) => {
+              <Accordion type="single" collapsible className="w-full space-y-2">
+                {riderPerformance.map((rider, index) => {
                   const riderTransactions = transactions?.filter(t => t.rider_id === rider.riderId) || [];
                   const cashTransactions = riderTransactions.filter(t => t.payment_method === 'cash');
                   const qrisTransactions = riderTransactions.filter(t => t.payment_method === 'qris');
-                  const totalCash = cashTransactions.reduce((sum, t) => sum + Number(t.total_amount), 0);
-                  const totalQris = qrisTransactions.reduce((sum, t) => sum + Number(t.total_amount), 0);
+                  const totalCash = cashTransactions.reduce((sum, t) => sum + Number(t.total_amount || 0), 0);
+                  const totalQris = qrisTransactions.reduce((sum, t) => sum + Number(t.total_amount || 0), 0);
                   
                   return (
-                    <Card key={rider.riderId} className="border-2">
-                      <CardContent className="p-4">
-                        <div className="space-y-3">
-                          {/* Rider Name */}
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <Users className="w-4 h-4 text-primary" />
-                              <span className="font-bold text-lg">{rider.riderName}</span>
-                            </div>
-                            <Badge variant="outline" className="text-sm">
+                    <AccordionItem key={rider.riderId} value={`rider-${index}`} className="border-2 rounded-lg px-1">
+                      <AccordionTrigger className="hover:no-underline px-3 py-3">
+                        <div className="flex items-center justify-between w-full pr-4">
+                          <div className="flex items-center gap-2">
+                            <Users className="w-4 h-4 text-primary" />
+                            <span className="font-bold text-base">{rider.riderName}</span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <Badge variant="outline" className="text-xs">
                               {rider.totalTransactions} transaksi
                             </Badge>
+                            <div className="text-right">
+                              <div className="text-sm font-bold text-primary">
+                                {formatCurrency(rider.totalSales)}
+                              </div>
+                            </div>
                           </div>
-
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent className="px-3 pb-4 pt-2">
+                        <div className="space-y-3">
                           {/* Payment Method Breakdown */}
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             {/* Cash */}
@@ -1513,18 +1520,18 @@ export default function Reports() {
                                 <div className="text-2xl font-bold text-primary">
                                   {formatCurrency(rider.totalSales)}
                                 </div>
-                                <div className="text-xs text-muted-foreground">
+                                <div className="text-xs text-muted-foreground mt-1">
                                   Cash: {formatCurrency(totalCash)} + QRIS: {formatCurrency(totalQris)}
                                 </div>
                               </div>
                             </div>
                           </div>
                         </div>
-                      </CardContent>
-                    </Card>
+                      </AccordionContent>
+                    </AccordionItem>
                   );
                 })}
-              </div>
+              </Accordion>
             ) : (
               <div className="text-center py-8 text-muted-foreground">
                 <Users className="w-12 h-12 mx-auto mb-2 opacity-50" />
