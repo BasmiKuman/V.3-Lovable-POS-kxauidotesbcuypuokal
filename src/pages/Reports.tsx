@@ -1454,7 +1454,7 @@ export default function Reports() {
               <Accordion type="single" collapsible className="w-full space-y-2">
                 {riderPerformance.map((rider, index) => {
                   const riderTransactions = transactions?.filter(t => t.rider_id === rider.riderId) || [];
-                  const cashTransactions = riderTransactions.filter(t => t.payment_method === 'cash');
+                  const cashTransactions = riderTransactions.filter(t => t.payment_method === 'tunai');
                   const qrisTransactions = riderTransactions.filter(t => t.payment_method === 'qris');
                   const totalCash = cashTransactions.reduce((sum, t) => sum + Number(t.total_amount || 0), 0);
                   const totalQris = qrisTransactions.reduce((sum, t) => sum + Number(t.total_amount || 0), 0);
