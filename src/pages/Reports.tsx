@@ -1101,6 +1101,164 @@ export default function Reports() {
     }
   };
 
+  const downloadMonthlySummary = async () => {
+    try {
+      // Check storage permission first
+      const hasPermission = await checkStoragePermission();
+      if (!hasPermission) {
+        const granted = await requestStoragePermission();
+        if (!granted) {
+          toast.error("Izin penyimpanan diperlukan untuk mengunduh laporan", {
+            description: "Silakan aktifkan izin penyimpanan di pengaturan aplikasi"
+          });
+          return;
+        }
+      }
+
+      if (!monthlyData?.transactions || monthlyData.transactions.length === 0) {
+        toast.error("Tidak ada data untuk diunduh");
+        return;
+      }
+
+      const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+      const monthName = monthNames[selectedMonth];
+
+      const workbook = XLSX.utils.book_new();
+
+      // 1. RINGKASAN BULANAN
+      const summaryData = [
+        { "": "RINGKASAN PENJUALAN BULANAN" },
+        { "": "" },
+        { "Deskripsi": "Bulan", "Nilai": `${monthName} ${selectedYear}` },
+        { "Deskripsi": "Total Penjualan", "Nilai": `Rp ${monthlyStats.totalSales.toLocaleString('id-ID')}` },
+        { "Deskripsi": "Total Transaksi", "Nilai": monthlyStats.totalTransactions },
+        { "Deskripsi": "Total Cup Terjual", "Nilai": `${monthlyStats.totalCups} cup` },
+        { "Deskripsi": "Rider Aktif", "Nilai": monthlyStats.activeRiders },
+        { "": "" },
+        { "": "PERFORMA PER RIDER:" }
+      ];
+
+      const summarySheet = XLSX.utils.json_to_sheet(summaryData);
+      summarySheet['!cols'] = [{ wch: 30 }, { wch: 30 }];
+      XLSX.utils.book_append_sheet(workbook, summarySheet, "Ringkasan");
+
+      // 2. LEADERBOARD RIDER
+      if (monthlyLeaderboard && monthlyLeaderboard.length > 0) {
+        const leaderboardData = monthlyLeaderboard.map((entry, index) => ({
+          "Ranking": index + 1,
+          "Nama Rider": entry.riderName,
+          "Total Cup Terjual": entry.totalCups,
+          "Total Penjualan (Rp)": entry.totalSales
+        }));
+
+        const leaderboardSheet = XLSX.utils.json_to_sheet(leaderboardData);
+        leaderboardSheet['!cols'] = [{ wch: 10 }, { wch: 25 }, { wch: 18 }, { wch: 20 }];
+        XLSX.utils.book_append_sheet(workbook, leaderboardSheet, "Leaderboard");
+      }
+
+      // 3. DETAIL PER RIDER
+      if (monthlyLeaderboard && monthlyLeaderboard.length > 0) {
+        monthlyLeaderboard.forEach((entry, index) => {
+          const riderTransactions = monthlyData.transactions.filter(t => t.rider_id === entry.riderId);
+          
+          const riderDetailData: any[] = [];
+          
+          // Header
+          riderDetailData.push({ "": `RIDER: ${entry.riderName.toUpperCase()}` });
+          riderDetailData.push({ "": "" });
+          
+          // Stats
+          riderDetailData.push({ "Statistik": "Total Cup Terjual", "Nilai": entry.totalCups });
+          riderDetailData.push({ "Statistik": "Total Transaksi", "Nilai": riderTransactions.length });
+          riderDetailData.push({ "Statistik": "Total Penjualan", "Nilai": `Rp ${entry.totalSales.toLocaleString('id-ID')}` });
+          riderDetailData.push({ "Statistik": "Rata-rata per Transaksi", "Nilai": `Rp ${Math.round(entry.totalSales / riderTransactions.length).toLocaleString('id-ID')}` });
+          riderDetailData.push({ "": "" });
+          
+          // Product breakdown
+          riderDetailData.push({ "": "PRODUK TERJUAL:" });
+          riderDetailData.push({ "": "" });
+          
+          const riderProducts = riderTransactions.reduce((acc: any[], transaction) => {
+            transaction.transaction_items?.forEach((item: any) => {
+              const productName = item.products?.name || "Unknown";
+              const existing = acc.find(p => p.name === productName);
+              
+              if (existing) {
+                existing.quantity += item.quantity;
+                existing.total += Number(item.subtotal);
+              } else {
+                acc.push({
+                  name: productName,
+                  sku: item.products?.sku || "-",
+                  quantity: item.quantity,
+                  price: Number(item.price),
+                  total: Number(item.subtotal)
+                });
+              }
+            });
+            return acc;
+          }, []);
+
+          riderProducts
+            .sort((a, b) => b.quantity - a.quantity)
+            .forEach(product => {
+              riderDetailData.push({
+                "Produk": product.name,
+                "SKU": product.sku,
+                "Jumlah": product.quantity,
+                "Harga": product.price,
+                "Total (Rp)": product.total
+              });
+            });
+
+          const riderSheet = XLSX.utils.json_to_sheet(riderDetailData);
+          riderSheet['!cols'] = [{ wch: 25 }, { wch: 15 }, { wch: 12 }, { wch: 15 }, { wch: 18 }];
+          
+          // Sanitize sheet name (max 31 chars, no special chars)
+          const sheetName = `${index + 1}. ${entry.riderName.substring(0, 25)}`;
+          XLSX.utils.book_append_sheet(workbook, riderSheet, sheetName);
+        });
+      }
+
+      // 4. PERBANDINGAN RIDER
+      if (monthlyLeaderboard && monthlyLeaderboard.length > 0) {
+        const comparisonData = monthlyLeaderboard.map((entry, index) => {
+          const riderTransactions = monthlyData.transactions.filter(t => t.rider_id === entry.riderId);
+          const avgPerTransaction = riderTransactions.length > 0 ? entry.totalSales / riderTransactions.length : 0;
+          
+          return {
+            "Ranking": index + 1,
+            "Nama Rider": entry.riderName,
+            "Total Cup": entry.totalCups,
+            "Total Transaksi": riderTransactions.length,
+            "Total Penjualan (Rp)": entry.totalSales,
+            "Rata-rata per Transaksi (Rp)": Math.round(avgPerTransaction),
+            "Cup per Transaksi": riderTransactions.length > 0 ? (entry.totalCups / riderTransactions.length).toFixed(1) : 0
+          };
+        });
+
+        const comparisonSheet = XLSX.utils.json_to_sheet(comparisonData);
+        comparisonSheet['!cols'] = [
+          { wch: 10 }, 
+          { wch: 25 }, 
+          { wch: 12 }, 
+          { wch: 15 }, 
+          { wch: 20 }, 
+          { wch: 25 }, 
+          { wch: 18 }
+        ];
+        XLSX.utils.book_append_sheet(workbook, comparisonSheet, "Perbandingan Rider");
+      }
+
+      const fileName = `Ringkasan-Bulanan-${monthName}-${selectedYear}.xlsx`;
+      await saveExcelFile(workbook, fileName);
+
+    } catch (error) {
+      console.error('Error downloading monthly summary:', error);
+      toast.error("Gagal mengunduh ringkasan bulanan. Silakan coba lagi.");
+    }
+  };
+
   return (
     <div 
       className="min-h-screen bg-background w-full overflow-x-hidden"
@@ -1667,6 +1825,20 @@ export default function Reports() {
             <Card>
               <CardContent className="pt-4 sm:pt-6">
                 <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-2 mb-3">
+                    <div className="text-sm font-medium text-muted-foreground">
+                      Pilih Periode
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={downloadMonthlySummary}
+                      disabled={isLoadingMonthly || !monthlyData?.transactions || monthlyData.transactions.length === 0}
+                      className="flex-shrink-0"
+                    >
+                      <Download className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
+                      Unduh Ringkasan
+                    </Button>
+                  </div>
                   <div className="grid grid-cols-2 gap-2">
                     {/* Month Selector */}
                     <Select 
