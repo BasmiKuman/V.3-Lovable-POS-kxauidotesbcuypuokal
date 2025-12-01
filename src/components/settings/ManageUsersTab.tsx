@@ -62,10 +62,10 @@ export function ManageUsersTab() {
       const { data: { user: currentUser } } = await supabase.auth.getUser();
       if (!currentUser) return;
 
-      // Get all profiles
+      // Get all profiles with email
       const { data: profiles, error: profileError } = await supabase
         .from("profiles")
-        .select("user_id, full_name, phone, address, avatar_url, sales_target");
+        .select("user_id, full_name, phone, address, avatar_url, sales_target, email");
 
       if (profileError) throw profileError;
 
@@ -78,15 +78,11 @@ export function ManageUsersTab() {
             .eq("user_id", profile.user_id)
             .maybeSingle();
 
-          // Get email from auth metadata
-          const { data: { users: authUsers } } = await supabase.auth.admin.listUsers();
-          const authUser = (authUsers as any)?.find((u: any) => u.id === profile.user_id);
-
           return {
             id: profile.user_id,
             user_id: profile.user_id,
             full_name: profile.full_name,
-            email: authUser?.email,
+            email: profile.email,
             phone: profile.phone,
             address: profile.address,
             avatar_url: profile.avatar_url,
