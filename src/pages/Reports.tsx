@@ -9,7 +9,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format, startOfMonth, endOfMonth, startOfDay, endOfDay, startOfWeek, endOfWeek } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
@@ -52,6 +52,9 @@ export default function Reports() {
     start: startOfMonth(new Date()),
     end: endOfMonth(new Date())
   });
+
+  // Ref for scrolling to main filter
+  const mainFilterRef = useRef<HTMLDivElement>(null);
 
   // Fetch riders list
   useEffect(() => {
@@ -1153,7 +1156,7 @@ export default function Reports() {
           {/* Tab 1: Transaction Reports */}
           <TabsContent value="transactions" className="space-y-3 sm:space-y-4 mt-4">
           {/* Filters */}
-          <Card>
+          <Card ref={mainFilterRef}>
             <CardContent className="pt-4 sm:pt-6">
               <div className="space-y-3">
                 {/* Quick Date Buttons */}
@@ -1511,8 +1514,11 @@ export default function Reports() {
                       start: appliedDateRange.start,
                       end: appliedDateRange.end
                     });
-                    // Scroll to top filter section
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                    // Scroll to main filter section
+                    mainFilterRef.current?.scrollIntoView({ 
+                      behavior: 'smooth', 
+                      block: 'start' 
+                    });
                   }}
                 >
                   Top Filter
