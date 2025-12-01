@@ -1,5 +1,8 @@
 -- Update add_production function to also log to product_changes table
 
+-- Drop existing function first
+DROP FUNCTION IF EXISTS add_production(UUID, INTEGER, TEXT);
+
 CREATE OR REPLACE FUNCTION add_production(
   p_product_id UUID,
   p_quantity INTEGER,
