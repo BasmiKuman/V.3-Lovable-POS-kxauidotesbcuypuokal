@@ -10,8 +10,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Warehouse as WarehouseIcon, Send, Package, History } from "lucide-react";
+import { Warehouse as WarehouseIcon, Send, Package, History, Calendar, Filter } from "lucide-react";
 import { toast } from "sonner";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { format, startOfMonth, endOfMonth, startOfDay, endOfDay } from "date-fns";
+import { id as idLocale } from "date-fns/locale";
 
 type Product = {
   id: string;
@@ -68,6 +73,13 @@ export default function Warehouse() {
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
   const [returnHistory, setReturnHistory] = useState<ReturnHistoryItem[]>([]);
+  
+  // Return history filters
+  const [returnDateRange, setReturnDateRange] = useState({
+    start: startOfMonth(new Date()),
+    end: endOfMonth(new Date())
+  });
+  const [returnRiderFilter, setReturnRiderFilter] = useState<string>("all");
 
   useEffect(() => {
     const checkRole = async () => {
@@ -475,6 +487,95 @@ export default function Warehouse() {
           </TabsContent>
 
           <TabsContent value="returns" className="space-y-4 sm:space-y-6">
+            {/* Filter Section */}
+            <Card>
+              <CardContent className="pt-4 sm:pt-6">
+                <div className="space-y-3">
+                  {/* Quick Date Buttons */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full text-xs sm:text-sm"
+                      onClick={() => setReturnDateRange({
+                        start: startOfDay(new Date()),
+                        end: endOfDay(new Date())
+                      })}
+                    >
+                      <Calendar className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                      Hari Ini
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full text-xs sm:text-sm"
+                      onClick={() => setReturnDateRange({
+                        start: startOfMonth(new Date()),
+                        end: endOfMonth(new Date())
+                      })}
+                    >
+                      <Calendar className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                      Bulan Ini
+                    </Button>
+                  </div>
+
+                  {/* Date Range Picker */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" size="sm" className="w-full justify-start text-left font-normal text-xs sm:text-sm">
+                          <Calendar className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                          {format(returnDateRange.start, "dd MMM yyyy", { locale: idLocale })}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <CalendarComponent
+                          mode="single"
+                          selected={returnDateRange.start}
+                          onSelect={(date) => date && setReturnDateRange({ ...returnDateRange, start: startOfDay(date) })}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" size="sm" className="w-full justify-start text-left font-normal text-xs sm:text-sm">
+                          <Calendar className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                          {format(returnDateRange.end, "dd MMM yyyy", { locale: idLocale })}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <CalendarComponent
+                          mode="single"
+                          selected={returnDateRange.end}
+                          onSelect={(date) => date && setReturnDateRange({ ...returnDateRange, end: endOfDay(date) })}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  {/* Rider Filter */}
+                  <Select value={returnRiderFilter} onValueChange={setReturnRiderFilter}>
+                    <SelectTrigger className="w-full text-xs sm:text-sm">
+                      <div className="flex items-center">
+                        <Filter className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                        <SelectValue placeholder="Pilih Rider" />
+                      </div>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Semua Rider</SelectItem>
+                      {riders.map((rider) => (
+                        <SelectItem key={rider.id} value={rider.id}>
+                          {rider.full_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardContent>
+            </Card>
+
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center text-lg sm:text-xl">
@@ -486,92 +587,114 @@ export default function Warehouse() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="overflow-x-auto -mx-6 px-6">
-                  {returnHistory.length > 0 ? (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-[45%]">Info Return</TableHead>
-                          {!isMobile && (
-                            <>
-                              <TableHead>Produk</TableHead>
-                              <TableHead>Catatan</TableHead>
-                              <TableHead>Tanggal Return</TableHead>
-                              <TableHead>Disetujui Oleh</TableHead>
-                            </>
-                          )}
-                          <TableHead>Status</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {returnHistory.map((item) => (
-                          <TableRow key={item.id}>
-                            <TableCell>
-                              <div className="font-medium">{item.rider.full_name}</div>
-                              {isMobile && (
-                                <div className="space-y-1 mt-1">
-                                  <div className="text-sm text-muted-foreground">{item.products.name}</div>
-                                  <div className="text-xs space-y-1">
-                                    <div className="flex justify-between text-muted-foreground">
-                                      <span>Return:</span>
-                                      <span>{new Date(item.returned_at).toLocaleDateString("id-ID")}</span>
-                                    </div>
-                                    <div className="flex justify-between text-muted-foreground">
-                                      <span>Disetujui:</span>
-                                      <span>{new Date(item.approved_at).toLocaleDateString("id-ID")}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                      <span className="text-muted-foreground">Oleh:</span>
-                                      <span className="font-medium">{item.approver.full_name}</span>
-                                    </div>
-                                    {item.notes && (
-                                      <div className="text-xs italic text-muted-foreground mt-1">"{item.notes}"</div>
-                                    )}
+                {(() => {
+                  // Filter return history by date and rider
+                  const filteredReturns = returnHistory.filter(item => {
+                    const returnDate = new Date(item.returned_at);
+                    const dateMatch = returnDate >= returnDateRange.start && returnDate <= returnDateRange.end;
+                    const riderMatch = returnRiderFilter === "all" || item.rider.full_name === riders.find(r => r.id === returnRiderFilter)?.full_name;
+                    return dateMatch && riderMatch;
+                  });
+
+                  // Group by rider
+                  const groupedByRider = filteredReturns.reduce((acc, item) => {
+                    const riderName = item.rider.full_name;
+                    if (!acc[riderName]) {
+                      acc[riderName] = [];
+                    }
+                    acc[riderName].push(item);
+                    return acc;
+                  }, {} as Record<string, typeof returnHistory>);
+
+                  const riderNames = Object.keys(groupedByRider).sort();
+
+                  if (riderNames.length === 0) {
+                    return (
+                      <div className="text-center py-12">
+                        <History className="w-12 h-12 mx-auto text-muted-foreground opacity-50 mb-2" />
+                        <p className="text-muted-foreground">Tidak ada riwayat return untuk filter yang dipilih</p>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <Accordion type="single" collapsible className="w-full space-y-2">
+                      {riderNames.map((riderName) => {
+                        const riderReturns = groupedByRider[riderName];
+                        const totalQuantity = riderReturns.reduce((sum, item) => sum + item.quantity, 0);
+                        const approvedCount = riderReturns.filter(item => item.status === "approved").length;
+                        const rejectedCount = riderReturns.filter(item => item.status === "rejected").length;
+
+                        return (
+                          <AccordionItem key={riderName} value={riderName} className="border rounded-lg px-4">
+                            <AccordionTrigger className="hover:no-underline">
+                              <div className="flex items-center justify-between w-full pr-4">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                                    <span className="text-primary font-semibold">
+                                      {riderName.charAt(0).toUpperCase()}
+                                    </span>
+                                  </div>
+                                  <div className="text-left">
+                                    <p className="font-semibold text-sm sm:text-base">{riderName}</p>
+                                    <p className="text-xs text-muted-foreground">
+                                      {riderReturns.length} transaksi • {totalQuantity} pcs
+                                    </p>
                                   </div>
                                 </div>
-                              )}
-                            </TableCell>
-                            {!isMobile && (
-                              <>
-                                <TableCell>{item.products.name}</TableCell>
-                                <TableCell className="max-w-xs truncate">
-                                  {item.notes || "-"}
-                                </TableCell>
-                                <TableCell>
-                                  {new Date(item.returned_at).toLocaleDateString("id-ID")}
-                                </TableCell>
-                                <TableCell>
-                                  <div className="font-medium">
-                                    {item.approver.full_name}
-                                  </div>
-                                  <div className="text-xs text-muted-foreground">
-                                    {new Date(item.approved_at).toLocaleDateString("id-ID")}
-                                  </div>
-                                </TableCell>
-                              </>
-                            )}
-                            <TableCell>
-                              <div className="space-y-1">
-                                <Badge>{item.quantity} pcs</Badge>
-                                <Badge 
-                                  variant={item.status === "approved" ? "default" : "destructive"}
-                                  className="ml-2"
-                                >
-                                  {item.status === "approved" ? "Disetujui" : "Ditolak"}
-                                </Badge>
+                                <div className="flex gap-2">
+                                  {approvedCount > 0 && (
+                                    <Badge variant="default" className="text-xs">
+                                      {approvedCount} Disetujui
+                                    </Badge>
+                                  )}
+                                  {rejectedCount > 0 && (
+                                    <Badge variant="destructive" className="text-xs">
+                                      {rejectedCount} Ditolak
+                                    </Badge>
+                                  )}
+                                </div>
                               </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  ) : (
-                    <div className="text-center py-12">
-                      <History className="w-12 h-12 mx-auto text-muted-foreground opacity-50 mb-2" />
-                      <p className="text-muted-foreground">Belum ada riwayat return</p>
-                    </div>
-                  )}
-                </div>
+                            </AccordionTrigger>
+                            <AccordionContent>
+                              <div className="space-y-3 pt-4">
+                                {riderReturns.map((item) => (
+                                  <div key={item.id} className="border rounded-lg p-3 space-y-2">
+                                    <div className="flex items-start justify-between">
+                                      <div className="space-y-1">
+                                        <p className="font-medium text-sm">{item.products.name}</p>
+                                        <p className="text-xs text-muted-foreground">
+                                          Return: {format(new Date(item.returned_at), "dd MMM yyyy HH:mm", { locale: idLocale })}
+                                        </p>
+                                        <p className="text-xs text-muted-foreground">
+                                          Disetujui: {format(new Date(item.approved_at), "dd MMM yyyy HH:mm", { locale: idLocale })}
+                                        </p>
+                                        <p className="text-xs text-muted-foreground">
+                                          Oleh: <span className="font-medium">{item.approver.full_name}</span>
+                                        </p>
+                                      </div>
+                                      <div className="flex flex-col items-end gap-1">
+                                        <Badge>{item.quantity} pcs</Badge>
+                                        <Badge variant={item.status === "approved" ? "default" : "destructive"}>
+                                          {item.status === "approved" ? "Disetujui" : "Ditolak"}
+                                        </Badge>
+                                      </div>
+                                    </div>
+                                    {item.notes && (
+                                      <div className="mt-2 p-2 bg-muted/50 rounded text-xs italic">
+                                        "{item.notes}"
+                                      </div>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            </AccordionContent>
+                          </AccordionItem>
+                        );
+                      })}
+                    </Accordion>
+                  );
+                })()}
               </CardContent>
             </Card>
           </TabsContent>

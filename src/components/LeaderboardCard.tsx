@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -21,6 +22,8 @@ interface LeaderboardCardProps {
 }
 
 export function LeaderboardCard({ currentUserId, showTitle = true }: LeaderboardCardProps) {
+  const navigate = useNavigate();
+  
   // Fetch leaderboard - ALL riders
   const { data: leaderboard = [] } = useQuery<LeaderboardEntry[]>({
     queryKey: ["rider-leaderboard"],
@@ -177,10 +180,11 @@ export function LeaderboardCard({ currentUserId, showTitle = true }: Leaderboard
             return (
               <div
                 key={entry.rider_id}
-                className={`flex items-center gap-3 p-3 rounded-lg transition-all ${
+                onClick={() => navigate(`/reports?rider=${entry.rider_id}`)}
+                className={`flex items-center gap-3 p-3 rounded-lg transition-all cursor-pointer ${
                   isMe 
-                    ? 'bg-primary/10 border-2 border-primary' 
-                    : 'bg-muted/50 hover:bg-muted'
+                    ? 'bg-primary/10 border-2 border-primary hover:bg-primary/20' 
+                    : 'bg-muted/50 hover:bg-primary/20'
                 }`}
               >
                 {/* Rank Badge */}
