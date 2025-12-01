@@ -19,27 +19,60 @@ export const ProtectedRoute = ({ children, requireAdmin = false, requireRider = 
   const [isRider, setIsRider] = useState(false);
   const [loading, setLoading] = useState(true);
   const location = useLocation();
+  
+  // Cache untuk menghindari race condition
+  const roleCache = useState<{ userId: string; role: string; timestamp: number } | null>(null)[0];
 
   useEffect(() => {
     let mounted = true;
+    let fetchTimeout: NodeJS.Timeout;
 
     const fetchUserRole = async (userId: string) => {
       try {
-        // Get user role
+        // Check cache first (valid for 5 seconds)
+        if (roleCache && roleCache.userId === userId && Date.now() - roleCache.timestamp < 5000) {
+          const cachedRole = roleCache.role;
+          if (mounted) {
+            setIsAdmin(cachedRole === "admin" || cachedRole === "super_admin");
+            setIsRider(cachedRole === "rider");
+          }
+          return;
+        }
+
+        // Get user role with single query (no race condition)
         const { data: roleData, error: queryError } = await supabase
           .from("user_roles")
           .select("role")
           .eq("user_id", userId)
-          .maybeSingle();
+          .single(); // Use single() instead of maybeSingle() for better error handling
         
         if (queryError) {
           console.error("Roles check error:", queryError);
+          if (mounted) {
+            setIsAdmin(false);
+            setIsRider(false);
+          }
+          return;
         }
         
         if (mounted && roleData) {
           const role = roleData.role;
-          setIsAdmin(role === "admin" || role === "super_admin");
-          setIsRider(role === "rider");
+          
+          // Update cache
+          if (roleCache) {
+            roleCache.userId = userId;
+            roleCache.role = role;
+            roleCache.timestamp = Date.now();
+          }
+          
+          // Set role state - CRITICAL: Set both at the same time to avoid race
+          const isAdminRole = role === "admin" || role === "super_admin";
+          const isRiderRole = role === "rider";
+          
+          setIsAdmin(isAdminRole);
+          setIsRider(isRiderRole);
+          
+          console.log(`[ProtectedRoute] User role loaded: ${role}, isAdmin: ${isAdminRole}, isRider: ${isRiderRole}`);
         }
       } catch (e) {
         console.error("Roles check exception:", e);
@@ -57,8 +90,15 @@ export const ProtectedRoute = ({ children, requireAdmin = false, requireRider = 
       setUser(session?.user ?? null);
       
       if (session?.user) {
-        // Defer any Supabase calls to avoid deadlocks
-        setTimeout(() => fetchUserRole(session.user!.id), 0);
+        // Clear any pending timeout to avoid race condition
+        if (fetchTimeout) clearTimeout(fetchTimeout);
+        
+        // Debounce role fetch to avoid multiple simultaneous calls
+        fetchTimeout = setTimeout(() => {
+          if (mounted) {
+            fetchUserRole(session.user!.id);
+          }
+        }, 100); // Small delay to batch multiple auth state changes
         
         // Auto-start GPS tracking on login (for riders only)
         if (event === 'SIGNED_IN') {
@@ -83,6 +123,7 @@ export const ProtectedRoute = ({ children, requireAdmin = false, requireRider = 
         }
       } else {
         setIsAdmin(false);
+        setIsRider(false);
         
         // Auto-stop GPS tracking on logout
         if (event === 'SIGNED_OUT') {
@@ -119,6 +160,7 @@ export const ProtectedRoute = ({ children, requireAdmin = false, requireRider = 
 
     return () => {
       mounted = false;
+      if (fetchTimeout) clearTimeout(fetchTimeout);
       subscription.unsubscribe();
     };
   }, []);

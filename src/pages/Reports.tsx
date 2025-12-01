@@ -16,6 +16,7 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
@@ -40,6 +41,10 @@ export default function Reports() {
     end: endOfMonth(new Date())
   });
   const [appliedRider, setAppliedRider] = useState<string>("all");
+
+  // Monthly summary state
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
   // Fetch riders list
   useEffect(() => {
@@ -119,6 +124,79 @@ export default function Reports() {
       }));
     }
   });
+
+  // Fetch monthly summary data
+  const { data: monthlyData, isLoading: isLoadingMonthly } = useQuery({
+    queryKey: ["monthly-summary", selectedMonth, selectedYear],
+    queryFn: async () => {
+      const monthStart = new Date(selectedYear, selectedMonth, 1);
+      const monthEnd = endOfMonth(monthStart);
+
+      let query = supabase
+        .from("transactions")
+        .select("*")
+        .gte("created_at", monthStart.toISOString())
+        .lte("created_at", monthEnd.toISOString());
+
+      const { data: transactionsData, error: transactionsError } = await query
+        .order("created_at", { ascending: false });
+
+      if (transactionsError) throw transactionsError;
+      if (!transactionsData) return { transactions: [], riders: [], items: [] };
+
+      // Fetch related data
+      const riderIds = [...new Set(transactionsData.map(t => t.rider_id))];
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("user_id, full_name")
+        .in("user_id", riderIds);
+
+      // Fetch transaction items
+      const allTransactionIds = transactionsData.map(t => t.id).filter(Boolean);
+      let items: any[] = [];
+      const batchSize = 50;
+      for (let i = 0; i < allTransactionIds.length; i += batchSize) {
+        const batchIds = allTransactionIds.slice(i, i + batchSize);
+        if (batchIds.length === 0) continue;
+        const { data: batchItems, error: itemsError } = await supabase
+          .from("transaction_items")
+          .select("*, products(name, sku, category_id, categories(name))")
+          .in("transaction_id", batchIds);
+        if (itemsError) {
+          console.error("Error fetching transaction_items (batch):", itemsError);
+          continue;
+        }
+        if (batchItems) items = items.concat(batchItems);
+      }
+
+      return {
+        transactions: transactionsData.map(transaction => ({
+          ...transaction,
+          rider: profiles?.find(p => p.user_id === transaction.rider_id),
+          transaction_items: items?.filter(i => i.transaction_id === transaction.id) || []
+        })),
+        riders: profiles || [],
+        items
+      };
+    }
+  });
+
+  // Calculate monthly statistics
+  const monthlyStats = {
+    totalSales: monthlyData?.transactions?.reduce((sum, t) => sum + Number(t.total_amount), 0) || 0,
+    totalTransactions: monthlyData?.transactions?.length || 0,
+    totalCups: monthlyData?.transactions?.reduce((sum, t) => {
+      const cups = t.transaction_items?.reduce((itemSum: number, item: any) => {
+        // Exclude Add-On category
+        if (item.products?.categories?.name !== "Add-On") {
+          return itemSum + item.quantity;
+        }
+        return itemSum;
+      }, 0) || 0;
+      return sum + cups;
+    }, 0) || 0,
+    activeRiders: monthlyData?.riders?.length || 0
+  };
 
   // Calculate statistics
   const stats = {
@@ -1026,7 +1104,17 @@ export default function Reports() {
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
+        </div>
 
+        {/* Tabs for Reports */}
+        <Tabs defaultValue="transactions" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="transactions">Laporan Transaksi</TabsTrigger>
+            <TabsTrigger value="monthly">Ringkasan Bulanan</TabsTrigger>
+          </TabsList>
+
+          {/* Tab 1: Transaction Reports */}
+          <TabsContent value="transactions" className="space-y-3 sm:space-y-4 mt-4">
           {/* Filters */}
           <Card>
             <CardContent className="pt-4 sm:pt-6">
@@ -1403,6 +1491,189 @@ export default function Reports() {
             )}
           </CardContent>
         </Card>
+          </TabsContent>
+
+          {/* Tab 2: Monthly Summary */}
+          <TabsContent value="monthly" className="space-y-3 sm:space-y-4 mt-4">
+            <Card>
+              <CardContent className="pt-4 sm:pt-6">
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-2">
+                    {/* Month Selector */}
+                    <Select 
+                      value={selectedMonth.toString()} 
+                      onValueChange={(value) => setSelectedMonth(parseInt(value))}
+                    >
+                      <SelectTrigger className="w-full text-xs sm:text-sm h-9">
+                        <SelectValue placeholder="Pilih Bulan" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="0">Januari</SelectItem>
+                        <SelectItem value="1">Februari</SelectItem>
+                        <SelectItem value="2">Maret</SelectItem>
+                        <SelectItem value="3">April</SelectItem>
+                        <SelectItem value="4">Mei</SelectItem>
+                        <SelectItem value="5">Juni</SelectItem>
+                        <SelectItem value="6">Juli</SelectItem>
+                        <SelectItem value="7">Agustus</SelectItem>
+                        <SelectItem value="8">September</SelectItem>
+                        <SelectItem value="9">Oktober</SelectItem>
+                        <SelectItem value="10">November</SelectItem>
+                        <SelectItem value="11">Desember</SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    {/* Year Selector */}
+                    <Select 
+                      value={selectedYear.toString()} 
+                      onValueChange={(value) => setSelectedYear(parseInt(value))}
+                    >
+                      <SelectTrigger className="w-full text-xs sm:text-sm h-9">
+                        <SelectValue placeholder="Pilih Tahun" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map((year) => (
+                          <SelectItem key={year} value={year.toString()}>
+                            {year}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Monthly Stats */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
+              <StatsCard
+                title="Penjualan"
+                value={formatCurrency(monthlyStats.totalSales)}
+                icon={DollarSign}
+              />
+              <StatsCard
+                title="Transaksi"
+                value={monthlyStats.totalTransactions}
+                icon={ShoppingCart}
+              />
+              <StatsCard
+                title="Total Cup"
+                value={monthlyStats.totalCups}
+                icon={Package}
+              />
+              <StatsCard
+                title="Riders Aktif"
+                value={monthlyStats.activeRiders}
+                icon={Users}
+              />
+            </div>
+
+            {/* Monthly Chart Placeholder */}
+            <Card className="shadow-lg">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5 text-primary" />
+                  Ringkasan Bulan {['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'][selectedMonth]} {selectedYear}
+                </CardTitle>
+                <CardDescription>
+                  Data penjualan bulanan
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {isLoadingMonthly ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Calendar className="w-12 h-12 mx-auto mb-2 opacity-50 animate-pulse" />
+                    <p>Memuat data...</p>
+                  </div>
+                ) : monthlyData?.transactions && monthlyData.transactions.length > 0 ? (
+                  <div className="relative">
+                    <div className="absolute inset-0 bg-gradient-to-br from-accent/5 via-transparent to-primary/5 rounded-lg pointer-events-none" />
+                    <ResponsiveContainer width="100%" height={isMobile ? 300 : 350}>
+                      <BarChart 
+                        data={monthlyData.transactions.reduce((acc: any[], transaction) => {
+                          const riderId = transaction.rider_id;
+                          const existing = acc.find(r => r.riderId === riderId);
+                          
+                          if (existing) {
+                            existing.totalSales += Number(transaction.total_amount);
+                            existing.totalTransactions += 1;
+                          } else {
+                            acc.push({
+                              riderId: riderId,
+                              riderName: transaction.rider?.full_name || "Unknown",
+                              totalSales: Number(transaction.total_amount),
+                              totalTransactions: 1
+                            });
+                          }
+                          return acc;
+                        }, [])?.sort((a, b) => b.totalSales - a.totalSales) || []}
+                        margin={{ bottom: isMobile ? 60 : 20, top: 10, right: 10, left: 0 }}
+                      >
+                        <defs>
+                          <linearGradient id="barGradientMonthly" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={1}/>
+                            <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0.6}/>
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid 
+                          strokeDasharray="3 3" 
+                          className="stroke-muted/30"
+                          vertical={false}
+                        />
+                        <XAxis 
+                          dataKey="riderName" 
+                          className="text-xs"
+                          angle={isMobile ? -45 : 0}
+                          textAnchor={isMobile ? "end" : "middle"}
+                          height={isMobile ? 80 : 30}
+                          tickLine={false}
+                          axisLine={{ stroke: 'hsl(var(--border))' }}
+                          tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                        />
+                        <YAxis 
+                          className="text-xs"
+                          tickLine={false}
+                          axisLine={{ stroke: 'hsl(var(--border))' }}
+                          tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                          tickFormatter={(value) => `${(value / 1000)}k`}
+                        />
+                        <Tooltip
+                          formatter={(value: any, name: string) => {
+                            if (name === "Total Penjualan") return formatCurrency(value);
+                            return value;
+                          }}
+                          contentStyle={{ 
+                            backgroundColor: "hsl(var(--card))",
+                            border: "1px solid hsl(var(--border))",
+                            borderRadius: "var(--radius)",
+                            boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)"
+                          }}
+                          labelStyle={{ 
+                            color: "hsl(var(--foreground))",
+                            fontWeight: 600
+                          }}
+                          cursor={{ fill: 'hsl(var(--muted))', opacity: 0.1 }}
+                        />
+                        <Bar 
+                          dataKey="totalSales" 
+                          fill="url(#barGradientMonthly)" 
+                          name="Total Penjualan"
+                          radius={[8, 8, 0, 0]}
+                          maxBarSize={60}
+                        />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                ) : (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Calendar className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                    <p>Tidak ada transaksi di bulan ini</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
 
       <BottomNav isAdmin={true} />

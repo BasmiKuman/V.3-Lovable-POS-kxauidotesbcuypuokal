@@ -169,12 +169,13 @@ export function ManageUsersTab() {
 
       if (profileError) throw profileError;
 
-      // Update password if provided
+      // Update password if provided (using RPC function instead of admin API)
       if (editUser.password && editUser.password.length >= 6) {
-        const { error: passwordError } = await supabase.auth.admin.updateUserById(
-          editingUserId,
-          { password: editUser.password }
-        );
+        const { data, error: passwordError } = await supabase.rpc('update_user_password', {
+          p_user_id: editingUserId,
+          p_new_password: editUser.password
+        });
+        
         if (passwordError) throw passwordError;
       }
 

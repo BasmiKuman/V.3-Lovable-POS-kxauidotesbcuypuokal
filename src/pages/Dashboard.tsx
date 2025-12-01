@@ -5,11 +5,13 @@ import { StatsCard } from "@/components/StatsCard";
 import { WeatherWidget } from "@/components/WeatherWidget";
 import RiderTrackingMap from "@/components/RiderTrackingMap";
 import { ReturnsAccordion } from "@/components/ReturnsAccordion";
+import { LeaderboardCard } from "@/components/LeaderboardCard";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Package, TrendingUp, Users, ShoppingCart, Undo2, RefreshCw } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { startOfMonth, endOfMonth } from "date-fns";
 
 interface ReturnRequest {
   id: string;
@@ -60,20 +62,28 @@ export default function Dashboard() {
 
     const fetchStats = async () => {
       try {
-        // Get total products
+        const now = new Date();
+        const monthStart = startOfMonth(now);
+        const monthEnd = endOfMonth(now);
+
+        // Get total products (all time - this doesn't reset monthly)
         const { count: productsCount } = await supabase
           .from("products")
           .select("*", { count: "exact", head: true });
 
-        // Get total transactions
+        // Get total transactions - CURRENT MONTH ONLY
         const { count: transactionsCount } = await supabase
           .from("transactions")
-          .select("*", { count: "exact", head: true });
+          .select("*", { count: "exact", head: true })
+          .gte("created_at", monthStart.toISOString())
+          .lte("created_at", monthEnd.toISOString());
 
-        // Get total revenue
+        // Get total revenue - CURRENT MONTH ONLY
         const { data: transactions } = await supabase
           .from("transactions")
-          .select("total_amount");
+          .select("total_amount")
+          .gte("created_at", monthStart.toISOString())
+          .lte("created_at", monthEnd.toISOString());
 
         const totalRevenue = transactions?.reduce((sum, t) => sum + Number(t.total_amount), 0) || 0;
 
@@ -456,14 +466,14 @@ export default function Dashboard() {
             variant="primary"
           />
           <StatsCard
-            title="Transaksi"
+            title="Transaksi Bulan Ini"
             value={stats.totalTransactions}
             icon={ShoppingCart}
             className="animate-fade-in"
             variant="secondary"
           />
           <StatsCard
-            title="Pendapatan"
+            title="Pendapatan Bulan Ini"
             value={`Rp ${stats.totalRevenue.toLocaleString("id-ID")}`}
             icon={TrendingUp}
             className="animate-fade-in"
@@ -524,6 +534,13 @@ export default function Dashboard() {
         {isAdmin && (
           <div className="animate-fade-in" style={{ animationDelay: "0.2s" }}>
             <RiderTrackingMap key={refreshKey} />
+          </div>
+        )}
+
+        {/* Leaderboard - Admin Only */}
+        {isAdmin && (
+          <div className="animate-fade-in" style={{ animationDelay: "0.3s" }}>
+            <LeaderboardCard showTitle={true} />
           </div>
         )}
       </div>
