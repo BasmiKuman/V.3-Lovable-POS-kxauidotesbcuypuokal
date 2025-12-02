@@ -499,32 +499,60 @@ export default function RiderDashboard() {
                     )}
                     style={{ animationDelay: `${index * 50}ms` }}
                   >
-                    {/* Rank Badge */}
-                    <div className={`w-10 h-10 rounded-full ${badge.color} flex items-center justify-center text-white font-bold flex-shrink-0`}>
-                      <span className="text-sm">{badge.emoji}</span>
+                    {/* Rank Badge - Enhanced */}
+                    <div className={cn(
+                      "relative w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold flex-shrink-0 shadow-md",
+                      "transition-transform duration-300 group-hover:scale-110",
+                      badge.color
+                    )}>
+                      {entry.rank <= 3 && (
+                        <div className="absolute inset-0 rounded-xl blur-md opacity-50 animate-pulse-slow" style={{ backgroundColor: badge.color }} />
+                      )}
+                      <span className="text-base relative z-10">{badge.emoji}</span>
                     </div>
 
-                    {/* Avatar & Info */}
-                    <Avatar className="h-10 w-10 flex-shrink-0">
+                    {/* Avatar & Info - Enhanced */}
+                    <Avatar className="h-12 w-12 flex-shrink-0 border-2 border-white/20 shadow-md">
                       <AvatarImage src={entry.rider_avatar || undefined} alt={entry.rider_name} />
-                      <AvatarFallback className="bg-primary/20 text-primary">
+                      <AvatarFallback className={cn(
+                        "font-bold text-lg",
+                        isMe ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                      )}>
                         {entry.rider_name.charAt(0).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
 
-                    {/* Name & Stats */}
+                    {/* Name & Stats - Enhanced */}
                     <div className="flex-1 min-w-0">
-                      <p className={`font-semibold text-sm truncate ${isMe ? 'text-primary' : ''}`}>
-                        {entry.rider_name} {isMe && '(Saya)'}
-                      </p>
-                      <p className="text-xs font-medium text-foreground/80">
-                        {entry.total_cups || 0} cup terjual
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className={cn(
+                          "font-bold text-sm truncate",
+                          isMe ? 'text-primary' : 'text-foreground'
+                        )}>
+                          {entry.rider_name}
+                        </p>
+                        {isMe && (
+                          <Badge variant="default" className="text-[10px] px-1.5 py-0 bg-gradient-primary">
+                            Saya
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <Package className="w-3 h-3 text-muted-foreground" />
+                        <p className="text-xs font-semibold text-muted-foreground">
+                          {entry.total_cups || 0} cup terjual
+                        </p>
+                      </div>
                     </div>
 
-                    {/* Medal/Badge for top 3 */}
+                    {/* Medal/Badge for top 3 - Enhanced */}
                     {entry.rank <= 3 && (
-                      <Badge variant="outline" className="text-xs flex-shrink-0">
+                      <Badge className={cn(
+                        "text-xs font-bold shadow-md flex-shrink-0 animate-pulse-slow",
+                        entry.rank === 1 && "bg-gradient-to-r from-yellow-400 to-yellow-600 text-white",
+                        entry.rank === 2 && "bg-gradient-to-r from-gray-300 to-gray-500 text-white",
+                        entry.rank === 3 && "bg-gradient-to-r from-orange-400 to-orange-600 text-white"
+                      )}>
                         Top {entry.rank}
                       </Badge>
                     )}
