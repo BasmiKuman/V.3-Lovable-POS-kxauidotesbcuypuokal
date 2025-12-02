@@ -440,7 +440,7 @@ export default function Dashboard() {
 
   return (
     <div 
-      className="min-h-screen bg-background w-full overflow-x-hidden"
+      className="min-h-screen bg-gradient-to-br from-background via-primary/5 to-background w-full overflow-x-hidden relative"
       style={{
         paddingTop: 'max(1rem, env(safe-area-inset-top, 0px))',
         paddingBottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))',
@@ -448,33 +448,53 @@ export default function Dashboard() {
         paddingRight: 'env(safe-area-inset-right, 0px)',
       }}
     >
-      <div className="max-w-screen-xl mx-auto px-3 sm:px-4 space-y-3 sm:space-y-5">
-        {/* Header with Logo and Weather - Inline */}
-        <div className="flex items-center justify-between gap-2 pb-3 border-b">
-          <div className="flex items-center gap-3 flex-1 min-w-0">
-            <img 
-              src="/images/logo.png" 
-              alt="BK Logo" 
-              className="w-10 h-10 sm:w-12 sm:h-12 flex-shrink-0"
-            />
-            <div className="flex-1 min-w-0">
-              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">
-                Dashboard
-              </h1>
-              <p className="text-xs sm:text-sm text-muted-foreground truncate">BK POS System - Ringkasan Sistem</p>
+      {/* Animated background elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-primary/10 rounded-full blur-3xl animate-pulse-slow" />
+        <div className="absolute bottom-0 left-0 w-96 h-96 bg-secondary/10 rounded-full blur-3xl animate-pulse-slow" style={{ animationDelay: "1s" }} />
+      </div>
+
+      <div className="max-w-screen-xl mx-auto px-3 sm:px-4 space-y-4 sm:space-y-6 relative z-10">
+        {/* Enhanced Header with Logo, Title, and Actions */}
+        <div className="glass rounded-2xl p-4 sm:p-5 border border-border/50 shadow-xl animate-fade-in-down">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
+              {/* Logo with glow effect */}
+              <div className="relative group">
+                <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full group-hover:bg-primary/30 transition-all duration-300" />
+                <img 
+                  src="/images/logo.png" 
+                  alt="BK Logo" 
+                  className="relative w-12 h-12 sm:w-14 sm:h-14 flex-shrink-0 drop-shadow-2xl group-hover:scale-110 transition-transform duration-300"
+                />
+              </div>
+              
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gradient-multi">
+                    Dashboard Admin
+                  </h1>
+                  <Sparkles className="w-5 h-5 text-accent animate-pulse-slow" />
+                </div>
+                <p className="text-xs sm:text-sm text-muted-foreground truncate">
+                  BK POS System - Ringkasan & Monitoring Real-time
+                </p>
+              </div>
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              onClick={handleRefresh}
-              disabled={isRefreshing}
-              size="icon"
-              variant="outline"
-              className="flex-shrink-0"
-            >
-              <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-            </Button>
-            <WeatherWidget key={refreshKey} />
+            
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <WeatherWidget key={refreshKey} />
+              <Button
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+                size="icon"
+                variant="outline"
+                className="hover-lift hover:border-primary/50 transition-all duration-300"
+              >
+                <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+              </Button>
+              <ThemeToggle />
+            </div>
           </div>
         </div>
 
