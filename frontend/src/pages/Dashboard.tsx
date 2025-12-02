@@ -672,27 +672,81 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Coming Soon Section */}
+        {/* Recent Activities Section - Real Data */}
         <EnhancedCard
           title="Aktivitas Terbaru"
-          description="Transaksi dan distribusi real-time"
-          icon={TrendingUp}
+          description="Transaksi, return, dan alert sistem"
+          icon={Clock}
           iconColor="purple"
-          variant="gradient"
+          variant="glass"
           className="animate-fade-in-up"
           style={{ animationDelay: "800ms" } as any}
         >
-          <div className="text-center py-8 text-muted-foreground relative">
-            <div className="absolute inset-0 flex items-center justify-center opacity-10">
-              <TrendingUp className="w-32 h-32 animate-pulse-slow" />
+          {recentActivities.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground relative">
+              <div className="absolute inset-0 flex items-center justify-center opacity-10">
+                <Clock className="w-32 h-32 animate-pulse-slow" />
+              </div>
+              <p className="text-sm sm:text-base font-medium relative z-10">
+                Belum ada aktivitas hari ini
+              </p>
+              <p className="text-xs sm:text-sm text-muted-foreground/70 mt-2 relative z-10">
+                Aktivitas sistem akan muncul di sini
+              </p>
             </div>
-            <p className="text-sm sm:text-base font-medium relative z-10">
-              🚀 Fitur segera hadir!
-            </p>
-            <p className="text-xs sm:text-sm text-muted-foreground/70 mt-2 relative z-10">
-              Timeline real-time untuk semua aktivitas sistem
-            </p>
-          </div>
+          ) : (
+            <div className="space-y-3">
+              {recentActivities.map((activity, index) => {
+                const ActivityIcon = activity.icon;
+                return (
+                  <div
+                    key={index}
+                    className="flex items-start gap-3 p-3 rounded-lg glass border border-border/30 hover:border-primary/30 transition-all duration-300 hover-lift animate-fade-in-left"
+                    style={{ animationDelay: `${index * 50}ms` }}
+                  >
+                    {/* Icon */}
+                    <div className={`
+                      w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 shadow-md
+                      ${activity.color === 'secondary' && 'bg-secondary/10 text-secondary'}
+                      ${activity.color === 'accent' && 'bg-accent/10 text-accent'}
+                      ${activity.color === 'destructive' && 'bg-destructive/10 text-destructive'}
+                      ${activity.color === 'primary' && 'bg-primary/10 text-primary'}
+                    `}>
+                      <ActivityIcon className="w-5 h-5" />
+                    </div>
+
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-foreground truncate">
+                            {activity.title}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                            {activity.description}
+                          </p>
+                        </div>
+                        {activity.status && (
+                          <Badge 
+                            variant={activity.status === 'pending' ? 'outline' : 'default'}
+                            className="text-[10px] flex-shrink-0"
+                          >
+                            {activity.status}
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-muted-foreground mt-1">
+                        {formatDistanceToNow(new Date(activity.time), { 
+                          addSuffix: true,
+                          locale: idLocale 
+                        })}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </EnhancedCard>
       </div>
 
