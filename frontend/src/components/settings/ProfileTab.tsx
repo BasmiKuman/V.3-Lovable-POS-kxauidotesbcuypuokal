@@ -32,6 +32,20 @@ interface ProfileTabProps {
 export function ProfileTab({ profile, uploading, setUploading, onProfileUpdate }: ProfileTabProps) {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isDarkMode, setIsDarkMode] = useState(false);
+
+  useEffect(() => {
+    // Check current theme
+    const isDark = document.documentElement.classList.contains('dark');
+    setIsDarkMode(isDark);
+  }, []);
+
+  const handleThemeToggle = (checked: boolean) => {
+    setIsDarkMode(checked);
+    localStorage.setItem('theme', checked ? 'dark' : 'light');
+    document.documentElement.classList.toggle('dark', checked);
+    toast.success(`Mode ${checked ? 'gelap' : 'terang'} diaktifkan`);
+  };
 
   const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     try {
