@@ -31,6 +31,7 @@ import { Share } from '@capacitor/share';
 export default function Reports() {
   const isMobile = useIsMobile();
   const [searchParams, setSearchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState<string>("transactions");
   const [dateRange, setDateRange] = useState({
     start: startOfDay(new Date()),
     end: endOfDay(new Date())
@@ -58,6 +59,16 @@ export default function Reports() {
 
   // Ref for scrolling to main filter
   const mainFilterRef = useRef<HTMLDivElement>(null);
+
+  // Handle hash navigation for tab switching
+  useEffect(() => {
+    const hash = window.location.hash.replace('#', '');
+    if (hash === 'daily-transactions' || hash === 'transactions') {
+      setActiveTab('transactions');
+    } else if (hash === 'monthly-summary' || hash === 'summary') {
+      setActiveTab('monthly');
+    }
+  }, []);
 
   // Handle URL params for rider filter
   useEffect(() => {
@@ -1322,7 +1333,7 @@ export default function Reports() {
         </div>
 
         {/* Tabs for Reports */}
-        <Tabs defaultValue="transactions" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="transactions">Laporan Transaksi</TabsTrigger>
             <TabsTrigger value="monthly">Ringkasan Bulanan</TabsTrigger>

@@ -666,7 +666,7 @@ export default function Dashboard() {
             title="Transaksi Bulan Ini"
             value={stats.totalTransactions}
             icon={ShoppingCart}
-            to="/reports?tab=transactions"
+            to="/reports#daily-transactions"
             className="animate-fade-in-up"
             style={{ animationDelay: "200ms" } as any}
             variant="secondary"
@@ -675,7 +675,7 @@ export default function Dashboard() {
             title="Pendapatan Bulan Ini"
             value={`Rp ${stats.totalRevenue.toLocaleString("id-ID")}`}
             icon={TrendingUp}
-            to="/reports?tab=summary"
+            to="/reports#monthly-summary"
             className="animate-fade-in-up"
             style={{ animationDelay: "300ms" } as any}
             variant="accent"
@@ -684,7 +684,7 @@ export default function Dashboard() {
             title="Rider Aktif Bulan Ini"
             value={stats.activeRiders}
             icon={Users}
-            to="/settings?tab=users"
+            to="/settings#user-management"
             className="animate-fade-in-up"
             style={{ animationDelay: "400ms" } as any}
             variant="default"

@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -28,6 +29,16 @@ const queryClient = new QueryClient({
 });
 
 const App = () => {
+  // Load theme from localStorage on app mount
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, []);
+
   return (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>

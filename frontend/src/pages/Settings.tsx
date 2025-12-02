@@ -24,9 +24,22 @@ export default function Settings() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [activeTab, setActiveTab] = useState<string>("profile");
 
   useEffect(() => {
     loadData();
+    
+    // Handle hash navigation for tab switching
+    const hash = window.location.hash.replace('#', '');
+    if (hash === 'user-management' || hash === 'users') {
+      setActiveTab('users');
+    } else if (hash === 'profile') {
+      setActiveTab('profile');
+    } else if (hash === 'gps') {
+      setActiveTab('gps');
+    } else if (hash === 'feeds') {
+      setActiveTab('feeds');
+    }
   }, []);
 
   const loadData = async () => {
@@ -92,7 +105,7 @@ export default function Settings() {
           </p>
         </div>
 
-        <Tabs defaultValue="profile" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className={`grid w-full gap-1 ${isAdmin ? 'grid-cols-4' : 'grid-cols-2'}`}>
             <TabsTrigger value="profile" className="flex-col gap-1 h-auto py-2 text-xs">
               <User className="h-4 w-4" />
