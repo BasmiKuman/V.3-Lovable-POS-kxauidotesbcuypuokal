@@ -372,7 +372,6 @@ export default function RiderDashboard() {
                   <span className="text-[10px] font-semibold text-primary">Info</span>
                 </button>
               </NotificationBadge>
-              <ThemeToggle />
             </div>
           </div>
         </div>
