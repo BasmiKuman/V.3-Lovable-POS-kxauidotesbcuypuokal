@@ -33,8 +33,8 @@ const App = () => {
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <CommandPalette />
       <HashRouter>
+        <CommandPalette />
         <Routes>
           <Route 
             path="/" 
