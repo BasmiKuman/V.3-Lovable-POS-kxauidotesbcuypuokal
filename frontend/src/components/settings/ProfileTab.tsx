@@ -260,8 +260,62 @@ export function ProfileTab({ profile, uploading, setUploading, onProfileUpdate }
         </CardContent>
       </Card>
 
+      {/* Theme Settings Card */}
+      <Card className="animate-fade-in" style={{ animationDelay: "100ms" } as any}>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Palette className="w-5 h-5 text-primary" />
+            <CardTitle>Tampilan</CardTitle>
+          </div>
+          <CardDescription>
+            Sesuaikan tema aplikasi sesuai preferensi Anda
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Theme Toggle */}
+          <div className="flex items-center justify-between p-4 rounded-lg border border-border/50 bg-card hover:bg-accent/5 transition-colors">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
+                {isDarkMode ? (
+                  <Moon className="w-5 h-5 text-primary" />
+                ) : (
+                  <Sun className="w-5 h-5 text-accent" />
+                )}
+              </div>
+              <div>
+                <p className="font-medium text-sm">Mode Gelap</p>
+                <p className="text-xs text-muted-foreground">
+                  {isDarkMode ? 'Tema gelap aktif' : 'Tema terang aktif'}
+                </p>
+              </div>
+            </div>
+            <Switch
+              checked={isDarkMode}
+              onCheckedChange={handleThemeToggle}
+              className="data-[state=checked]:bg-primary"
+            />
+          </div>
+
+          {/* Theme Preview */}
+          <div className="grid grid-cols-2 gap-3 p-4 rounded-lg border border-border/50 bg-muted/30">
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-muted-foreground">Preview Tema</p>
+              <div className="flex gap-2">
+                <div className="w-8 h-8 rounded bg-primary shadow-sm" />
+                <div className="w-8 h-8 rounded bg-secondary shadow-sm" />
+                <div className="w-8 h-8 rounded bg-accent shadow-sm" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-muted-foreground">Gradient</p>
+              <div className="h-8 rounded bg-gradient-to-r from-primary via-secondary to-accent shadow-sm" />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Logout Card */}
-      <Card className="animate-fade-in border-destructive/50">
+      <Card className="animate-fade-in border-destructive/50" style={{ animationDelay: "200ms" } as any}>
         <CardHeader>
           <CardTitle className="text-destructive">Keluar dari Akun</CardTitle>
           <CardDescription>
