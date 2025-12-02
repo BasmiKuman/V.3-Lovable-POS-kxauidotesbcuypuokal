@@ -10,11 +10,14 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { EnhancedCard } from "@/components/EnhancedCard";
 import { NotificationBadge } from "@/components/NotificationBadge";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { Package, TrendingUp, Users, ShoppingCart, Undo2, RefreshCw, Sparkles } from "lucide-react";
+import { Package, TrendingUp, Users, ShoppingCart, Undo2, RefreshCw, Sparkles, Clock, AlertTriangle, Box } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
-import { startOfMonth, endOfMonth } from "date-fns";
+import { startOfMonth, endOfMonth, formatDistanceToNow } from "date-fns";
+import { id as idLocale } from "date-fns/locale";
 
 interface ReturnRequest {
   id: string;
