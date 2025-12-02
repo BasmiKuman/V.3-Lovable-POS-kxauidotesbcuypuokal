@@ -166,9 +166,99 @@ export default function Dashboard() {
       }
     };
 
+    const fetchRecentActivities = async () => {
+      try {
+        const activities: any[] = [];
+
+        // Get recent transactions (last 5)
+        const { data: recentTransactions } = await supabase
+          .from("transactions")
+          .select(`
+            id,
+            total_amount,
+            created_at,
+            rider_id,
+            profiles!transactions_rider_id_fkey (full_name, avatar_url)
+          `)
+          .order("created_at", { ascending: false })
+          .limit(5);
+
+        if (recentTransactions) {
+          recentTransactions.forEach(t => {
+            activities.push({
+              type: 'transaction',
+              icon: ShoppingCart,
+              title: 'Transaksi Baru',
+              description: `${t.profiles?.full_name || 'Rider'} - Rp ${t.total_amount.toLocaleString('id-ID')}`,
+              time: t.created_at,
+              color: 'secondary'
+            });
+          });
+        }
+
+        // Get recent returns (last 3)
+        const { data: recentReturns } = await supabase
+          .from("returns")
+          .select(`
+            id,
+            quantity,
+            created_at,
+            status,
+            rider_id,
+            products (name),
+            profiles!returns_rider_id_fkey (full_name)
+          `)
+          .order("created_at", { ascending: false })
+          .limit(3);
+
+        if (recentReturns) {
+          recentReturns.forEach(r => {
+            activities.push({
+              type: 'return',
+              icon: Undo2,
+              title: 'Permintaan Return',
+              description: `${r.profiles?.full_name || 'Rider'} - ${r.products?.name} (${r.quantity} pcs)`,
+              time: r.created_at,
+              color: 'accent',
+              status: r.status
+            });
+          });
+        }
+
+        // Get low stock products (stock < 10)
+        const { data: lowStockProducts } = await supabase
+          .from("products")
+          .select("id, name, stock_in_warehouse")
+          .lt("stock_in_warehouse", 10)
+          .order("stock_in_warehouse", { ascending: true })
+          .limit(3);
+
+        if (lowStockProducts) {
+          lowStockProducts.forEach(p => {
+            activities.push({
+              type: 'low_stock',
+              icon: AlertTriangle,
+              title: 'Stok Menipis',
+              description: `${p.name} - Sisa ${p.stock_in_warehouse} pcs`,
+              time: new Date().toISOString(),
+              color: 'destructive'
+            });
+          });
+        }
+
+        // Sort all activities by time
+        activities.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
+        
+        setRecentActivities(activities.slice(0, 8)); // Show max 8 activities
+      } catch (error) {
+        console.error("Error fetching recent activities:", error);
+      }
+    };
+
     checkRole();
     fetchStats();
     fetchReturns();
+    fetchRecentActivities();
   }, []);
 
   const handleApproveReturn = async (returnItem: ReturnRequest) => {
