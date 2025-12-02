@@ -560,16 +560,27 @@ export default function RiderDashboard() {
                 )
               })
             )}
-          </CardContent>
-        </Card>
-
-        {/* Feed Section */}
-        <div ref={feedSectionRef} className="space-y-3">
-          <div className="flex items-center gap-2">
-            <Megaphone className="w-5 h-5 text-primary" />
-            <h2 className="text-lg font-semibold">Pengumuman & Info</h2>
           </div>
-          <RiderFeedCard />
+        </EnhancedCard>
+
+        {/* Enhanced Feed Section */}
+        <div ref={feedSectionRef} className="animate-fade-in-up" style={{ animationDelay: "700ms" }}>
+          <EnhancedCard
+            title="Pengumuman & Info"
+            description="Update terbaru dari admin"
+            icon={Megaphone}
+            iconColor="primary"
+            variant="glass"
+            headerAction={
+              hasNewFeed && (
+                <Badge variant="destructive" className="animate-pulse">
+                  {newFeedCount} Baru
+                </Badge>
+              )
+            }
+          >
+            <RiderFeedCard />
+          </EnhancedCard>
         </div>
       </div>
 
