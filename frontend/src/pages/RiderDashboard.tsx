@@ -475,11 +475,13 @@ export default function RiderDashboard() {
         >
           <div className="space-y-2">
             {leaderboard.length === 0 ? (
-              <p className="text-center py-8 text-muted-foreground text-sm">
-                Belum ada data penjualan bulan ini
-              </p>
+              <div className="text-center py-12 text-muted-foreground">
+                <Trophy className="w-16 h-16 mx-auto mb-4 opacity-20" />
+                <p className="text-sm font-medium">Belum ada data penjualan bulan ini</p>
+                <p className="text-xs mt-2">Mulai berjualan untuk masuk leaderboard! 🚀</p>
+              </div>
             ) : (
-              leaderboard.map((entry) => {
+              leaderboard.map((entry, index) => {
                 const isMe = entry.rider_id === currentUserId;
                 const badge = getRankBadge(entry.rank);
                 
@@ -487,11 +489,14 @@ export default function RiderDashboard() {
                   <div
                     key={entry.rider_id}
                     onClick={() => navigate(`/reports?rider=${entry.rider_id}`)}
-                    className={`flex items-center gap-3 p-3 rounded-lg transition-all cursor-pointer ${
+                    className={cn(
+                      "group flex items-center gap-3 p-3 rounded-xl transition-all cursor-pointer hover-lift",
+                      "border backdrop-blur-sm animate-fade-in-left",
                       isMe 
-                        ? 'bg-primary/10 border-2 border-primary hover:bg-primary/20' 
-                        : 'bg-muted/50 hover:bg-muted'
-                    }`}
+                        ? 'bg-gradient-primary/10 border-primary/50 hover:bg-gradient-primary/20 shadow-colored' 
+                        : 'glass border-border/30 hover:border-primary/30'
+                    )}
+                    style={{ animationDelay: `${index * 50}ms` }}
                   >
                     {/* Rank Badge */}
                     <div className={`w-10 h-10 rounded-full ${badge.color} flex items-center justify-center text-white font-bold flex-shrink-0`}>
