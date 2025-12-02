@@ -32,16 +32,16 @@ export default function Reports() {
   const isMobile = useIsMobile();
   const [searchParams, setSearchParams] = useSearchParams();
   const [dateRange, setDateRange] = useState({
-    start: startOfMonth(new Date()),
-    end: endOfMonth(new Date())
+    start: startOfDay(new Date()),
+    end: endOfDay(new Date())
   });
   const [selectedRider, setSelectedRider] = useState<string>("all");
   const [riders, setRiders] = useState<Array<{ user_id: string; full_name: string; sales_target?: number }>>([]);
   
   // Applied filters (actual filters used in query)
   const [appliedDateRange, setAppliedDateRange] = useState({
-    start: startOfMonth(new Date()),
-    end: endOfMonth(new Date())
+    start: startOfDay(new Date()),
+    end: endOfDay(new Date())
   });
   const [appliedRider, setAppliedRider] = useState<string>("all");
 
@@ -52,8 +52,8 @@ export default function Reports() {
   // Transaction history filter (separate from main filter)
   const [historyRiderFilter, setHistoryRiderFilter] = useState<string>("all");
   const [historyDateRange, setHistoryDateRange] = useState({
-    start: startOfMonth(new Date()),
-    end: endOfMonth(new Date())
+    start: startOfDay(new Date()),
+    end: endOfDay(new Date())
   });
 
   // Ref for scrolling to main filter

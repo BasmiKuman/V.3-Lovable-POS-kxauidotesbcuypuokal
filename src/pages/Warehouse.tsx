@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Warehouse as WarehouseIcon, Send, Package, History, Calendar, Filter } from "lucide-react";
+import { Warehouse as WarehouseIcon, Send, Package, History, Calendar, Filter, Plus, Minus } from "lucide-react";
 import { toast } from "sonner";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
@@ -384,57 +384,90 @@ export default function Warehouse() {
                   </div>
                 </div>
 
-                {/* Grid Layout - 2 kolom untuk mobile & desktop */}
-                <div className="grid grid-cols-2 gap-2 sm:gap-3">
-                  {filteredProducts.map((product) => (
-                    <Card key={product.id} className="overflow-hidden hover:shadow-md transition-all">
-                      <CardContent className="p-2 sm:p-3">
-                        <div className="space-y-2">
-                          {/* Product Image */}
-                          <div className="w-full aspect-square rounded-lg bg-muted flex items-center justify-center">
-                            {product.image_url ? (
-                              <img
-                                src={product.image_url}
-                                alt={product.name}
-                                className="w-full h-full object-cover rounded-lg"
-                              />
-                            ) : (
-                              <Package className="w-8 h-8 sm:w-10 sm:h-10 text-muted-foreground" />
-                            )}
-                          </div>
+                {/* List View with Quick Actions */}
+                <div className="space-y-2">
+                  {filteredProducts.map((product) => {
+                    const distributedQty = distributionItems.find(d => d.productId === product.id)?.quantity || 0;
+                    
+                    return (
+                      <Card key={product.id} className={`overflow-hidden transition-all ${distributedQty > 0 ? 'border-primary' : ''}`}>
+                        <CardContent className="p-3">
+                          <div className="flex items-center gap-3">
+                            {/* Product Image - Smaller */}
+                            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+                              {product.image_url ? (
+                                <img
+                                  src={product.image_url}
+                                  alt={product.name}
+                                  className="w-full h-full object-cover rounded-lg"
+                                />
+                              ) : (
+                                <Package className="w-6 h-6 sm:w-8 sm:h-8 text-muted-foreground" />
+                              )}
+                            </div>
 
-                          {/* Product Info */}
-                          <div className="space-y-1.5">
-                            <h3 className="font-semibold text-xs sm:text-sm line-clamp-2 leading-tight">
-                              {product.name}
-                            </h3>
-                            <p className="text-xs sm:text-sm text-primary font-medium">
-                              Rp {product.price.toLocaleString("id-ID")}
-                            </p>
+                            {/* Product Info */}
+                            <div className="flex-1 min-w-0">
+                              <h3 className="font-semibold text-sm sm:text-base line-clamp-1">
+                                {product.name}
+                              </h3>
+                              <p className="text-xs sm:text-sm text-muted-foreground">
+                                Rp {product.price.toLocaleString("id-ID")}
+                              </p>
+                              <div className="flex items-center gap-2 mt-1">
+                                <Badge 
+                                  variant={product.stock_in_warehouse < 10 ? "destructive" : "secondary"}
+                                  className="text-[10px] sm:text-xs"
+                                >
+                                  Stok: {product.stock_in_warehouse}
+                                </Badge>
+                                {distributedQty > 0 && (
+                                  <Badge variant="default" className="text-[10px] sm:text-xs">
+                                    Distribusi: {distributedQty}
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
 
-                            {/* Stock Badge */}
-                            <Badge 
-                              variant={product.stock_in_warehouse < 10 ? "destructive" : "default"}
-                              className="text-[10px] sm:text-xs px-1.5 py-0"
-                            >
-                              Stok: {product.stock_in_warehouse}
-                            </Badge>
+                            {/* Quick Action Buttons */}
+                            <div className="flex items-center gap-1 flex-shrink-0">
+                              {/* Minus Button */}
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8 w-8 p-0"
+                                disabled={distributedQty === 0}
+                                onClick={() => {
+                                  const newQty = Math.max(0, distributedQty - 1);
+                                  setDistributionItems(prev => {
+                                    if (newQty === 0) {
+                                      return prev.filter(d => d.productId !== product.id);
+                                    }
+                                    const existing = prev.find(d => d.productId === product.id);
+                                    if (existing) {
+                                      return prev.map(d =>
+                                        d.productId === product.id
+                                          ? { ...d, quantity: newQty }
+                                          : d
+                                      );
+                                    }
+                                    return prev;
+                                  });
+                                }}
+                              >
+                                <Minus className="w-3 h-3" />
+                              </Button>
 
-                            {/* Distribution Quantity Input */}
-                            <div className="space-y-1">
-                              <Label className="text-[10px] sm:text-xs text-muted-foreground">
-                                Jumlah
-                              </Label>
+                              {/* Quantity Display/Input */}
                               <Input
                                 type="number"
                                 min="0"
                                 max={product.stock_in_warehouse}
                                 placeholder="0"
-                                value={distributionItems.find(d => d.productId === product.id)?.quantity || ""}
+                                value={distributedQty || ""}
                                 onChange={(e) => {
                                   const inputValue = e.target.value;
                                   
-                                  // Allow empty input (to clear the field)
                                   if (inputValue === "" || inputValue === null) {
                                     setDistributionItems(prev => 
                                       prev.filter(d => d.productId !== product.id)
@@ -444,7 +477,6 @@ export default function Warehouse() {
 
                                   const value = parseInt(inputValue);
                                   
-                                  // Validate: must be a valid number, >= 0, and <= stock
                                   if (isNaN(value) || value < 0 || value > product.stock_in_warehouse) {
                                     return;
                                   }
@@ -452,7 +484,6 @@ export default function Warehouse() {
                                   setDistributionItems(prev => {
                                     const existing = prev.find(d => d.productId === product.id);
                                     if (value === 0) {
-                                      // Remove item if quantity is 0
                                       return prev.filter(d => d.productId !== product.id);
                                     }
                                     if (existing) {
@@ -465,14 +496,86 @@ export default function Warehouse() {
                                     return [...prev, { productId: product.id, quantity: value }];
                                   });
                                 }}
-                                className="h-7 text-xs sm:h-8 sm:text-sm"
+                                className="h-8 w-14 text-center text-sm"
                               />
+
+                              {/* Plus Button */}
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8 w-8 p-0"
+                                disabled={distributedQty >= product.stock_in_warehouse}
+                                onClick={() => {
+                                  const newQty = Math.min(product.stock_in_warehouse, distributedQty + 1);
+                                  setDistributionItems(prev => {
+                                    const existing = prev.find(d => d.productId === product.id);
+                                    if (existing) {
+                                      return prev.map(d =>
+                                        d.productId === product.id
+                                          ? { ...d, quantity: newQty }
+                                          : d
+                                      );
+                                    }
+                                    return [...prev, { productId: product.id, quantity: newQty }];
+                                  });
+                                }}
+                              >
+                                <Plus className="w-3 h-3" />
+                              </Button>
+
+                              {/* Quick Add Buttons */}
+                              <div className="hidden sm:flex gap-1 ml-1">
+                                <Button
+                                  size="sm"
+                                  variant="secondary"
+                                  className="h-8 px-2 text-xs"
+                                  disabled={product.stock_in_warehouse < 5}
+                                  onClick={() => {
+                                    const newQty = Math.min(product.stock_in_warehouse, distributedQty + 5);
+                                    setDistributionItems(prev => {
+                                      const existing = prev.find(d => d.productId === product.id);
+                                      if (existing) {
+                                        return prev.map(d =>
+                                          d.productId === product.id
+                                            ? { ...d, quantity: newQty }
+                                            : d
+                                        );
+                                      }
+                                      return [...prev, { productId: product.id, quantity: newQty }];
+                                    });
+                                  }}
+                                >
+                                  +5
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="secondary"
+                                  className="h-8 px-2 text-xs"
+                                  disabled={product.stock_in_warehouse < 10}
+                                  onClick={() => {
+                                    const newQty = Math.min(product.stock_in_warehouse, distributedQty + 10);
+                                    setDistributionItems(prev => {
+                                      const existing = prev.find(d => d.productId === product.id);
+                                      if (existing) {
+                                        return prev.map(d =>
+                                          d.productId === product.id
+                                            ? { ...d, quantity: newQty }
+                                            : d
+                                        );
+                                      }
+                                      return [...prev, { productId: product.id, quantity: newQty }];
+                                    });
+                                  }}
+                                >
+                                  +10
+                                </Button>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
                 </div>
 
                 <Button
