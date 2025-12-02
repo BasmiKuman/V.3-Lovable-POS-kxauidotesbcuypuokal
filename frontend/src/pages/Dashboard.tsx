@@ -50,6 +50,7 @@ export default function Dashboard() {
     totalRevenue: 0,
     activeRiders: 0,
   });
+  const [recentActivities, setRecentActivities] = useState<any[]>([]);
 
   useEffect(() => {
     const checkRole = async () => {
