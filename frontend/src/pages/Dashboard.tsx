@@ -587,7 +587,6 @@ export default function Dashboard() {
               >
                 <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
               </Button>
-              <ThemeToggle />
             </div>
           </div>
         </div>
