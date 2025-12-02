@@ -58,9 +58,11 @@ export const StatsCard = ({ title, value, icon: Icon, trend, className, variant 
 
   return (
     <Card 
+      onClick={handleClick}
       className={cn(
-        "group overflow-hidden transition-all duration-300 hover-lift cursor-pointer",
+        "group overflow-hidden transition-all duration-300 hover-lift",
         "backdrop-blur-sm",
+        (onClick || to) && "cursor-pointer active:scale-95",
         variantStyles[variant], 
         glowStyles[variant],
         className
