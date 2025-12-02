@@ -463,16 +463,17 @@ export default function RiderDashboard() {
           </div>
         </EnhancedCard>
 
-        {/* Leaderboard */}
-        <Card className="animate-fade-in">
-          <CardHeader className="p-3 sm:p-4 pb-2 sm:pb-3">
-            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-              <Trophy className="w-5 h-5 text-yellow-500" />
-              Leaderboard Bulan Ini
-            </CardTitle>
-            <CardDescription className="text-xs sm:text-sm">Top Riders - Update Real-time</CardDescription>
-          </CardHeader>
-          <CardContent className="p-3 sm:p-4 space-y-2">
+        {/* Enhanced Leaderboard */}
+        <EnhancedCard
+          title="Leaderboard Bulan Ini"
+          description="Top Riders - Update Real-time"
+          icon={Trophy}
+          iconColor="accent"
+          variant="gradient"
+          className="animate-fade-in-up"
+          style={{ animationDelay: "600ms" } as any}
+        >
+          <div className="space-y-2">
             {leaderboard.length === 0 ? (
               <p className="text-center py-8 text-muted-foreground text-sm">
                 Belum ada data penjualan bulan ini
