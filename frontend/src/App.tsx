@@ -14,6 +14,7 @@ import Products from "./pages/Products";
 import Warehouse from "./pages/Warehouse";
 import Reports from "./pages/Reports";
 import POS from "./pages/POS";
+import ManualSales from "./pages/ManualSales";
 import Settings from "./pages/Settings";
 import RiderDashboard from "./pages/RiderDashboard";
 import RiderReports from "./pages/RiderReports";
@@ -98,6 +99,14 @@ const App = () => {
             element={
               <ProtectedRoute>
                 <POS />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/manual-sales"
+            element={
+              <ProtectedRoute requireAdmin={true}>
+                <ManualSales />
               </ProtectedRoute>
             }
           />

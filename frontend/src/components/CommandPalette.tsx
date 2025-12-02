@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { useNavigate } from 'react-router-dom';
-import { Home, Package, ShoppingCart, BarChart3, Settings, Warehouse, Search } from 'lucide-react';
+import { Home, Package, ShoppingCart, BarChart3, Settings, Warehouse, Search, ClipboardList } from 'lucide-react';
 
 export const CommandPalette = () => {
   const [open, setOpen] = useState(false);
@@ -54,6 +54,10 @@ export const CommandPalette = () => {
               <CommandItem onSelect={() => runCommand(() => navigate('/pos'))}>
                 <ShoppingCart className="mr-2 h-4 w-4" />
                 <span>POS / Kasir</span>
+              </CommandItem>
+              <CommandItem onSelect={() => runCommand(() => navigate('/manual-sales'))}>
+                <ClipboardList className="mr-2 h-4 w-4" />
+                <span>Penjualan Manual</span>
               </CommandItem>
               <CommandItem onSelect={() => runCommand(() => navigate('/reports'))}>
                 <BarChart3 className="mr-2 h-4 w-4" />
