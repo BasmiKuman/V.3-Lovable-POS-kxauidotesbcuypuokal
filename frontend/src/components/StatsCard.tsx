@@ -2,6 +2,7 @@ import { LucideIcon } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { TrendingUp, TrendingDown } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 interface StatsCardProps {
   title: string;
@@ -13,6 +14,8 @@ interface StatsCardProps {
   };
   className?: string;
   variant?: "default" | "primary" | "secondary" | "accent";
+  onClick?: () => void;
+  to?: string;
 }
 
 export const StatsCard = ({ title, value, icon: Icon, trend, className, variant = "default" }: StatsCardProps) => {
