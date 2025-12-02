@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Camera, Upload, LogOut } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Camera, Upload, LogOut, Moon, Sun, Palette } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 
