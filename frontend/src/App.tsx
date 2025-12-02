@@ -33,6 +33,7 @@ const App = () => {
     <TooltipProvider>
       <Toaster />
       <Sonner />
+      <CommandPalette />
       <HashRouter>
         <Routes>
           <Route 
