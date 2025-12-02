@@ -1,0 +1,14 @@
+{
+  "name": "bk-pos-root",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "install": "cd frontend && yarn install",
+    "build": "cd frontend && yarn build:no-bump",
+    "dev": "cd frontend && yarn dev",
+    "start": "cd frontend && yarn start"
+  },
+  "workspaces": [
+    "frontend"
+  ]
+}
