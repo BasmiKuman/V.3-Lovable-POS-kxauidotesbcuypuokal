@@ -498,34 +498,38 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
+        {/* Enhanced Stats Grid with staggered animations */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           <StatsCard
             title="Total Produk"
             value={stats.totalProducts}
             icon={Package}
-            className="animate-fade-in"
+            className="animate-fade-in-up"
+            style={{ animationDelay: "100ms" } as any}
             variant="primary"
           />
           <StatsCard
             title="Transaksi Bulan Ini"
             value={stats.totalTransactions}
             icon={ShoppingCart}
-            className="animate-fade-in"
+            className="animate-fade-in-up"
+            style={{ animationDelay: "200ms" } as any}
             variant="secondary"
           />
           <StatsCard
             title="Pendapatan Bulan Ini"
             value={`Rp ${stats.totalRevenue.toLocaleString("id-ID")}`}
             icon={TrendingUp}
-            className="animate-fade-in"
+            className="animate-fade-in-up"
+            style={{ animationDelay: "300ms" } as any}
             variant="accent"
           />
           <StatsCard
             title="Rider Aktif Bulan Ini"
             value={stats.activeRiders}
             icon={Users}
-            className="animate-fade-in"
+            className="animate-fade-in-up"
+            style={{ animationDelay: "400ms" } as any}
             variant="default"
           />
         </div>
