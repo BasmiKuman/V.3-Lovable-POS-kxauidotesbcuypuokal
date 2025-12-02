@@ -412,24 +412,56 @@ export default function RiderDashboard() {
           />
         </div>
 
-        {/* Chart */}
-        <Card className="animate-fade-in">
-          <CardHeader className="p-3 sm:p-4 pb-2 sm:pb-3">
-            <CardTitle className="text-base sm:text-lg">Penjualan 7 Hari Terakhir</CardTitle>
-            <CardDescription className="text-xs sm:text-sm">Grafik penjualan cup Anda</CardDescription>
-          </CardHeader>
-          <CardContent className="p-3 sm:p-4 pt-0">
-            <ResponsiveContainer width="100%" height={200}>
+        {/* Enhanced Chart */}
+        <EnhancedCard
+          title="Penjualan 7 Hari Terakhir"
+          description="Grafik penjualan cup Anda"
+          icon={TrendingUp}
+          iconColor="secondary"
+          variant="glass"
+          className="animate-fade-in-up"
+          style={{ animationDelay: "500ms" } as any}
+        >
+          <div className="relative">
+            <ResponsiveContainer width="100%" height={220}>
               <LineChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" style={{ fontSize: '12px' }} />
-                <YAxis style={{ fontSize: '12px' }} />
-                <Tooltip />
-                <Line type="monotone" dataKey="cups" stroke="#8b5cf6" strokeWidth={2} />
+                <defs>
+                  <linearGradient id="colorCups" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="hsl(142, 76%, 45%)" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="hsl(142, 76%, 45%)" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
+                <XAxis 
+                  dataKey="date" 
+                  style={{ fontSize: '12px' }} 
+                  stroke="hsl(var(--muted-foreground))"
+                />
+                <YAxis 
+                  style={{ fontSize: '12px' }} 
+                  stroke="hsl(var(--muted-foreground))"
+                />
+                <Tooltip 
+                  contentStyle={{
+                    backgroundColor: 'hsl(var(--card))',
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: '8px',
+                    boxShadow: 'var(--shadow-lg)'
+                  }}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="cups" 
+                  stroke="hsl(142, 76%, 45%)" 
+                  strokeWidth={3}
+                  dot={{ fill: 'hsl(142, 76%, 45%)', r: 4 }}
+                  activeDot={{ r: 6, fill: 'hsl(142, 76%, 45%)', stroke: 'hsl(var(--card))', strokeWidth: 2 }}
+                  fill="url(#colorCups)"
+                />
               </LineChart>
             </ResponsiveContainer>
-          </CardContent>
-        </Card>
+          </div>
+        </EnhancedCard>
 
         {/* Leaderboard */}
         <Card className="animate-fade-in">
