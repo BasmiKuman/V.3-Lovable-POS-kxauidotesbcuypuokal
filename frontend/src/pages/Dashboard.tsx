@@ -560,37 +560,42 @@ export default function Dashboard() {
           </EnhancedCard>
         )}
 
-        {/* Aktivitas Terbaru */}
-        <Card className="animate-fade-in">
-          <CardHeader className="p-3 sm:p-4 pb-2 sm:pb-3">
-            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-              <div className="p-1.5 rounded-lg bg-accent/10">
-                <TrendingUp className="w-4 h-4 text-accent" />
-              </div>
-              Aktivitas Terbaru
-            </CardTitle>
-            <CardDescription className="text-xs sm:text-sm">Transaksi dan distribusi</CardDescription>
-          </CardHeader>
-          <CardContent className="p-3 sm:p-4">
-            <div className="text-center py-8 text-muted-foreground">
-              <p className="text-xs sm:text-sm">Fitur segera tersedia</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* GPS Rider Tracking - Admin Only */}
+        {/* GPS Rider Tracking - Admin Only - Enhanced */}
         {isAdmin && (
-          <div className="animate-fade-in" style={{ animationDelay: "0.2s" }}>
+          <div className="animate-fade-in-up" style={{ animationDelay: "600ms" }}>
             <RiderTrackingMap key={refreshKey} />
           </div>
         )}
 
-        {/* Leaderboard - Admin Only */}
+        {/* Leaderboard - Admin Only - Enhanced */}
         {isAdmin && (
-          <div className="animate-fade-in" style={{ animationDelay: "0.3s" }}>
+          <div className="animate-fade-in-up" style={{ animationDelay: "700ms" }}>
             <LeaderboardCard showTitle={true} />
           </div>
         )}
+
+        {/* Coming Soon Section */}
+        <EnhancedCard
+          title="Aktivitas Terbaru"
+          description="Transaksi dan distribusi real-time"
+          icon={TrendingUp}
+          iconColor="purple"
+          variant="gradient"
+          className="animate-fade-in-up"
+          style={{ animationDelay: "800ms" } as any}
+        >
+          <div className="text-center py-8 text-muted-foreground relative">
+            <div className="absolute inset-0 flex items-center justify-center opacity-10">
+              <TrendingUp className="w-32 h-32 animate-pulse-slow" />
+            </div>
+            <p className="text-sm sm:text-base font-medium relative z-10">
+              🚀 Fitur segera hadir!
+            </p>
+            <p className="text-xs sm:text-sm text-muted-foreground/70 mt-2 relative z-10">
+              Timeline real-time untuk semua aktivitas sistem
+            </p>
+          </div>
+        </EnhancedCard>
       </div>
 
       <BottomNav isAdmin={isAdmin} />
