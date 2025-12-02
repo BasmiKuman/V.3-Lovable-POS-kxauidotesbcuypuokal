@@ -170,34 +170,45 @@ export default function Dashboard() {
       try {
         const activities: any[] = [];
 
-        // Get recent transactions (last 5)
-        const { data: recentTransactions } = await supabase
+        // Get recent transactions (last 5) with rider info
+        const { data: recentTransactions, error: transError } = await supabase
           .from("transactions")
           .select(`
             id,
             total_amount,
             created_at,
-            rider_id,
-            profiles!transactions_rider_id_fkey (full_name, avatar_url)
+            rider_id
           `)
           .order("created_at", { ascending: false })
           .limit(5);
 
+        if (transError) {
+          console.error("Error fetching transactions:", transError);
+        }
+
         if (recentTransactions) {
+          // Get rider profiles separately
+          const riderIds = recentTransactions.map(t => t.rider_id);
+          const { data: riderProfiles } = await supabase
+            .from("profiles")
+            .select("user_id, full_name, avatar_url")
+            .in("user_id", riderIds);
+
           recentTransactions.forEach(t => {
+            const rider = riderProfiles?.find(p => p.user_id === t.rider_id);
             activities.push({
               type: 'transaction',
               icon: ShoppingCart,
               title: 'Transaksi Baru',
-              description: `${t.profiles?.full_name || 'Rider'} - Rp ${t.total_amount.toLocaleString('id-ID')}`,
+              description: `${rider?.full_name || 'Rider'} - Rp ${t.total_amount.toLocaleString('id-ID')}`,
               time: t.created_at,
               color: 'secondary'
             });
           });
         }
 
-        // Get recent returns (last 3)
-        const { data: recentReturns } = await supabase
+        // Get recent returns (last 3) with product and rider info
+        const { data: recentReturns, error: returnError } = await supabase
           .from("returns")
           .select(`
             id,
@@ -205,19 +216,68 @@ export default function Dashboard() {
             created_at,
             status,
             rider_id,
-            products (name),
-            profiles!returns_rider_id_fkey (full_name)
+            product_id
           `)
           .order("created_at", { ascending: false })
           .limit(3);
 
+        if (returnError) {
+          console.error("Error fetching returns:", returnError);
+        }
+
         if (recentReturns) {
+          // Get products and riders separately
+          const productIds = recentReturns.map(r => r.product_id);
+          const riderIds = recentReturns.map(r => r.rider_id);
+
+          const { data: products } = await supabase
+            .from("products")
+            .select("id, name")
+            .in("id", productIds);
+
+          const { data: riders } = await supabase
+            .from("profiles")
+            .select("user_id, full_name")
+            .in("user_id", riderIds);
+
           recentReturns.forEach(r => {
+            const product = products?.find(p => p.id === r.product_id);
+            const rider = riders?.find(p => p.user_id === r.rider_id);
             activities.push({
               type: 'return',
               icon: Undo2,
               title: 'Permintaan Return',
-              description: `${r.profiles?.full_name || 'Rider'} - ${r.products?.name} (${r.quantity} pcs)`,
+              description: `${rider?.full_name || 'Rider'} - ${product?.name || 'Produk'} (${r.quantity} pcs)`,
+              time: r.created_at,
+              color: 'accent',
+              status: r.status
+            });
+          });
+        }
+
+        if (recentReturns) {
+          // Get products and riders separately
+          const productIds = recentReturns.map(r => r.product_id);
+          const riderIds = recentReturns.map(r => r.rider_id);
+
+          const { data: products } = await supabase
+            .from("products")
+            .select("id, name")
+            .in("id", productIds);
+
+          const { data: riders } = await supabase
+            .from("profiles")
+            .select("user_id, full_name")
+            .in("user_id", riderIds);
+
+          recentReturns.forEach(r => {
+            const product = products?.find(p => p.id === r.product_id);
+            const rider = riders?.find(p => p.user_id === r.rider_id);
+            activities.push({
+              type: 'return',
+              icon: Undo2,
+              title: 'Permintaan Return',
+              description: `${rider?.full_name || 'Rider'} - ${product?.name || 'Produk'} (${r.quantity} pcs)`,
               time: r.created_at,
               color: 'accent',
               status: r.status
