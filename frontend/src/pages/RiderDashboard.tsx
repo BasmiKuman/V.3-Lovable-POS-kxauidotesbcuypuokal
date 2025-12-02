@@ -376,34 +376,38 @@ export default function RiderDashboard() {
           </div>
         </div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
+        {/* Enhanced Stats Grid */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           <StatsCard
             title="Hari Ini"
             value={`${todaySales} cup`}
             icon={Calendar}
-            className="animate-fade-in"
+            className="animate-fade-in-up"
+            style={{ animationDelay: "100ms" } as any}
             variant="primary"
           />
           <StatsCard
             title="Minggu Ini"
             value={`${weekSales} cup`}
             icon={Package}
-            className="animate-fade-in"
+            className="animate-fade-in-up"
+            style={{ animationDelay: "200ms" } as any}
             variant="secondary"
           />
           <StatsCard
             title="Bulan Ini"
             value={`${monthSales} cup`}
             icon={TrendingUp}
-            className="animate-fade-in"
+            className="animate-fade-in-up"
+            style={{ animationDelay: "300ms" } as any}
             variant="accent"
           />
           <StatsCard
             title="Peringkat Saya"
             value={myRank > 0 ? `#${myRank}` : "-"}
             icon={Trophy}
-            className="animate-fade-in"
+            className="animate-fade-in-up"
+            style={{ animationDelay: "400ms" } as any}
             variant={myRank === 1 ? "primary" : "default"}
           />
         </div>
