@@ -18,7 +18,16 @@ interface StatsCardProps {
   to?: string;
 }
 
-export const StatsCard = ({ title, value, icon: Icon, trend, className, variant = "default" }: StatsCardProps) => {
+export const StatsCard = ({ title, value, icon: Icon, trend, className, variant = "default", onClick, to }: StatsCardProps) => {
+  const navigate = useNavigate();
+
+  const handleClick = () => {
+    if (onClick) {
+      onClick();
+    } else if (to) {
+      navigate(to);
+    }
+  };
   const variantStyles = {
     default: "border-border/50 bg-card hover:shadow-md",
     primary: "border-primary/30 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent hover:shadow-colored hover:border-primary/50",
