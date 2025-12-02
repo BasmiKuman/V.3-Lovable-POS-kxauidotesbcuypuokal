@@ -16,6 +16,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useNewFeedNotification } from "@/hooks/useNewFeedNotification";
 import { useNavigate } from "react-router-dom";
+import { cn } from "@/lib/utils";
 
 interface LeaderboardEntry {
   rider_id: string;
