@@ -534,28 +534,30 @@ export default function Dashboard() {
           />
         </div>
 
-        {/* Return Requests for Admin */}
+        {/* Return Requests for Admin - Enhanced */}
         {isAdmin && returns.length > 0 && (
-          <Card className="animate-fade-in">
-            <CardHeader className="p-3 sm:p-4 pb-2 sm:pb-3">
-              <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-                <div className="p-1.5 rounded-lg bg-primary/10">
-                  <Undo2 className="w-4 h-4 text-primary" />
-                </div>
-                Permintaan Return
-              </CardTitle>
-              <CardDescription className="text-xs sm:text-sm">Kelola return dari rider</CardDescription>
-            </CardHeader>
-            <CardContent className="p-3 sm:p-4">
-              <ReturnsAccordion
-                returns={returns}
-                processingReturnId={processingReturnId}
-                removingReturnIds={removingReturnIds}
-                onApprove={handleApproveReturn}
-                onReject={handleRejectReturn}
-              />
-            </CardContent>
-          </Card>
+          <EnhancedCard
+            title="Permintaan Return"
+            description="Kelola return dari rider"
+            icon={Undo2}
+            iconColor="accent"
+            variant="glass"
+            className="animate-fade-in-up"
+            style={{ animationDelay: "500ms" } as any}
+            headerAction={
+              <NotificationBadge count={returns.length} variant="accent" pulse>
+                <div className="w-8 h-8" />
+              </NotificationBadge>
+            }
+          >
+            <ReturnsAccordion
+              returns={returns}
+              processingReturnId={processingReturnId}
+              removingReturnIds={removingReturnIds}
+              onApprove={handleApproveReturn}
+              onReject={handleRejectReturn}
+            />
+          </EnhancedCard>
         )}
 
         {/* Aktivitas Terbaru */}
