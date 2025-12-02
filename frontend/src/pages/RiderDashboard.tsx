@@ -324,7 +324,7 @@ export default function RiderDashboard() {
 
   return (
     <div 
-      className="min-h-screen bg-background w-full overflow-x-hidden"
+      className="min-h-screen bg-gradient-to-br from-background via-secondary/5 to-background w-full overflow-x-hidden relative"
       style={{
         paddingTop: 'max(1rem, env(safe-area-inset-top, 0px))',
         paddingBottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))',
@@ -332,31 +332,48 @@ export default function RiderDashboard() {
         paddingRight: 'env(safe-area-inset-right, 0px)',
       }}
     >
-      <div className="max-w-screen-xl mx-auto px-3 sm:px-4 space-y-3 sm:space-y-4">
-        {/* Header with Notification */}
-        <div className="flex items-start justify-between gap-3">
-          <div className="space-y-0.5 flex-1">
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gradient">Dashboard Saya</h1>
-            <p className="text-xs sm:text-sm text-muted-foreground">Performa & Peringkat Penjualan</p>
-          </div>
-          
-          {/* Feed Notification Badge - Always Visible */}
-          <button
-            onClick={() => {
-              feedSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-            }}
-            className="relative flex flex-col items-center gap-1 px-3 py-2 bg-primary/10 hover:bg-primary/20 rounded-xl transition-all hover:scale-105 flex-shrink-0"
-          >
-            <div className="relative">
-              <Bell className={`w-5 h-5 text-primary ${hasNewFeed ? 'animate-pulse' : ''}`} />
-              {hasNewFeed && (
-                <Badge variant="destructive" className="absolute -top-2 -right-2 h-4 min-w-4 px-1 text-[10px] leading-tight">
-                  {newFeedCount}
-                </Badge>
-              )}
+      {/* Animated background elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-secondary/10 rounded-full blur-3xl animate-pulse-slow" />
+        <div className="absolute bottom-0 left-0 w-96 h-96 bg-primary/10 rounded-full blur-3xl animate-pulse-slow" style={{ animationDelay: "1s" }} />
+      </div>
+
+      <div className="max-w-screen-xl mx-auto px-3 sm:px-4 space-y-4 sm:space-y-5 relative z-10">
+        {/* Enhanced Header with Notification */}
+        <div className="glass rounded-2xl p-4 border border-border/50 shadow-xl animate-fade-in-down">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gradient-shine">
+                  Dashboard Saya
+                </h1>
+                <Trophy className="w-5 h-5 text-accent animate-pulse-slow" />
+              </div>
+              <p className="text-xs sm:text-sm text-muted-foreground">
+                Performa & Peringkat Penjualan
+              </p>
             </div>
-            <span className="text-[10px] font-medium text-primary">Pengumuman</span>
-          </button>
+            
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {/* Feed Notification Badge - Enhanced */}
+              <NotificationBadge 
+                count={hasNewFeed ? newFeedCount : 0} 
+                variant="accent" 
+                pulse={hasNewFeed}
+              >
+                <button
+                  onClick={() => {
+                    feedSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }}
+                  className="flex flex-col items-center gap-1 px-3 py-2 glass hover:bg-primary/10 rounded-xl transition-all hover-lift hover:border-primary/30 border border-border/30"
+                >
+                  <Bell className={`w-5 h-5 text-primary ${hasNewFeed ? 'animate-pulse' : ''}`} />
+                  <span className="text-[10px] font-semibold text-primary">Info</span>
+                </button>
+              </NotificationBadge>
+              <ThemeToggle />
+            </div>
+          </div>
         </div>
 
         {/* Stats Grid */}
