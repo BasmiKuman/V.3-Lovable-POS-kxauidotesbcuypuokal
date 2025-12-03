@@ -481,6 +481,20 @@ export function ManualSalesTab() {
             .update({ stock: newWarehouseStock })
             .eq("id", item.product_id);
         }
+
+        // Insert ke return_history untuk log (agar admin return juga tercatat)
+        await supabase
+          .from("return_history")
+          .insert({
+            rider_id: returnRider,
+            product_id: item.product_id,
+            quantity: item.quantity,
+            notes: `${returnReason} (Manual return by admin: ${user.email})`,
+            returned_at: new Date().toISOString(),
+            approved_at: new Date().toISOString(),
+            approved_by: user.id,
+            status: "approved"
+          });
       }
 
       toast.success(`Berhasil return ${returnCart.length} produk!`);
