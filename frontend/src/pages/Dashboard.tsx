@@ -211,20 +211,20 @@ export default function Dashboard() {
 
         // Get recent returns (last 3) with product and rider info
       const { data: recentReturns, error: returnsError } = await supabase
-          .from("rider_stock_returns")
+          .from("returns")
           .select(`
             id,
             quantity,
-            created_at,
+            returned_at,
             status,
             rider_id,
             product_id
           `)
-          .order("created_at", { ascending: false })
+          .order("returned_at", { ascending: false })
           .limit(3);
 
-        if (returnError) {
-          console.error("Error fetching returns:", returnError);
+        if (returnsError) {
+          console.error("Error fetching returns:", returnsError);
         }
 
         if (recentReturns) {
@@ -250,7 +250,7 @@ export default function Dashboard() {
               icon: Undo2,
               title: 'Permintaan Return',
               description: `${rider?.full_name || 'Rider'} - ${product?.name || 'Produk'} (${r.quantity} pcs)`,
-              time: r.created_at,
+              time: r.returned_at,
               color: 'accent',
               status: r.status
             });
@@ -280,7 +280,7 @@ export default function Dashboard() {
               icon: Undo2,
               title: 'Permintaan Return',
               description: `${rider?.full_name || 'Rider'} - ${product?.name || 'Produk'} (${r.quantity} pcs)`,
-              time: r.created_at,
+              time: r.returned_at,
               color: 'accent',
               status: r.status
             });

@@ -426,7 +426,7 @@ export function ManualSalesTab() {
       // Insert return products with auto-approve (since admin doing manual return)
       for (const item of returnCart) {
         const { error: returnError } = await supabase
-          .from("rider_stock_returns")
+          .from("returns")
           .insert({
             rider_id: returnRider,
             product_id: item.product_id,

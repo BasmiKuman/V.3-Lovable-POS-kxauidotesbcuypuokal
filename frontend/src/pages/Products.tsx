@@ -191,7 +191,7 @@ export default function Products() {
 
         // Fetch pending returns for this rider
         const { data: pendingReturnsData, error: returnsError } = await supabase
-          .from("rider_stock_returns")
+          .from("returns")
           .select("product_id")
           .eq("rider_id", user.id)
           .eq("status", "pending");  // Only get pending returns
@@ -311,7 +311,7 @@ export default function Products() {
 
       // Fetch pending returns for this rider
       const { data: pendingReturnsData, error: returnsError } = await supabase
-        .from("rider_stock_returns")
+        .from("returns")
         .select("product_id")
         .eq("rider_id", user.id)
         .eq("status", "pending");
