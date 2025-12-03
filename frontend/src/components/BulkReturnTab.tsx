@@ -152,7 +152,7 @@ export function BulkReturnTab({ riderStock, pendingReturns, onReturnSuccess }: B
         notes: notes || null,
       }));
 
-      const { error } = await supabase.from("returns").insert(returns);
+      const { error } = await supabase.from("rider_stock_returns").insert(returns);
 
       if (error) throw error;
 

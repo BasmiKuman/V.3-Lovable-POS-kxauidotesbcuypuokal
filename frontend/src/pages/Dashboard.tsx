@@ -210,8 +210,8 @@ export default function Dashboard() {
         }
 
         // Get recent returns (last 3) with product and rider info
-        const { data: recentReturns, error: returnError } = await supabase
-          .from("returns")
+      const { data: recentReturns, error: returnsError } = await supabase
+          .from("rider_stock_returns")
           .select(`
             id,
             quantity,

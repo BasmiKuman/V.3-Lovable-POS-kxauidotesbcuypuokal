@@ -426,7 +426,7 @@ export function ManualSalesTab() {
       // Insert return products with auto-approve (since admin doing manual return)
       for (const item of returnCart) {
         const { error: returnError } = await supabase
-          .from("return_products")
+          .from("rider_stock_returns")
           .insert({
             rider_id: returnRider,
             product_id: item.product_id,
@@ -434,7 +434,8 @@ export function ManualSalesTab() {
             notes: `${returnReason} (Manual return by admin: ${user.email})`,
             status: "approved",
             approved_by: user.id,
-            approved_at: new Date().toISOString()
+            approved_at: new Date().toISOString(),
+            returned_at: new Date().toISOString()
           });
 
         if (returnError) throw returnError;
