@@ -364,6 +364,44 @@ export function ManualSalesTab() {
     setReturnCart(returnCart.filter(item => item.product_id !== productId));
   };
   
+  // Quick action: Return semua stok produk tertentu
+  const quickReturnProduct = (product: Product) => {
+    const existingItem = returnCart.find(item => item.product_id === product.id);
+    
+    if (existingItem) {
+      // Update ke full stock
+      updateReturnQuantity(product.id, product.stock);
+      toast.success(`${product.name} diupdate ke ${product.stock} pcs`);
+    } else {
+      // Tambah baru dengan full stock
+      setReturnCart([...returnCart, {
+        product_id: product.id,
+        name: product.name,
+        quantity: product.stock,
+        reason: ""
+      }]);
+      toast.success(`${product.name} (${product.stock} pcs) ditambahkan`);
+    }
+  };
+  
+  // Quick action: Return semua produk rider sekaligus
+  const quickReturnAll = () => {
+    if (returnProducts.length === 0) {
+      toast.error("Tidak ada produk untuk di-return");
+      return;
+    }
+    
+    const allProducts = returnProducts.map(product => ({
+      product_id: product.id,
+      name: product.name,
+      quantity: product.stock,
+      reason: ""
+    }));
+    
+    setReturnCart(allProducts);
+    toast.success(`${returnProducts.length} produk ditambahkan ke return (total: ${returnProducts.reduce((sum, p) => sum + p.stock, 0)} pcs)`);
+  };
+  
   const handleReturnSubmit = async () => {
     if (!returnRider) {
       toast.error("Pilih rider terlebih dahulu");
@@ -688,11 +726,26 @@ export function ManualSalesTab() {
         {returnRider && (
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
-                <Package className="w-4 h-4 sm:w-5 sm:h-5" />
-                Stock {returnRiderName}
-              </CardTitle>
-              <CardDescription className="text-xs sm:text-sm">Klik produk untuk return ke gudang</CardDescription>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex-1">
+                  <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                    <Package className="w-4 h-4 sm:w-5 sm:h-5" />
+                    Stock {returnRiderName}
+                  </CardTitle>
+                  <CardDescription className="text-xs sm:text-sm">Klik produk untuk return ke gudang</CardDescription>
+                </div>
+                {returnProducts.length > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={quickReturnAll}
+                    className="text-xs whitespace-nowrap"
+                  >
+                    <RotateCcw className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+                    Return Semua
+                  </Button>
+                )}
+              </div>
             </CardHeader>
             <CardContent>
               {returnLoading ? (
@@ -710,18 +763,31 @@ export function ManualSalesTab() {
                   {returnProducts.map(product => (
                     <div
                       key={product.id}
-                      className="flex items-center justify-between p-2 sm:p-3 border rounded-lg hover:bg-accent cursor-pointer transition-colors"
-                      onClick={() => addToReturnCart(product)}
+                      className="flex items-center justify-between gap-2 p-2 sm:p-3 border rounded-lg hover:bg-accent transition-colors"
                     >
-                      <div className="flex-1 min-w-0">
+                      <div 
+                        className="flex-1 min-w-0 cursor-pointer"
+                        onClick={() => addToReturnCart(product)}
+                      >
                         <p className="font-medium text-sm sm:text-base truncate">{product.name}</p>
                         <p className="text-xs sm:text-sm text-muted-foreground">
                           Stock: {product.stock} pcs
                         </p>
                       </div>
-                      <Badge variant="secondary" className="text-xs">
-                        {product.stock}
-                      </Badge>
+                      <div className="flex items-center gap-1 sm:gap-2">
+                        <Badge variant="secondary" className="text-xs">
+                          {product.stock}
+                        </Badge>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => quickReturnProduct(product)}
+                          className="h-7 w-7 sm:h-8 sm:w-8 p-0"
+                          title="Return semua stock produk ini"
+                        >
+                          <RotateCcw className="w-3 h-3 sm:w-4 sm:h-4" />
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>
