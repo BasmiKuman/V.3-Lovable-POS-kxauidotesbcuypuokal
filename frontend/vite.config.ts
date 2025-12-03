@@ -1,5 +1,5 @@
 import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react-swc";
+import react from "@vitejs/plugin-react";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
 
@@ -10,6 +10,11 @@ export default defineConfig(({ mode }) => ({
     sourcemap: false,
     minify: 'esbuild',
     target: 'es2015',
+    rollupOptions: {
+      output: {
+        manualChunks: undefined,
+      },
+    },
   },
   server: {
     host: "0.0.0.0",
@@ -17,9 +22,7 @@ export default defineConfig(({ mode }) => ({
     allowedHosts: true
   },
   plugins: [
-    react({
-      jsxRuntime: 'automatic',
-    }), 
+    react(), 
     mode === "development" && componentTagger()
   ].filter(Boolean),
   resolve: {

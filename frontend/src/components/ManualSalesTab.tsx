@@ -4,7 +4,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { User, Package, ShoppingCart, DollarSign, Trash2, Plus, Minus, CheckCircle2 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
+import { User, Package, ShoppingCart, DollarSign, Trash2, Plus, Minus, CheckCircle2, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 
 interface Product {
@@ -22,12 +24,22 @@ interface CartItem {
   subtotal: number;
 }
 
+interface ReturnItem {
+  product_id: string;
+  name: string;
+  quantity: number;
+  reason: string;
+}
+
 interface Rider {
   user_id: string;
   full_name: string;
 }
 
 export function ManualSalesTab() {
+  const [activeTab, setActiveTab] = useState("sales");
+  
+  // Sales states
   const [riders, setRiders] = useState<Rider[]>([]);
   const [selectedRider, setSelectedRider] = useState<string>("");
   const [products, setProducts] = useState<Product[]>([]);
@@ -35,6 +47,14 @@ export function ManualSalesTab() {
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "qris">("cash");
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  
+  // Return states
+  const [returnRider, setReturnRider] = useState<string>("");
+  const [returnProducts, setReturnProducts] = useState<Product[]>([]);
+  const [returnCart, setReturnCart] = useState<ReturnItem[]>([]);
+  const [returnReason, setReturnReason] = useState<string>("");
+  const [returnLoading, setReturnLoading] = useState(false);
+  const [returnSubmitting, setReturnSubmitting] = useState(false);
 
   useEffect(() => {
     fetchRiders();
@@ -48,6 +68,15 @@ export function ManualSalesTab() {
       setCart([]);
     }
   }, [selectedRider]);
+  
+  useEffect(() => {
+    if (returnRider) {
+      fetchReturnRiderStock();
+    } else {
+      setReturnProducts([]);
+      setReturnCart([]);
+    }
+  }, [returnRider]);
 
   const fetchRiders = async () => {
     try {
@@ -251,10 +280,187 @@ export function ManualSalesTab() {
     }
   };
 
+  // === RETURN FUNCTIONS ===
+  
+  const fetchReturnRiderStock = async () => {
+    if (!returnRider) return;
+
+    setReturnLoading(true);
+    try {
+      const { data: stockData, error } = await supabase
+        .from("rider_stock")
+        .select(`
+          product_id,
+          quantity,
+          products (
+            id,
+            name,
+            price
+          )
+        `)
+        .eq("rider_id", returnRider)
+        .gt("quantity", 0);
+
+      if (error) throw error;
+
+      const productsWithStock = stockData?.map((item: any) => ({
+        id: item.products.id,
+        name: item.products.name,
+        price: item.products.price,
+        stock: item.quantity
+      })) || [];
+
+      setReturnProducts(productsWithStock);
+    } catch (error) {
+      console.error("Error fetching rider stock for return:", error);
+      toast.error("Gagal memuat stock rider");
+    } finally {
+      setReturnLoading(false);
+    }
+  };
+  
+  const addToReturnCart = (product: Product) => {
+    const existingItem = returnCart.find(item => item.product_id === product.id);
+    
+    if (existingItem) {
+      if (existingItem.quantity >= product.stock) {
+        toast.error(`Maksimal return: ${product.stock}`);
+        return;
+      }
+      updateReturnQuantity(product.id, existingItem.quantity + 1);
+    } else {
+      setReturnCart([...returnCart, {
+        product_id: product.id,
+        name: product.name,
+        quantity: 1,
+        reason: ""
+      }]);
+      toast.success(`${product.name} ditambahkan ke return`);
+    }
+  };
+  
+  const updateReturnQuantity = (productId: string, newQuantity: number) => {
+    const product = returnProducts.find(p => p.id === productId);
+    if (!product) return;
+
+    if (newQuantity <= 0) {
+      removeFromReturnCart(productId);
+      return;
+    }
+
+    if (newQuantity > product.stock) {
+      toast.error(`Maksimal return: ${product.stock}`);
+      return;
+    }
+
+    setReturnCart(returnCart.map(item => 
+      item.product_id === productId 
+        ? { ...item, quantity: newQuantity }
+        : item
+    ));
+  };
+  
+  const removeFromReturnCart = (productId: string) => {
+    setReturnCart(returnCart.filter(item => item.product_id !== productId));
+  };
+  
+  const handleReturnSubmit = async () => {
+    if (!returnRider) {
+      toast.error("Pilih rider terlebih dahulu");
+      return;
+    }
+
+    if (returnCart.length === 0) {
+      toast.error("Belum ada produk yang akan direturn");
+      return;
+    }
+
+    if (!returnReason.trim()) {
+      toast.error("Alasan return harus diisi");
+      return;
+    }
+
+    setReturnSubmitting(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      // Insert return products with auto-approve (since admin doing manual return)
+      for (const item of returnCart) {
+        const { error: returnError } = await supabase
+          .from("return_products")
+          .insert({
+            rider_id: returnRider,
+            product_id: item.product_id,
+            quantity: item.quantity,
+            notes: `${returnReason} (Manual return by admin: ${user.email})`,
+            status: "approved",
+            approved_by: user.id,
+            approved_at: new Date().toISOString()
+          });
+
+        if (returnError) throw returnError;
+
+        // Update rider stock (kurangi dari stock rider karena dikembalikan ke gudang)
+        const { data: currentStock } = await supabase
+          .from("rider_stock")
+          .select("quantity")
+          .eq("rider_id", returnRider)
+          .eq("product_id", item.product_id)
+          .single();
+
+        if (currentStock) {
+          const newQuantity = currentStock.quantity - item.quantity;
+          
+          if (newQuantity > 0) {
+            await supabase
+              .from("rider_stock")
+              .update({ quantity: newQuantity })
+              .eq("rider_id", returnRider)
+              .eq("product_id", item.product_id);
+          } else {
+            await supabase
+              .from("rider_stock")
+              .delete()
+              .eq("rider_id", returnRider)
+              .eq("product_id", item.product_id);
+          }
+        }
+      }
+
+      toast.success(`Berhasil return ${returnCart.length} produk!`);
+      
+      setReturnCart([]);
+      setReturnReason("");
+      fetchReturnRiderStock();
+      
+    } catch (error: any) {
+      console.error("Error submitting return:", error);
+      toast.error("Gagal return produk: " + error.message);
+    } finally {
+      setReturnSubmitting(false);
+    }
+  };
+
   const selectedRiderName = riders.find(r => r.user_id === selectedRider)?.full_name || "";
+  const returnRiderName = riders.find(r => r.user_id === returnRider)?.full_name || "";
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+    <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+      <TabsList className="grid w-full grid-cols-2 mb-4">
+        <TabsTrigger value="sales" className="gap-2">
+          <ShoppingCart className="w-4 h-4" />
+          Penjualan
+        </TabsTrigger>
+        <TabsTrigger value="return" className="gap-2">
+          <RotateCcw className="w-4 h-4" />
+          Return
+        </TabsTrigger>
+      </TabsList>
+
+      {/* SALES TAB */}
+      <TabsContent value="sales" className="space-y-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
       {/* Left Column */}
       <div className="space-y-4">
         <Card>
@@ -448,5 +654,199 @@ export function ManualSalesTab() {
         )}
       </div>
     </div>
+  </TabsContent>
+
+  {/* RETURN TAB */}
+  <TabsContent value="return" className="space-y-4">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+      {/* Left Column - Return */}
+      <div className="space-y-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <User className="w-4 h-4 sm:w-5 sm:h-5" />
+              Pilih Rider
+            </CardTitle>
+            <CardDescription className="text-xs sm:text-sm">Pilih rider untuk return produk</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Select value={returnRider} onValueChange={setReturnRider}>
+              <SelectTrigger className="text-sm">
+                <SelectValue placeholder="-- Pilih Rider --" />
+              </SelectTrigger>
+              <SelectContent>
+                {riders.map(rider => (
+                  <SelectItem key={rider.user_id} value={rider.user_id} className="text-sm">
+                    {rider.full_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </CardContent>
+        </Card>
+
+        {returnRider && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                <Package className="w-4 h-4 sm:w-5 sm:h-5" />
+                Stock {returnRiderName}
+              </CardTitle>
+              <CardDescription className="text-xs sm:text-sm">Klik produk untuk return ke gudang</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {returnLoading ? (
+                <div className="text-center py-6 sm:py-8">
+                  <div className="animate-spin rounded-full h-6 w-6 sm:h-8 sm:w-8 border-b-2 border-primary mx-auto"></div>
+                  <p className="text-xs sm:text-sm text-muted-foreground mt-2">Memuat stock...</p>
+                </div>
+              ) : returnProducts.length === 0 ? (
+                <div className="text-center py-6 sm:py-8 text-muted-foreground">
+                  <Package className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">Rider tidak memiliki stock</p>
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-64 sm:max-h-96 overflow-y-auto">
+                  {returnProducts.map(product => (
+                    <div
+                      key={product.id}
+                      className="flex items-center justify-between p-2 sm:p-3 border rounded-lg hover:bg-accent cursor-pointer transition-colors"
+                      onClick={() => addToReturnCart(product)}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm sm:text-base truncate">{product.name}</p>
+                        <p className="text-xs sm:text-sm text-muted-foreground">
+                          Stock: {product.stock} pcs
+                        </p>
+                      </div>
+                      <Badge variant="secondary" className="text-xs">
+                        {product.stock}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      {/* Right Column - Return Cart */}
+      <div className="space-y-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <RotateCcw className="w-4 h-4 sm:w-5 sm:h-5" />
+              Daftar Return
+            </CardTitle>
+            <CardDescription className="text-xs sm:text-sm">
+              {returnCart.length} produk akan direturn
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {returnCart.length === 0 ? (
+              <div className="text-center py-6 sm:py-8 text-muted-foreground">
+                <RotateCcw className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-2 opacity-50" />
+                <p className="text-sm">Belum ada produk return</p>
+              </div>
+            ) : (
+              <div className="space-y-2 sm:space-y-3 max-h-64 sm:max-h-96 overflow-y-auto">
+                {returnCart.map(item => (
+                  <div key={item.product_id} className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 border rounded-lg">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-xs sm:text-sm truncate">{item.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Quantity: {item.quantity} pcs
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1 sm:gap-2">
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        className="h-6 w-6 sm:h-8 sm:w-8"
+                        onClick={() => updateReturnQuantity(item.product_id, item.quantity - 1)}
+                      >
+                        <Minus className="h-2 w-2 sm:h-3 sm:w-3" />
+                      </Button>
+                      <span className="w-6 sm:w-8 text-center text-xs sm:text-sm font-medium">{item.quantity}</span>
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        className="h-6 w-6 sm:h-8 sm:w-8"
+                        onClick={() => updateReturnQuantity(item.product_id, item.quantity + 1)}
+                      >
+                        <Plus className="h-2 w-2 sm:h-3 sm:w-3" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="destructive"
+                        className="h-6 w-6 sm:h-8 sm:w-8"
+                        onClick={() => removeFromReturnCart(item.product_id)}
+                      >
+                        <Trash2 className="h-2 w-2 sm:h-3 sm:w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {returnCart.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5" />
+                Alasan Return
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 sm:space-y-4">
+              <div>
+                <label className="text-xs sm:text-sm font-medium mb-1.5 block">Alasan / Catatan</label>
+                <Textarea
+                  placeholder="Contoh: Produk rusak, expired, sisa tidak terjual, dll..."
+                  value={returnReason}
+                  onChange={(e) => setReturnReason(e.target.value)}
+                  rows={4}
+                  className="text-sm resize-none"
+                />
+              </div>
+
+              <div className="pt-3 sm:pt-4 border-t">
+                <div className="flex items-center justify-between mb-3 sm:mb-4">
+                  <span className="text-base sm:text-lg font-semibold">Total Return</span>
+                  <span className="text-xl sm:text-2xl font-bold text-orange-600">
+                    {returnCart.reduce((sum, item) => sum + item.quantity, 0)} pcs
+                  </span>
+                </div>
+
+                <Button
+                  className="w-full text-sm sm:text-base"
+                  size="lg"
+                  variant="destructive"
+                  onClick={handleReturnSubmit}
+                  disabled={returnSubmitting || !returnRider || !returnReason.trim()}
+                >
+                  {returnSubmitting ? (
+                    <>
+                      <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-white mr-2"></div>
+                      Memproses...
+                    </>
+                  ) : (
+                    <>
+                      <RotateCcw className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+                      Proses Return
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    </div>
+  </TabsContent>
+</Tabs>
   );
 }
