@@ -62,6 +62,23 @@ type ReturnHistoryItem = {
   };
 };
 
+type DistributionHistoryItem = {
+  id: string;
+  quantity: number;
+  notes: string | null;
+  distributed_at: string;
+  products: {
+    name: string;
+    price: number;
+  };
+  rider: {
+    full_name: string;
+  };
+  admin: {
+    full_name: string;
+  };
+};
+
 export default function Warehouse() {
   const isMobile = useIsMobile();
   const [isAdmin, setIsAdmin] = useState(false);
@@ -74,6 +91,7 @@ export default function Warehouse() {
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
   const [returnHistory, setReturnHistory] = useState<ReturnHistoryItem[]>([]);
+  const [distributionHistory, setDistributionHistory] = useState<DistributionHistoryItem[]>([]);
   
   // Return history filters
   const [returnDateRange, setReturnDateRange] = useState({
@@ -81,6 +99,13 @@ export default function Warehouse() {
     end: endOfMonth(new Date())
   });
   const [returnRiderFilter, setReturnRiderFilter] = useState<string>("all");
+
+  // Distribution history filters
+  const [distDateRange, setDistDateRange] = useState({
+    start: startOfMonth(new Date()),
+    end: endOfMonth(new Date())
+  });
+  const [distRiderFilter, setDistRiderFilter] = useState<string>("all");
 
   useEffect(() => {
     const checkRole = async () => {
@@ -221,7 +246,80 @@ export default function Warehouse() {
     fetchCategories();
     fetchRiders();
     fetchReturnHistory();
+    fetchDistributionHistory();
   }, []);
+
+  const fetchDistributionHistory = async () => {
+    try {
+      // Get distribution history with product info
+      const { data: distData, error: distError } = await supabase
+        .from("distributions")
+        .select(`
+          id,
+          quantity,
+          notes,
+          distributed_at,
+          rider_id,
+          admin_id,
+          products (
+            name,
+            price
+          )
+        `)
+        .order("distributed_at", { ascending: false });
+
+      if (distError) {
+        console.error("Error fetching distribution history:", distError);
+        toast.error("Gagal memuat riwayat distribusi");
+        return;
+      }
+
+      if (!distData?.length) {
+        setDistributionHistory([]);
+        return;
+      }
+
+      // Get profiles for riders and admins
+      const uniqueUserIds = [...new Set([
+        ...distData.map(item => item.rider_id),
+        ...distData.map(item => item.admin_id)
+      ])];
+
+      const { data: profilesData, error: profilesError } = await supabase
+        .from("profiles")
+        .select("user_id, full_name")
+        .in("user_id", uniqueUserIds);
+
+      if (profilesError) {
+        console.error("Error fetching profiles:", profilesError);
+        toast.error("Gagal memuat data pengguna");
+        return;
+      }
+
+      // Create a map of user_id to full_name
+      const profileMap = new Map(profilesData?.map(p => [p.user_id, p.full_name]) || []);
+
+      // Combine the data
+      const completeDistributionHistory = distData.map(item => ({
+        id: item.id,
+        quantity: item.quantity,
+        notes: item.notes,
+        distributed_at: item.distributed_at,
+        products: item.products,
+        rider: {
+          full_name: profileMap.get(item.rider_id) || "Unknown"
+        },
+        admin: {
+          full_name: profileMap.get(item.admin_id) || "Unknown"
+        }
+      }));
+
+      setDistributionHistory(completeDistributionHistory);
+    } catch (error) {
+      console.error("Error in fetchDistributionHistory:", error);
+      toast.error("Terjadi kesalahan saat memuat riwayat distribusi");
+    }
+  };
 
   const handleDistribute = async () => {
     if (!selectedRider || distributionItems.length === 0) return;
@@ -265,6 +363,29 @@ export default function Warehouse() {
 
       if (upsertError) throw upsertError;
 
+      // Get current user (admin)
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("User not authenticated");
+
+      // Insert distribution records for history
+      const distributionRecords = distributionItems.map(item => ({
+        rider_id: selectedRider,
+        product_id: item.productId,
+        admin_id: user.id,
+        quantity: item.quantity,
+        notes: notes || null,
+        distributed_at: new Date().toISOString()
+      }));
+
+      const { error: distError } = await supabase
+        .from("distributions")
+        .insert(distributionRecords);
+
+      if (distError) {
+        console.error("Error inserting distribution records:", distError);
+        // Don't throw - distribution was successful, just logging failed
+      }
+
       // Update warehouse stock
       for (const item of distributionItems) {
         const product = products.find(p => p.id === item.productId);
@@ -281,6 +402,7 @@ export default function Warehouse() {
       toast.success("Produk berhasil didistribusikan");
       setDistributionItems([]);
       setSelectedRider("");
+      setNotes("");
 
       // Refresh products
       const { data: updatedProducts } = await supabase
@@ -288,6 +410,9 @@ export default function Warehouse() {
         .select("id, name, stock_in_warehouse, price, category_id, image_url")
         .order("name");
       setProducts(updatedProducts || []);
+
+      // Refresh distribution history
+      await fetchDistributionHistory();
 
     } catch (error: any) {
       console.error("Distribution error:", error);
@@ -590,6 +715,159 @@ export default function Warehouse() {
                 >
                   {loading ? "Memproses..." : "Distribusi Produk"}
                 </Button>
+              </CardContent>
+            </Card>
+
+            {/* Distribution History */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center text-lg sm:text-xl">
+                  <History className="w-4 h-4 sm:w-5 sm:h-5 mr-1.5 sm:mr-2" />
+                  Riwayat Distribusi
+                </CardTitle>
+                <CardDescription className="text-sm">History distribusi produk ke rider</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Filter Section */}
+                <div className="space-y-3">
+                  {/* Quick Date Buttons */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full text-xs sm:text-sm"
+                      onClick={() => setDistDateRange({
+                        start: startOfDay(new Date()),
+                        end: endOfDay(new Date())
+                      })}
+                    >
+                      <Calendar className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                      Hari Ini
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full text-xs sm:text-sm"
+                      onClick={() => setDistDateRange({
+                        start: startOfMonth(new Date()),
+                        end: endOfMonth(new Date())
+                      })}
+                    >
+                      <Calendar className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                      Bulan Ini
+                    </Button>
+                  </div>
+
+                  {/* Date Range Picker */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" size="sm" className="w-full justify-start text-left font-normal text-xs sm:text-sm">
+                          <Calendar className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                          {format(distDateRange.start, "dd MMM yyyy", { locale: idLocale })}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <CalendarComponent
+                          mode="single"
+                          selected={distDateRange.start}
+                          onSelect={(date) => date && setDistDateRange({ ...distDateRange, start: startOfDay(date) })}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" size="sm" className="w-full justify-start text-left font-normal text-xs sm:text-sm">
+                          <Calendar className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                          {format(distDateRange.end, "dd MMM yyyy", { locale: idLocale })}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <CalendarComponent
+                          mode="single"
+                          selected={distDateRange.end}
+                          onSelect={(date) => date && setDistDateRange({ ...distDateRange, end: endOfDay(date) })}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  {/* Rider Filter */}
+                  <div className="space-y-2">
+                    <Label className="text-sm sm:text-base">Filter Rider</Label>
+                    <Select value={distRiderFilter} onValueChange={setDistRiderFilter}>
+                      <SelectTrigger className="h-9 sm:h-10">
+                        <SelectValue placeholder="Semua Rider" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Semua Rider</SelectItem>
+                        {riders.map((rider) => (
+                          <SelectItem key={rider.id} value={rider.id}>
+                            {rider.full_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* History List */}
+                <div className="space-y-2">
+                  {distributionHistory
+                    .filter(item => {
+                      const distDate = new Date(item.distributed_at);
+                      const isInDateRange = distDate >= distDateRange.start && distDate <= distDateRange.end;
+                      const matchesRider = distRiderFilter === "all" || item.rider.full_name === riders.find(r => r.id === distRiderFilter)?.full_name;
+                      return isInDateRange && matchesRider;
+                    })
+                    .map((item) => (
+                      <Card key={item.id} className="overflow-hidden">
+                        <CardContent className="p-3 sm:p-4">
+                          <div className="space-y-2">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1 min-w-0">
+                                <p className="font-semibold text-sm sm:text-base truncate">{item.products.name}</p>
+                                <p className="text-xs sm:text-sm text-muted-foreground">
+                                  Rider: <span className="font-medium">{item.rider.full_name}</span>
+                                </p>
+                                <p className="text-xs sm:text-sm text-muted-foreground">
+                                  Admin: <span className="font-medium">{item.admin.full_name}</span>
+                                </p>
+                              </div>
+                              <Badge variant="default" className="flex-shrink-0">
+                                {item.quantity} pcs
+                              </Badge>
+                            </div>
+                            
+                            {item.notes && (
+                              <p className="text-xs sm:text-sm text-muted-foreground italic border-l-2 pl-2">
+                                {item.notes}
+                              </p>
+                            )}
+                            
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground pt-1">
+                              <Calendar className="w-3 h-3" />
+                              <span>{format(new Date(item.distributed_at), "dd MMM yyyy, HH:mm", { locale: idLocale })}</span>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  
+                  {distributionHistory.filter(item => {
+                    const distDate = new Date(item.distributed_at);
+                    const isInDateRange = distDate >= distDateRange.start && distDate <= distDateRange.end;
+                    const matchesRider = distRiderFilter === "all" || item.rider.full_name === riders.find(r => r.id === distRiderFilter)?.full_name;
+                    return isInDateRange && matchesRider;
+                  }).length === 0 && (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <History className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">Tidak ada riwayat distribusi</p>
+                    </div>
+                  )}
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
