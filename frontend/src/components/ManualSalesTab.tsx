@@ -482,10 +482,10 @@ export function ManualSalesTab() {
           }
         }
 
-        // PENTING: Tambah stock gudang (products.stock)
+        // PENTING: Tambah stock gudang (products.stock_in_warehouse)
         const { data: productData, error: productError } = await supabase
           .from("products")
-          .select("stock")
+          .select("stock_in_warehouse")
           .eq("id", item.product_id)
           .single();
 
@@ -495,11 +495,11 @@ export function ManualSalesTab() {
         }
 
         if (productData) {
-          const newWarehouseStock = productData.stock + item.quantity;
+          const newWarehouseStock = productData.stock_in_warehouse + item.quantity;
           
           const { error: updateError } = await supabase
             .from("products")
-            .update({ stock: newWarehouseStock })
+            .update({ stock_in_warehouse: newWarehouseStock })
             .eq("id", item.product_id);
 
           if (updateError) {
@@ -507,7 +507,7 @@ export function ManualSalesTab() {
             throw new Error(`Gagal update stock gudang: ${updateError.message}`);
           }
 
-          console.log(`✅ Stock gudang updated: ${item.product_id} from ${productData.stock} to ${newWarehouseStock}`);
+          console.log(`✅ Stock gudang updated: ${item.product_id} from ${productData.stock_in_warehouse} to ${newWarehouseStock}`);
         }
 
         // Insert ke return_history untuk log (agar admin return juga tercatat)
