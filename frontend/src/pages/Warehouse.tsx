@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { BottomNav } from "@/components/BottomNav";
+import { ManualSalesTab } from "@/components/ManualSalesTab";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Warehouse as WarehouseIcon, Send, Package, History, Calendar, Filter, Plus, Minus } from "lucide-react";
+import { Warehouse as WarehouseIcon, Send, Package, History, Calendar, Filter, Plus, Minus, ClipboardList } from "lucide-react";
 import { toast } from "sonner";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
@@ -318,14 +319,18 @@ export default function Warehouse() {
         </div>
 
         <Tabs defaultValue="distribution" className="space-y-2 sm:space-y-4">
-          <TabsList className="grid w-full grid-cols-2 h-9">
-            <TabsTrigger value="distribution" className="text-xs sm:text-sm">
-              <Send className="w-3 h-3 mr-1" />
-              Distribusi
+          <TabsList className="grid w-full grid-cols-3 h-auto py-1">
+            <TabsTrigger value="distribution" className="text-xs sm:text-sm flex-col gap-0.5 h-auto py-1.5">
+              <Send className="w-3 h-3 sm:w-4 sm:h-4" />
+              <span className="hidden sm:inline">Distribusi</span>
             </TabsTrigger>
-            <TabsTrigger value="returns" className="text-xs sm:text-sm">
-              <History className="w-3 h-3 mr-1" />
-              Return
+            <TabsTrigger value="returns" className="text-xs sm:text-sm flex-col gap-0.5 h-auto py-1.5">
+              <History className="w-3 h-3 sm:w-4 sm:h-4" />
+              <span className="hidden sm:inline">Return</span>
+            </TabsTrigger>
+            <TabsTrigger value="manual-sales" className="text-xs sm:text-sm flex-col gap-0.5 h-auto py-1.5">
+              <ClipboardList className="w-3 h-3 sm:w-4 sm:h-4" />
+              <span className="hidden sm:inline">Penjualan</span>
             </TabsTrigger>
           </TabsList>
 
@@ -800,6 +805,10 @@ export default function Warehouse() {
                 })()}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="manual-sales" className="space-y-4 sm:space-y-6">
+            <ManualSalesTab />
           </TabsContent>
         </Tabs>
       </div>

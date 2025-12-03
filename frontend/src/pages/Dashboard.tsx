@@ -11,7 +11,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { EnhancedCard } from "@/components/EnhancedCard";
 import { NotificationBadge } from "@/components/NotificationBadge";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { Package, TrendingUp, Users, ShoppingCart, Undo2, RefreshCw, Sparkles, Clock, AlertTriangle, Box, ClipboardList } from "lucide-react";
+import { Package, TrendingUp, Users, ShoppingCart, Undo2, RefreshCw, Sparkles, Clock, AlertTriangle, Box } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -692,35 +692,6 @@ export default function Dashboard() {
             variant="default"
           />
         </div>
-
-        {/* Quick Action - Manual Sales for Admin */}
-        {isAdmin && (
-          <Card className="animate-fade-in-up border-primary/30 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent hover:shadow-colored hover:border-primary/50 transition-all duration-300 cursor-pointer" style={{ animationDelay: "450ms" }}>
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-primary/20 rounded-lg">
-                    <ClipboardList className="w-5 h-5 text-primary" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-lg">Penjualan Manual</CardTitle>
-                    <CardDescription className="text-xs">Input penjualan untuk rider tanpa HP</CardDescription>
-                  </div>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <Button 
-                className="w-full" 
-                variant="default"
-                onClick={() => navigate('/manual-sales')}
-              >
-                <ClipboardList className="w-4 h-4 mr-2" />
-                Buka Penjualan Manual
-              </Button>
-            </CardContent>
-          </Card>
-        )}
 
         {/* Return Requests for Admin - Enhanced */}
         {isAdmin && returns.length > 0 && (

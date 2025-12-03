@@ -270,15 +270,15 @@ export default function ManualSales() {
       <div className="max-w-screen-xl mx-auto p-4 md:p-6 space-y-6">
         {/* Header */}
         <div className="animate-fade-in">
-          <h1 className="text-2xl md:text-3xl font-bold mb-2">Penjualan Manual</h1>
-          <p className="text-muted-foreground text-sm md:text-base">
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-1 sm:mb-2">Penjualan Manual</h1>
+          <p className="text-muted-foreground text-xs sm:text-sm md:text-base">
             Input penjualan atas nama rider (untuk rider yang tidak membawa HP)
           </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
           {/* Left Column - Rider Selection & Product List */}
-          <div className="space-y-6">
+          <div className="space-y-4 md:space-y-6">
             {/* Rider Selection */}
             <Card>
               <CardHeader>
@@ -352,7 +352,7 @@ export default function ManualSales() {
           </div>
 
           {/* Right Column - Cart & Checkout */}
-          <div className="space-y-6">
+          <div className="space-y-4 md:space-y-6">
             {/* Cart */}
             <Card>
               <CardHeader>
