@@ -441,49 +441,77 @@ export function ManualSalesTab() {
         if (returnError) throw returnError;
 
         // Update rider stock (kurangi dari stock rider karena dikembalikan ke gudang)
-        const { data: currentStock } = await supabase
+        const { data: currentStock, error: stockError } = await supabase
           .from("rider_stock")
           .select("quantity")
           .eq("rider_id", returnRider)
           .eq("product_id", item.product_id)
           .single();
 
+        if (stockError && stockError.code !== 'PGRST116') {
+          // PGRST116 = no rows returned, which is okay (rider might have no stock)
+          console.error("Error fetching rider stock:", stockError);
+          throw new Error(`Gagal mengambil stock rider: ${stockError.message}`);
+        }
+
         if (currentStock) {
           const newQuantity = currentStock.quantity - item.quantity;
           
           if (newQuantity > 0) {
-            await supabase
+            const { error: updateStockError } = await supabase
               .from("rider_stock")
               .update({ quantity: newQuantity })
               .eq("rider_id", returnRider)
               .eq("product_id", item.product_id);
+            
+            if (updateStockError) {
+              console.error("Error updating rider stock:", updateStockError);
+              throw new Error(`Gagal update stock rider: ${updateStockError.message}`);
+            }
           } else {
-            await supabase
+            const { error: deleteStockError } = await supabase
               .from("rider_stock")
               .delete()
               .eq("rider_id", returnRider)
               .eq("product_id", item.product_id);
+            
+            if (deleteStockError) {
+              console.error("Error deleting rider stock:", deleteStockError);
+              throw new Error(`Gagal hapus stock rider: ${deleteStockError.message}`);
+            }
           }
         }
 
         // PENTING: Tambah stock gudang (products.stock)
-        const { data: productData } = await supabase
+        const { data: productData, error: productError } = await supabase
           .from("products")
           .select("stock")
           .eq("id", item.product_id)
           .single();
 
+        if (productError) {
+          console.error("Error fetching product stock:", productError);
+          throw new Error(`Gagal mengambil data produk: ${productError.message}`);
+        }
+
         if (productData) {
           const newWarehouseStock = productData.stock + item.quantity;
           
-          await supabase
+          const { error: updateError } = await supabase
             .from("products")
             .update({ stock: newWarehouseStock })
             .eq("id", item.product_id);
+
+          if (updateError) {
+            console.error("Error updating warehouse stock:", updateError);
+            throw new Error(`Gagal update stock gudang: ${updateError.message}`);
+          }
+
+          console.log(`✅ Stock gudang updated: ${item.product_id} from ${productData.stock} to ${newWarehouseStock}`);
         }
 
         // Insert ke return_history untuk log (agar admin return juga tercatat)
-        await supabase
+        const { error: historyError } = await supabase
           .from("return_history")
           .insert({
             rider_id: returnRider,
@@ -495,6 +523,11 @@ export function ManualSalesTab() {
             approved_by: user.id,
             status: "approved"
           });
+
+        if (historyError) {
+          console.error("Error inserting return history:", historyError);
+          // Don't throw error here, just log it - history is not critical
+        }
       }
 
       toast.success(`Berhasil return ${returnCart.length} produk!`);
