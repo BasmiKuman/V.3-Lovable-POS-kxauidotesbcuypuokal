@@ -465,6 +465,22 @@ export function ManualSalesTab() {
               .eq("product_id", item.product_id);
           }
         }
+
+        // PENTING: Tambah stock gudang (products.stock)
+        const { data: productData } = await supabase
+          .from("products")
+          .select("stock")
+          .eq("id", item.product_id)
+          .single();
+
+        if (productData) {
+          const newWarehouseStock = productData.stock + item.quantity;
+          
+          await supabase
+            .from("products")
+            .update({ stock: newWarehouseStock })
+            .eq("id", item.product_id);
+        }
       }
 
       toast.success(`Berhasil return ${returnCart.length} produk!`);
