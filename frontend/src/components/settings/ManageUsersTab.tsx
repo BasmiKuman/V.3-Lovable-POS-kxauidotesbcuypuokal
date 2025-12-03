@@ -62,12 +62,15 @@ export function ManageUsersTab() {
       const { data: { user: currentUser } } = await supabase.auth.getUser();
       if (!currentUser) return;
 
-      // Get all profiles with email
+      // Get all profiles with email (add timestamp to force fresh data)
       const { data: profiles, error: profileError } = await supabase
         .from("profiles")
-        .select("user_id, full_name, phone, address, avatar_url, sales_target, email");
+        .select("user_id, full_name, phone, address, avatar_url, sales_target, email")
+        .order("full_name", { ascending: true });
 
       if (profileError) throw profileError;
+
+      console.log("Loaded profiles:", profiles?.length);
 
       // Get roles for each profile
       const profilesWithRoles = await Promise.all(
@@ -156,8 +159,11 @@ export function ManageUsersTab() {
 
     setLoading(true);
     try {
+      console.log("Updating user:", editingUserId);
+      console.log("New full_name:", editUser.fullName.trim());
+      
       // Update profile
-      const { error: profileError } = await supabase
+      const { data: updatedData, error: profileError } = await supabase
         .from("profiles")
         .update({
           full_name: editUser.fullName.trim(),
@@ -165,9 +171,15 @@ export function ManageUsersTab() {
           address: editUser.address.trim(),
           sales_target: editUser.salesTarget || 30,
         })
-        .eq("user_id", editingUserId);
+        .eq("user_id", editingUserId)
+        .select();
 
-      if (profileError) throw profileError;
+      if (profileError) {
+        console.error("Profile update error:", profileError);
+        throw profileError;
+      }
+
+      console.log("Profile updated successfully:", updatedData);
 
       // Update password if provided (using RPC function instead of admin API)
       if (editUser.password && editUser.password.length >= 6) {
@@ -183,8 +195,9 @@ export function ManageUsersTab() {
       setIsEditingUser(false);
       setEditingUserId(null);
       setEditUser({ email: "", password: "", fullName: "", phone: "", address: "", salesTarget: 30 });
-      // Force refresh with a small delay to ensure DB has updated
-      setTimeout(() => loadUsers(), 300);
+      
+      // Force immediate refresh
+      await loadUsers();
     } catch (error: any) {
       console.error("Error updating user:", error);
       toast.error(error.message || "Gagal mengupdate pengguna");
