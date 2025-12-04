@@ -718,158 +718,166 @@ export default function Warehouse() {
               </CardContent>
             </Card>
 
-            {/* Distribution History */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center text-lg sm:text-xl">
-                  <History className="w-4 h-4 sm:w-5 sm:h-5 mr-1.5 sm:mr-2" />
-                  Riwayat Distribusi
-                </CardTitle>
-                <CardDescription className="text-sm">History distribusi produk ke rider</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Filter Section */}
-                <div className="space-y-3">
-                  {/* Quick Date Buttons */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full text-xs sm:text-sm"
-                      onClick={() => setDistDateRange({
-                        start: startOfDay(new Date()),
-                        end: endOfDay(new Date())
-                      })}
-                    >
-                      <Calendar className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                      Hari Ini
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full text-xs sm:text-sm"
-                      onClick={() => setDistDateRange({
-                        start: startOfMonth(new Date()),
-                        end: endOfMonth(new Date())
-                      })}
-                    >
-                      <Calendar className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                      Bulan Ini
-                    </Button>
-                  </div>
-
-                  {/* Date Range Picker */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button variant="outline" size="sm" className="w-full justify-start text-left font-normal text-xs sm:text-sm">
-                          <Calendar className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
-                          {format(distDateRange.start, "dd MMM yyyy", { locale: idLocale })}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <CalendarComponent
-                          mode="single"
-                          selected={distDateRange.start}
-                          onSelect={(date) => date && setDistDateRange({ ...distDateRange, start: startOfDay(date) })}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button variant="outline" size="sm" className="w-full justify-start text-left font-normal text-xs sm:text-sm">
-                          <Calendar className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
-                          {format(distDateRange.end, "dd MMM yyyy", { locale: idLocale })}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <CalendarComponent
-                          mode="single"
-                          selected={distDateRange.end}
-                          onSelect={(date) => date && setDistDateRange({ ...distDateRange, end: endOfDay(date) })}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-
-                  {/* Rider Filter */}
-                  <div className="space-y-2">
-                    <Label className="text-sm sm:text-base">Filter Rider</Label>
-                    <Select value={distRiderFilter} onValueChange={setDistRiderFilter}>
-                      <SelectTrigger className="h-9 sm:h-10">
-                        <SelectValue placeholder="Semua Rider" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Semua Rider</SelectItem>
-                        {riders.map((rider) => (
-                          <SelectItem key={rider.id} value={rider.id}>
-                            {rider.full_name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                {/* History List */}
-                <div className="space-y-2">
-                  {distributionHistory
-                    .filter(item => {
-                      const distDate = new Date(item.distributed_at);
-                      const isInDateRange = distDate >= distDateRange.start && distDate <= distDateRange.end;
-                      const matchesRider = distRiderFilter === "all" || item.rider.full_name === riders.find(r => r.id === distRiderFilter)?.full_name;
-                      return isInDateRange && matchesRider;
-                    })
-                    .map((item) => (
-                      <Card key={item.id} className="overflow-hidden">
-                        <CardContent className="p-3 sm:p-4">
-                          <div className="space-y-2">
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="flex-1 min-w-0">
-                                <p className="font-semibold text-sm sm:text-base truncate">{item.products.name}</p>
-                                <p className="text-xs sm:text-sm text-muted-foreground">
-                                  Rider: <span className="font-medium">{item.rider.full_name}</span>
-                                </p>
-                                <p className="text-xs sm:text-sm text-muted-foreground">
-                                  Admin: <span className="font-medium">{item.admin.full_name}</span>
-                                </p>
-                              </div>
-                              <Badge variant="default" className="flex-shrink-0">
-                                {item.quantity} pcs
-                              </Badge>
-                            </div>
-                            
-                            {item.notes && (
-                              <p className="text-xs sm:text-sm text-muted-foreground italic border-l-2 pl-2">
-                                {item.notes}
-                              </p>
-                            )}
-                            
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground pt-1">
-                              <Calendar className="w-3 h-3" />
-                              <span>{format(new Date(item.distributed_at), "dd MMM yyyy, HH:mm", { locale: idLocale })}</span>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  
-                  {distributionHistory.filter(item => {
-                    const distDate = new Date(item.distributed_at);
-                    const isInDateRange = distDate >= distDateRange.start && distDate <= distDateRange.end;
-                    const matchesRider = distRiderFilter === "all" || item.rider.full_name === riders.find(r => r.id === distRiderFilter)?.full_name;
-                    return isInDateRange && matchesRider;
-                  }).length === 0 && (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <History className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                      <p className="text-sm">Tidak ada riwayat distribusi</p>
+            {/* Distribution History - Accordion */}
+            <Accordion type="single" collapsible className="w-full">
+              <AccordionItem value="history" className="border rounded-lg">
+                <AccordionTrigger className="px-4 sm:px-6 hover:no-underline">
+                  <div className="flex items-center gap-2">
+                    <History className="w-4 h-4 sm:w-5 sm:h-5" />
+                    <div className="text-left">
+                      <p className="font-semibold text-sm sm:text-base">Riwayat Distribusi</p>
+                      <p className="text-xs text-muted-foreground font-normal">
+                        {distributionHistory.length} distribusi tercatat
+                      </p>
                     </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent className="px-4 sm:px-6 pb-4">
+                  <div className="space-y-4 pt-2">
+                    {/* Filter Section */}
+                    <div className="space-y-3">
+                      {/* Quick Date Buttons */}
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full text-xs sm:text-sm"
+                          onClick={() => setDistDateRange({
+                            start: startOfDay(new Date()),
+                            end: endOfDay(new Date())
+                          })}
+                        >
+                          <Calendar className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                          Hari Ini
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full text-xs sm:text-sm"
+                          onClick={() => setDistDateRange({
+                            start: startOfMonth(new Date()),
+                            end: endOfMonth(new Date())
+                          })}
+                        >
+                          <Calendar className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                          Bulan Ini
+                        </Button>
+                      </div>
+
+                      {/* Date Range Picker */}
+                      <div className="grid grid-cols-2 gap-2">
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" size="sm" className="w-full justify-start text-left font-normal text-xs sm:text-sm">
+                              <Calendar className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                              {format(distDateRange.start, "dd MMM yyyy", { locale: idLocale })}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <CalendarComponent
+                              mode="single"
+                              selected={distDateRange.start}
+                              onSelect={(date) => date && setDistDateRange({ ...distDateRange, start: startOfDay(date) })}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" size="sm" className="w-full justify-start text-left font-normal text-xs sm:text-sm">
+                              <Calendar className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
+                              {format(distDateRange.end, "dd MMM yyyy", { locale: idLocale })}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <CalendarComponent
+                              mode="single"
+                              selected={distDateRange.end}
+                              onSelect={(date) => date && setDistDateRange({ ...distDateRange, end: endOfDay(date) })}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+
+                      {/* Rider Filter */}
+                      <div className="space-y-2">
+                        <Label className="text-sm sm:text-base">Filter Rider</Label>
+                        <Select value={distRiderFilter} onValueChange={setDistRiderFilter}>
+                          <SelectTrigger className="h-9 sm:h-10">
+                            <SelectValue placeholder="Semua Rider" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">Semua Rider</SelectItem>
+                            {riders.map((rider) => (
+                              <SelectItem key={rider.id} value={rider.id}>
+                                {rider.full_name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    {/* History List */}
+                    <div className="space-y-2 max-h-[500px] overflow-y-auto">
+                      {distributionHistory
+                        .filter(item => {
+                          const distDate = new Date(item.distributed_at);
+                          const isInDateRange = distDate >= distDateRange.start && distDate <= distDateRange.end;
+                          const matchesRider = distRiderFilter === "all" || item.rider.full_name === riders.find(r => r.id === distRiderFilter)?.full_name;
+                          return isInDateRange && matchesRider;
+                        })
+                        .map((item) => (
+                          <Card key={item.id} className="overflow-hidden">
+                            <CardContent className="p-3 sm:p-4">
+                              <div className="space-y-2">
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="flex-1 min-w-0">
+                                    <p className="font-semibold text-sm sm:text-base truncate">{item.products.name}</p>
+                                    <p className="text-xs sm:text-sm text-muted-foreground">
+                                      Rider: <span className="font-medium">{item.rider.full_name}</span>
+                                    </p>
+                                    <p className="text-xs sm:text-sm text-muted-foreground">
+                                      Admin: <span className="font-medium">{item.admin.full_name}</span>
+                                    </p>
+                                  </div>
+                                  <Badge variant="default" className="flex-shrink-0">
+                                    {item.quantity} pcs
+                                  </Badge>
+                                </div>
+                                
+                                {item.notes && (
+                                  <p className="text-xs sm:text-sm text-muted-foreground italic border-l-2 pl-2">
+                                    {item.notes}
+                                  </p>
+                                )}
+                                
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground pt-1">
+                                  <Calendar className="w-3 h-3" />
+                                  <span>{format(new Date(item.distributed_at), "dd MMM yyyy, HH:mm", { locale: idLocale })}</span>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      
+                      {distributionHistory.filter(item => {
+                        const distDate = new Date(item.distributed_at);
+                        const isInDateRange = distDate >= distDateRange.start && distDate <= distDateRange.end;
+                        const matchesRider = distRiderFilter === "all" || item.rider.full_name === riders.find(r => r.id === distRiderFilter)?.full_name;
+                        return isInDateRange && matchesRider;
+                      }).length === 0 && (
+                        <div className="text-center py-8 text-muted-foreground">
+                          <History className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                          <p className="text-sm">Tidak ada riwayat distribusi</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
           </TabsContent>
 
           <TabsContent value="returns" className="space-y-4 sm:space-y-6">
