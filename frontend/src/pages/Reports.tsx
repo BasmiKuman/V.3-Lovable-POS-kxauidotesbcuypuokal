@@ -5,7 +5,7 @@ import { StatsCard } from "@/components/StatsCard";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { BarChart3, DollarSign, ShoppingCart, TrendingUp, Calendar, Download, Filter, ChevronDown, Users, FileText, Package, Trash2, AlertTriangle } from "lucide-react";
+import { BarChart3, DollarSign, ShoppingCart, TrendingUp, Calendar, Download, Filter, ChevronDown, Users, FileText, Package, Trash2, AlertTriangle, Edit, X, Save } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format, startOfMonth, endOfMonth, startOfDay, endOfDay, startOfWeek, endOfWeek } from "date-fns";
@@ -64,6 +64,13 @@ export default function Reports() {
   const [selectedTransaction, setSelectedTransaction] = useState<any>(null);
   const [deleteReason, setDeleteReason] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
+  
+  // Edit transaction states
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editTransaction, setEditTransaction] = useState<any>(null);
+  const [editItems, setEditItems] = useState<any[]>([]);
+  const [editReason, setEditReason] = useState("");
+  const [isEditing, setIsEditing] = useState(false);
   
   // Adjustment history state
   const [adjustmentHistory, setAdjustmentHistory] = useState<any[]>([]);
@@ -404,16 +411,32 @@ export default function Reports() {
     try {
       const { data, error } = await supabase
         .from("transaction_adjustments")
-        .select(`
-          *,
-          profiles!transaction_adjustments_adjusted_by_fkey (
-            full_name
-          )
-        `)
+        .select("*")
         .order("adjusted_at", { ascending: false });
 
-      if (error) throw error;
-      setAdjustmentHistory(data || []);
+      if (error) {
+        console.error("Error fetching adjustment history:", error);
+        return;
+      }
+
+      // Fetch admin names separately
+      if (data && data.length > 0) {
+        const adminIds = [...new Set(data.map(d => d.adjusted_by))];
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("user_id, full_name")
+          .in("user_id", adminIds);
+
+        // Merge profiles data
+        const enrichedData = data.map(adj => ({
+          ...adj,
+          profiles: profiles?.find(p => p.user_id === adj.adjusted_by)
+        }));
+        
+        setAdjustmentHistory(enrichedData);
+      } else {
+        setAdjustmentHistory(data || []);
+      }
     } catch (error) {
       console.error("Error fetching adjustment history:", error);
     }
@@ -454,6 +477,141 @@ export default function Reports() {
   const openDeleteDialog = (transaction: any) => {
     setSelectedTransaction(transaction);
     setDeleteDialogOpen(true);
+  };
+
+  // Open edit dialog
+  const openEditDialog = (transaction: any) => {
+    setEditTransaction(transaction);
+    setEditItems(transaction.transaction_items || []);
+    setEditDialogOpen(true);
+  };
+
+  // Update item quantity in edit
+  const updateItemQuantity = (itemId: string, newQuantity: number) => {
+    if (newQuantity <= 0) {
+      // Remove item if quantity is 0
+      setEditItems(editItems.filter(item => item.id !== itemId));
+    } else {
+      setEditItems(editItems.map(item => 
+        item.id === itemId 
+          ? { ...item, quantity: newQuantity, subtotal: item.price * newQuantity }
+          : item
+      ));
+    }
+  };
+
+  // Remove item from edit
+  const removeItemFromEdit = (itemId: string) => {
+    setEditItems(editItems.filter(item => item.id !== itemId));
+  };
+
+  // Handle edit transaction submission
+  const handleEditTransaction = async () => {
+    if (!editTransaction || !editReason.trim()) {
+      toast.error("Alasan perubahan harus diisi");
+      return;
+    }
+
+    if (editItems.length === 0) {
+      toast.error("Transaksi harus memiliki minimal 1 item. Gunakan Hapus jika ingin menghapus seluruh transaksi.");
+      return;
+    }
+
+    setIsEditing(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      // Calculate new totals
+      const newSubtotal = editItems.reduce((sum, item) => sum + Number(item.subtotal), 0);
+      const newTotal = newSubtotal; // No tax
+
+      // Get original transaction for audit
+      const originalSnapshot = {
+        id: editTransaction.id,
+        rider_id: editTransaction.rider_id,
+        subtotal: editTransaction.subtotal,
+        total_amount: editTransaction.total_amount,
+        payment_method: editTransaction.payment_method,
+        items: editTransaction.transaction_items
+      };
+
+      // Get deleted items
+      const originalItemIds = new Set(editTransaction.transaction_items.map((i: any) => i.id));
+      const currentItemIds = new Set(editItems.map(i => i.id));
+      const deletedItemIds = [...originalItemIds].filter(id => !currentItemIds.has(id));
+
+      // Delete removed items
+      if (deletedItemIds.length > 0) {
+        const { error: deleteError } = await supabase
+          .from("transaction_items")
+          .delete()
+          .in("id", deletedItemIds);
+        
+        if (deleteError) throw deleteError;
+      }
+
+      // Update remaining items quantities
+      for (const item of editItems) {
+        const { error: updateError } = await supabase
+          .from("transaction_items")
+          .update({ 
+            quantity: item.quantity,
+            subtotal: item.subtotal
+          })
+          .eq("id", item.id);
+        
+        if (updateError) throw updateError;
+      }
+
+      // Update transaction totals
+      const { error: transError } = await supabase
+        .from("transactions")
+        .update({
+          subtotal: newSubtotal,
+          total_amount: newTotal
+        })
+        .eq("id", editTransaction.id);
+
+      if (transError) throw transError;
+
+      // Insert audit record
+      const { error: auditError } = await supabase
+        .from("transaction_adjustments")
+        .insert({
+          transaction_id: editTransaction.id,
+          action: "edited",
+          reason: editReason,
+          adjusted_by: user.id,
+          rider_id: editTransaction.rider_id,
+          rider_name: editTransaction.rider?.full_name,
+          total_amount: editTransaction.total_amount,
+          payment_method: editTransaction.payment_method,
+          transaction_date: editTransaction.created_at,
+          transaction_snapshot: {
+            before: originalSnapshot,
+            after: {
+              id: editTransaction.id,
+              subtotal: newSubtotal,
+              total_amount: newTotal,
+              items: editItems
+            }
+          }
+        });
+
+      if (auditError) throw auditError;
+
+      toast.success("Transaksi berhasil diubah");
+      window.location.reload();
+    } catch (error: any) {
+      console.error("Error editing transaction:", error);
+      toast.error(`Gagal mengubah transaksi: ${error.message}`);
+    } finally {
+      setIsEditing(false);
+      setEditDialogOpen(false);
+      setEditReason("");
+      setEditTransaction(null);
+    }
   };
 
   // Fetch adjustment history on mount
@@ -2006,6 +2164,15 @@ export default function Reports() {
                                 <Button
                                   variant="ghost"
                                   size="sm"
+                                  className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                  onClick={() => openEditDialog(transaction)}
+                                  title="Edit transaksi"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
                                   className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
                                   onClick={() => openDeleteDialog(transaction)}
                                   title="Hapus transaksi"
@@ -2072,8 +2239,11 @@ export default function Reports() {
                       <div className="flex items-start justify-between gap-3 mb-2">
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
-                            <Badge variant="destructive" className="text-xs">
-                              {adjustment.action === 'deleted' ? 'DIHAPUS' : adjustment.action.toUpperCase()}
+                            <Badge 
+                              variant={adjustment.action === 'deleted' ? 'destructive' : 'default'}
+                              className={`text-xs ${adjustment.action === 'edited' ? 'bg-blue-600' : ''}`}
+                            >
+                              {adjustment.action === 'deleted' ? 'DIHAPUS' : adjustment.action === 'edited' ? 'DIEDIT' : adjustment.action.toUpperCase()}
                             </Badge>
                             <span className="text-sm font-medium text-muted-foreground">
                               {format(new Date(adjustment.adjusted_at), "dd MMM yyyy HH:mm", { locale: idLocale })}
@@ -2492,6 +2662,157 @@ export default function Reports() {
                 <>
                   <Trash2 className="w-4 h-4 mr-2" />
                   Hapus Transaksi
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Transaction Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-blue-600">
+              <Edit className="w-5 h-5" />
+              Edit Transaksi
+            </DialogTitle>
+            <DialogDescription>
+              Edit item atau quantity transaksi. Perubahan akan tercatat dalam log penyesuaian.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {editTransaction && (
+            <div className="space-y-4 py-4">
+              {/* Transaction Info */}
+              <div className="bg-muted p-3 rounded-lg space-y-1">
+                <div className="text-sm font-medium">
+                  {format(new Date(editTransaction.created_at), "dd MMMM yyyy HH:mm", { locale: idLocale })}
+                </div>
+                <div className="text-xs text-muted-foreground capitalize">
+                  Rider: {editTransaction.rider?.full_name} • {editTransaction.payment_method}
+                </div>
+              </div>
+              
+              {/* Edit Items */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">
+                  Item Transaksi <span className="text-xs text-muted-foreground">(Minimal 1 item)</span>
+                </label>
+                {editItems.length > 0 ? (
+                  <div className="space-y-2 border rounded-lg p-3">
+                    {editItems.map((item: any) => (
+                      <div key={item.id} className="flex items-center gap-2 pb-2 border-b last:border-b-0">
+                        <div className="flex-1">
+                          <div className="text-sm font-medium">{item.products?.name || "Product"}</div>
+                          <div className="text-xs text-muted-foreground">
+                            @{formatCurrency(Number(item.price))} = {formatCurrency(Number(item.subtotal))}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 w-7 p-0"
+                            onClick={() => updateItemQuantity(item.id, item.quantity - 1)}
+                          >
+                            -
+                          </Button>
+                          <span className="w-8 text-center text-sm font-semibold">{item.quantity}</span>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 w-7 p-0"
+                            onClick={() => updateItemQuantity(item.id, item.quantity + 1)}
+                          >
+                            +
+                          </Button>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                          onClick={() => removeItemFromEdit(item.id)}
+                          disabled={editItems.length === 1}
+                          title="Hapus item"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                    
+                    {/* New Total */}
+                    <div className="pt-2 mt-2 border-t flex justify-between items-center">
+                      <span className="text-sm font-medium">Total Baru:</span>
+                      <span className="text-lg font-bold text-primary">
+                        {formatCurrency(editItems.reduce((sum, item) => sum + Number(item.subtotal), 0))}
+                      </span>
+                    </div>
+                    
+                    {/* Original vs New Comparison */}
+                    <div className="text-xs text-muted-foreground">
+                      <span className="line-through">Total Lama: {formatCurrency(Number(editTransaction.total_amount))}</span>
+                      {editItems.reduce((sum, item) => sum + Number(item.subtotal), 0) !== Number(editTransaction.total_amount) && (
+                        <span className="ml-2 text-orange-600 font-medium">
+                          ({editItems.reduce((sum, item) => sum + Number(item.subtotal), 0) > Number(editTransaction.total_amount) ? '+' : ''}
+                          {formatCurrency(editItems.reduce((sum, item) => sum + Number(item.subtotal), 0) - Number(editTransaction.total_amount))})
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-6 text-sm text-muted-foreground border rounded-lg">
+                    Semua item telah dihapus. Minimal 1 item diperlukan.
+                  </div>
+                )}
+              </div>
+              
+              {/* Reason Input */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-blue-600">
+                  Alasan Perubahan * <span className="text-xs text-muted-foreground">(Wajib diisi)</span>
+                </label>
+                <Textarea
+                  placeholder="Contoh: Hapus 1 item karena kelebihan input, Ubah quantity karena salah pencatatan, dll"
+                  value={editReason}
+                  onChange={(e) => setEditReason(e.target.value)}
+                  rows={3}
+                  className="resize-none"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Alasan ini akan dicatat dan ditampilkan di riwayat penyesuaian transaksi.
+                </p>
+              </div>
+            </div>
+          )}
+          
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setEditDialogOpen(false);
+                setEditReason("");
+                setEditTransaction(null);
+              }}
+              disabled={isEditing}
+            >
+              Batal
+            </Button>
+            <Button
+              variant="default"
+              onClick={handleEditTransaction}
+              disabled={isEditing || !editReason.trim() || editItems.length === 0}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {isEditing ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Menyimpan...
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4 mr-2" />
+                  Simpan Perubahan
                 </>
               )}
             </Button>

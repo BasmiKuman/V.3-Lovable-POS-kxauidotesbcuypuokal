@@ -25,13 +25,14 @@ export const CommandPalette = () => {
 
   return (
     <>
-      <button
+      {/* Floating search button removed - causes UI interference */}
+      {/* <button
         onClick={() => setOpen(true)}
         className="fixed bottom-20 right-4 z-40 flex items-center gap-2 px-4 py-2 bg-gradient-primary text-white rounded-full shadow-glow-primary hover-lift hover:scale-105 transition-all duration-300 sm:hidden"
       >
         <Search className="w-4 h-4" />
         <span className="text-sm font-semibold">Search</span>
-      </button>
+      </button> */}
 
       <CommandDialog open={open} onOpenChange={setOpen}>
         <div className="glass border-border/50">
