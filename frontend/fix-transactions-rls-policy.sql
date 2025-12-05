@@ -3,15 +3,29 @@
 
 -- 1. Enable RLS
 ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE transaction_items ENABLE ROW LEVEL SECURITY;
 
--- 2. Drop existing policies
-DROP POLICY IF EXISTS "Users can insert their own transactions" ON transactions;
-DROP POLICY IF EXISTS "Users can view their own transactions" ON transactions;
-DROP POLICY IF EXISTS "Admins can view all transactions" ON transactions;
-DROP POLICY IF EXISTS "Riders can insert transactions" ON transactions;
-DROP POLICY IF EXISTS "Admins can insert transactions for riders" ON transactions;
+-- 2. Drop ALL existing policies for transactions
+DO $$ 
+DECLARE
+    r RECORD;
+BEGIN
+    FOR r IN (SELECT policyname FROM pg_policies WHERE tablename = 'transactions') LOOP
+        EXECUTE 'DROP POLICY IF EXISTS "' || r.policyname || '" ON transactions';
+    END LOOP;
+END $$;
 
--- 3. Create new policies
+-- 3. Drop ALL existing policies for transaction_items
+DO $$ 
+DECLARE
+    r RECORD;
+BEGIN
+    FOR r IN (SELECT policyname FROM pg_policies WHERE tablename = 'transaction_items') LOOP
+        EXECUTE 'DROP POLICY IF EXISTS "' || r.policyname || '" ON transaction_items';
+    END LOOP;
+END $$;
+
+-- 4. Create new policies for TRANSACTIONS
 
 -- Allow riders to insert their own transactions
 CREATE POLICY "Riders can insert their own transactions"
@@ -65,19 +79,11 @@ USING (
   )
 );
 
--- 4. Grant permissions
+-- 5. Grant permissions
 GRANT SELECT, INSERT ON transactions TO authenticated;
 GRANT UPDATE ON transactions TO authenticated;
 
--- 5. Fix transaction_items table RLS policies
-ALTER TABLE transaction_items ENABLE ROW LEVEL SECURITY;
-
--- Drop existing policies for transaction_items
-DROP POLICY IF EXISTS "Users can insert transaction items" ON transaction_items;
-DROP POLICY IF EXISTS "Users can view transaction items" ON transaction_items;
-DROP POLICY IF EXISTS "Admins can view all transaction items" ON transaction_items;
-DROP POLICY IF EXISTS "Riders can insert transaction items" ON transaction_items;
-DROP POLICY IF EXISTS "Admins can insert transaction items" ON transaction_items;
+-- 6. Create new policies for TRANSACTION_ITEMS
 
 -- Allow anyone with valid transaction to insert items
 CREATE POLICY "Authenticated users can insert transaction items"
@@ -122,10 +128,10 @@ USING (
   )
 );
 
--- 6. Grant permissions for transaction_items
+-- 7. Grant permissions for transaction_items
 GRANT SELECT, INSERT ON transaction_items TO authenticated;
 
--- 7. Verify policies
+-- 8. Verify policies
 SELECT 
   schemaname,
   tablename,
