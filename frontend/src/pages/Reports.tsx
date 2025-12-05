@@ -5,7 +5,7 @@ import { StatsCard } from "@/components/StatsCard";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { BarChart3, DollarSign, ShoppingCart, TrendingUp, Calendar, Download, Filter, ChevronDown, Users, FileText, Package } from "lucide-react";
+import { BarChart3, DollarSign, ShoppingCart, TrendingUp, Calendar, Download, Filter, ChevronDown, Users, FileText, Package, Trash2, AlertTriangle } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format, startOfMonth, endOfMonth, startOfDay, endOfDay, startOfWeek, endOfWeek } from "date-fns";
@@ -19,6 +19,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
@@ -56,6 +58,16 @@ export default function Reports() {
     start: startOfDay(new Date()),
     end: endOfDay(new Date())
   });
+
+  // Delete transaction states
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [selectedTransaction, setSelectedTransaction] = useState<any>(null);
+  const [deleteReason, setDeleteReason] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
+  
+  // Adjustment history state
+  const [adjustmentHistory, setAdjustmentHistory] = useState<any[]>([]);
+  const [showAdjustments, setShowAdjustments] = useState(false);
 
   // Ref for scrolling to main filter
   const mainFilterRef = useRef<HTMLDivElement>(null);
@@ -386,6 +398,68 @@ export default function Reports() {
       return sum;
     }, 0);
   };
+
+  // Fetch adjustment history
+  const fetchAdjustmentHistory = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("transaction_adjustments")
+        .select(`
+          *,
+          profiles!transaction_adjustments_adjusted_by_fkey (
+            full_name
+          )
+        `)
+        .order("adjusted_at", { ascending: false });
+
+      if (error) throw error;
+      setAdjustmentHistory(data || []);
+    } catch (error) {
+      console.error("Error fetching adjustment history:", error);
+    }
+  };
+
+  // Delete transaction function
+  const handleDeleteTransaction = async () => {
+    if (!selectedTransaction || !deleteReason.trim()) {
+      toast.error("Alasan penghapusan harus diisi");
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      const { data, error } = await supabase.rpc("delete_transaction", {
+        p_transaction_id: selectedTransaction.id,
+        p_reason: deleteReason
+      });
+
+      if (error) throw error;
+
+      toast.success("Transaksi berhasil dihapus");
+      
+      // Refresh data
+      window.location.reload();
+    } catch (error: any) {
+      console.error("Error deleting transaction:", error);
+      toast.error(`Gagal menghapus transaksi: ${error.message}`);
+    } finally {
+      setIsDeleting(false);
+      setDeleteDialogOpen(false);
+      setDeleteReason("");
+      setSelectedTransaction(null);
+    }
+  };
+
+  // Open delete dialog
+  const openDeleteDialog = (transaction: any) => {
+    setSelectedTransaction(transaction);
+    setDeleteDialogOpen(true);
+  };
+
+  // Fetch adjustment history on mount
+  useEffect(() => {
+    fetchAdjustmentHistory();
+  }, []);
 
   // Apply filters
   const applyFilters = () => {
@@ -1900,8 +1974,8 @@ export default function Reports() {
                             key={transaction.id} 
                             className="border rounded-lg p-3 hover:bg-muted/50 transition-colors"
                           >
-                            <div className="flex justify-between items-start">
-                              <div className="space-y-1">
+                            <div className="flex justify-between items-start gap-2">
+                              <div className="space-y-1 flex-1">
                                 <div className="text-sm font-medium">
                                   {format(new Date(transaction.created_at), "dd MMM yyyy HH:mm", { locale: idLocale })}
                                 </div>
@@ -1918,15 +1992,26 @@ export default function Reports() {
                                   </div>
                                 )}
                               </div>
-                              <div className="text-right">
-                                <div className="font-semibold">
-                                  {formatCurrency(Number(transaction.total_amount))}
-                                </div>
-                                {!isMobile && (
-                                  <div className="text-xs text-muted-foreground mt-1">
-                                    Subtotal: {formatCurrency(Number(transaction.subtotal))}
+                              <div className="flex items-start gap-2">
+                                <div className="text-right">
+                                  <div className="font-semibold">
+                                    {formatCurrency(Number(transaction.total_amount))}
                                   </div>
-                                )}
+                                  {!isMobile && (
+                                    <div className="text-xs text-muted-foreground mt-1">
+                                      Subtotal: {formatCurrency(Number(transaction.subtotal))}
+                                    </div>
+                                  )}
+                                </div>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                  onClick={() => openDeleteDialog(transaction)}
+                                  title="Hapus transaksi"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
                               </div>
                             </div>
                           </div>
@@ -1951,6 +2036,102 @@ export default function Reports() {
               </div>
             )}
           </CardContent>
+        </Card>
+
+        {/* Adjustment History (Penyesuaian Transaksi) */}
+        <Card className="shadow-lg">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <AlertTriangle className="w-5 h-5 text-orange-600" />
+                  Penyesuaian / Update Transaksi Rider
+                </CardTitle>
+                <CardDescription>
+                  Riwayat penghapusan dan penyesuaian transaksi oleh admin
+                </CardDescription>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowAdjustments(!showAdjustments)}
+              >
+                {showAdjustments ? "Sembunyikan" : "Tampilkan"}
+              </Button>
+            </div>
+          </CardHeader>
+          {showAdjustments && (
+            <CardContent>
+              {adjustmentHistory && adjustmentHistory.length > 0 ? (
+                <div className="space-y-3">
+                  {adjustmentHistory.map((adjustment) => (
+                    <div 
+                      key={adjustment.id}
+                      className="border-2 border-orange-200 dark:border-orange-800 rounded-lg p-4 bg-orange-50/50 dark:bg-orange-950/20"
+                    >
+                      <div className="flex items-start justify-between gap-3 mb-2">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <Badge variant="destructive" className="text-xs">
+                              {adjustment.action === 'deleted' ? 'DIHAPUS' : adjustment.action.toUpperCase()}
+                            </Badge>
+                            <span className="text-sm font-medium text-muted-foreground">
+                              {format(new Date(adjustment.adjusted_at), "dd MMM yyyy HH:mm", { locale: idLocale })}
+                            </span>
+                          </div>
+                          <div className="text-sm font-semibold">
+                            Rider: {adjustment.rider_name || "Unknown"}
+                          </div>
+                          <div className="text-xs text-muted-foreground mt-1">
+                            Tanggal Transaksi: {adjustment.transaction_date && format(new Date(adjustment.transaction_date), "dd MMM yyyy HH:mm", { locale: idLocale })}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-lg font-bold text-orange-700 dark:text-orange-500">
+                            {formatCurrency(Number(adjustment.total_amount))}
+                          </div>
+                          <div className="text-xs text-muted-foreground capitalize">
+                            {adjustment.payment_method}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="mt-3 pt-3 border-t border-orange-200 dark:border-orange-800">
+                        <div className="text-xs text-muted-foreground mb-1">
+                          <strong>Alasan Penyesuaian:</strong>
+                        </div>
+                        <div className="text-sm">
+                          {adjustment.reason}
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-2">
+                          Oleh: {adjustment.profiles?.full_name || "Admin"}
+                        </div>
+                      </div>
+                      {adjustment.transaction_snapshot?.items && (
+                        <details className="mt-3 pt-3 border-t border-orange-200 dark:border-orange-800">
+                          <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">
+                            Detail Item Transaksi
+                          </summary>
+                          <div className="mt-2 space-y-1">
+                            {adjustment.transaction_snapshot.items.map((item: any, idx: number) => (
+                              <div key={idx} className="text-xs flex justify-between">
+                                <span>• {item.product_name} x{item.quantity}</span>
+                                <span>{formatCurrency(Number(item.subtotal))}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </details>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <AlertTriangle className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                  <p>Belum ada penyesuaian transaksi</p>
+                </div>
+              )}
+            </CardContent>
+          )}
         </Card>
           </TabsContent>
 
@@ -2218,6 +2399,105 @@ export default function Reports() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Delete Transaction Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <Trash2 className="w-5 h-5" />
+              Konfirmasi Hapus Transaksi
+            </DialogTitle>
+            <DialogDescription>
+              Transaksi yang dihapus akan tercatat dalam log penyesuaian dan tidak dapat dikembalikan.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedTransaction && (
+            <div className="space-y-4 py-4">
+              {/* Transaction Details */}
+              <div className="bg-muted p-4 rounded-lg space-y-2">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <div className="text-sm font-medium">
+                      {format(new Date(selectedTransaction.created_at), "dd MMMM yyyy HH:mm", { locale: idLocale })}
+                    </div>
+                    <div className="text-xs text-muted-foreground capitalize mt-1">
+                      {selectedTransaction.payment_method || "-"}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-lg font-bold text-primary">
+                      {formatCurrency(Number(selectedTransaction.total_amount))}
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Transaction Items */}
+                {selectedTransaction.transaction_items && selectedTransaction.transaction_items.length > 0 && (
+                  <div className="mt-3 pt-3 border-t">
+                    <div className="text-xs font-medium text-muted-foreground mb-2">Item:</div>
+                    {selectedTransaction.transaction_items.map((item: any, idx: number) => (
+                      <div key={idx} className="text-sm flex justify-between">
+                        <span>• {item.products?.name || "Product"} x{item.quantity}</span>
+                        <span>{formatCurrency(Number(item.subtotal))}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              
+              {/* Reason Input */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-destructive">
+                  Alasan Penghapusan * <span className="text-xs text-muted-foreground">(Wajib diisi)</span>
+                </label>
+                <Textarea
+                  placeholder="Contoh: Kelebihan input, Transaksi duplikat, Kesalahan pencatatan, dll"
+                  value={deleteReason}
+                  onChange={(e) => setDeleteReason(e.target.value)}
+                  rows={4}
+                  className="resize-none"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Alasan ini akan dicatat dan ditampilkan di riwayat penyesuaian transaksi.
+                </p>
+              </div>
+            </div>
+          )}
+          
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDeleteDialogOpen(false);
+                setDeleteReason("");
+                setSelectedTransaction(null);
+              }}
+              disabled={isDeleting}
+            >
+              Batal
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteTransaction}
+              disabled={isDeleting || !deleteReason.trim()}
+            >
+              {isDeleting ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Menghapus...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Hapus Transaksi
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <BottomNav isAdmin={true} />
     </div>

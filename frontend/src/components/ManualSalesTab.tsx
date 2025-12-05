@@ -44,7 +44,7 @@ export function ManualSalesTab() {
   const [selectedRider, setSelectedRider] = useState<string>("");
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [paymentMethod, setPaymentMethod] = useState<"cash" | "qris">("cash");
+  const [paymentMethod, setPaymentMethod] = useState<"tunai" | "qris">("tunai");
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   
@@ -269,7 +269,7 @@ export function ManualSalesTab() {
       toast.success("Transaksi berhasil disimpan!");
       
       setCart([]);
-      setPaymentMethod("cash");
+      setPaymentMethod("tunai");
       fetchRiderStock();
       
     } catch (error: any) {
@@ -713,12 +713,12 @@ export function ManualSalesTab() {
             <CardContent className="space-y-3 sm:space-y-4">
               <div>
                 <label className="text-xs sm:text-sm font-medium mb-1.5 block">Metode Pembayaran</label>
-                <Select value={paymentMethod} onValueChange={(value: "cash" | "qris") => setPaymentMethod(value)}>
+                <Select value={paymentMethod} onValueChange={(value: "tunai" | "qris") => setPaymentMethod(value)}>
                   <SelectTrigger className="text-sm">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="cash" className="text-sm">💵 Tunai</SelectItem>
+                    <SelectItem value="tunai" className="text-sm">💵 Tunai</SelectItem>
                     <SelectItem value="qris" className="text-sm">📱 QRIS</SelectItem>
                   </SelectContent>
                 </Select>
