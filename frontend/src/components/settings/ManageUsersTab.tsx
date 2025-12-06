@@ -163,7 +163,7 @@ export function ManageUsersTab() {
       console.log("New full_name:", editUser.fullName.trim());
       
       // Update profile
-      const { data: updatedData, error: profileError } = await supabase
+      const { error: profileError } = await supabase
         .from("profiles")
         .update({
           full_name: editUser.fullName.trim(),
@@ -171,33 +171,39 @@ export function ManageUsersTab() {
           address: editUser.address.trim(),
           sales_target: editUser.salesTarget || 30,
         })
-        .eq("user_id", editingUserId)
-        .select();
+        .eq("user_id", editingUserId);
 
       if (profileError) {
         console.error("Profile update error:", profileError);
         throw profileError;
       }
 
-      console.log("Profile updated successfully:", updatedData);
+      console.log("Profile updated successfully");
 
-      // Update password if provided (using RPC function instead of admin API)
+      // Update password if provided (using RPC function)
       if (editUser.password && editUser.password.length >= 6) {
-        const { data, error: passwordError } = await supabase.rpc('update_user_password', {
+        const { error: passwordError } = await supabase.rpc('update_user_password', {
           p_user_id: editingUserId,
           p_new_password: editUser.password
         });
         
-        if (passwordError) throw passwordError;
+        if (passwordError) {
+          console.error("Password update error:", passwordError);
+          throw passwordError;
+        }
+        console.log("Password updated successfully");
       }
 
       toast.success("Data pengguna berhasil diupdate!");
+      
+      // Close dialog
       setIsEditingUser(false);
       setEditingUserId(null);
       setEditUser({ email: "", password: "", fullName: "", phone: "", address: "", salesTarget: 30 });
       
-      // Force immediate refresh
+      // Force immediate refresh - load fresh data from database
       await loadUsers();
+      
     } catch (error: any) {
       console.error("Error updating user:", error);
       toast.error(error.message || "Gagal mengupdate pengguna");
