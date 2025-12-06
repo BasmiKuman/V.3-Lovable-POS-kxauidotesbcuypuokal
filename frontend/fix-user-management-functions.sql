@@ -2,6 +2,13 @@
 -- Run this in Supabase SQL Editor
 
 -- ============================================================
+-- PART 0: Drop existing functions first
+-- ============================================================
+
+DROP FUNCTION IF EXISTS update_user_password(UUID, TEXT);
+DROP FUNCTION IF EXISTS delete_user_account(UUID);
+
+-- ============================================================
 -- PART 1: Create update_user_password function
 -- ============================================================
 
