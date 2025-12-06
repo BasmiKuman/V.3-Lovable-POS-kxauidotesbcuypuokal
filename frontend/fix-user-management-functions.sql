@@ -172,6 +172,7 @@ GRANT EXECUTE ON FUNCTION delete_user_account(UUID) TO authenticated;
 COMMENT ON FUNCTION delete_user_account IS 'Delete user account with all related data (super admin only)';
 
 -- ============================================================
+-- ============================================================
 -- VERIFICATION QUERIES
 -- ============================================================
 
@@ -183,18 +184,3 @@ SELECT
 FROM pg_proc 
 WHERE proname IN ('update_user_password', 'delete_user_account')
 ORDER BY proname;
-
--- Test syntax (won't execute, just check)
-SELECT 
-  'update_user_password' as function_name,
-  'Created' as status
-WHERE EXISTS (
-  SELECT 1 FROM pg_proc WHERE proname = 'update_user_password'
-);
-
-SELECT 
-  'delete_user_account' as function_name,
-  'Created' as status
-WHERE EXISTS (
-  SELECT 1 FROM pg_proc WHERE proname = 'delete_user_account'
-);
