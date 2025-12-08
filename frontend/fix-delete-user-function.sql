@@ -51,7 +51,7 @@ BEGIN
   
   -- 1. Delete rider_stock
   BEGIN
-    DELETE FROM rider_stock WHERE rider_id = target_user_id;
+    DELETE FROM rider_stock WHERE user_id = target_user_id;
     GET DIAGNOSTICS v_deleted_stock = ROW_COUNT;
   EXCEPTION
     WHEN undefined_table THEN
@@ -62,7 +62,7 @@ BEGIN
   BEGIN
     DELETE FROM distribution_items 
     WHERE distribution_id IN (
-      SELECT id FROM distributions WHERE rider_id = target_user_id
+      SELECT id FROM distributions WHERE user_id = target_user_id
     );
   EXCEPTION
     WHEN undefined_table THEN
@@ -71,7 +71,7 @@ BEGIN
   
   -- 3. Delete distributions
   BEGIN
-    DELETE FROM distributions WHERE rider_id = target_user_id;
+    DELETE FROM distributions WHERE user_id = target_user_id;
     GET DIAGNOSTICS v_deleted_distributions = ROW_COUNT;
   EXCEPTION
     WHEN undefined_table THEN
@@ -82,7 +82,7 @@ BEGIN
   BEGIN
     DELETE FROM return_history 
     WHERE return_id IN (
-      SELECT id FROM returns WHERE rider_id = target_user_id
+      SELECT id FROM returns WHERE user_id = target_user_id
     );
   EXCEPTION
     WHEN undefined_table THEN
@@ -91,7 +91,7 @@ BEGIN
   
   -- 5. Delete returns
   BEGIN
-    DELETE FROM returns WHERE rider_id = target_user_id;
+    DELETE FROM returns WHERE user_id = target_user_id;
     GET DIAGNOSTICS v_deleted_returns = ROW_COUNT;
   EXCEPTION
     WHEN undefined_table THEN
@@ -102,7 +102,7 @@ BEGIN
   BEGIN
     DELETE FROM transaction_items 
     WHERE transaction_id IN (
-      SELECT id FROM transactions WHERE rider_id = target_user_id
+      SELECT id FROM transactions WHERE user_id = target_user_id
     );
   EXCEPTION
     WHEN undefined_table THEN
@@ -111,7 +111,7 @@ BEGIN
   
   -- 7. Delete transactions
   BEGIN
-    DELETE FROM transactions WHERE rider_id = target_user_id;
+    DELETE FROM transactions WHERE user_id = target_user_id;
     GET DIAGNOSTICS v_deleted_transactions = ROW_COUNT;
   EXCEPTION
     WHEN undefined_table THEN
@@ -120,7 +120,7 @@ BEGIN
   
   -- 8. Delete transaction_adjustments (for rider)
   BEGIN
-    DELETE FROM transaction_adjustments WHERE rider_id = target_user_id;
+    DELETE FROM transaction_adjustments WHERE user_id = target_user_id;
   EXCEPTION
     WHEN undefined_table THEN
       NULL;
