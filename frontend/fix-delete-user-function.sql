@@ -78,12 +78,9 @@ BEGIN
       v_deleted_distributions := 0;
   END;
   
-  -- 4. Delete return_history first (foreign key to returns)
+  -- 4. Delete return_history (no foreign key, direct rider_id)
   BEGIN
-    DELETE FROM return_history 
-    WHERE return_id IN (
-      SELECT id FROM returns WHERE rider_id = target_user_id
-    );
+    DELETE FROM return_history WHERE rider_id = target_user_id;
   EXCEPTION
     WHEN undefined_table THEN
       NULL;
