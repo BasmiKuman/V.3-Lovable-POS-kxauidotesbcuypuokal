@@ -25,7 +25,7 @@ SELECT
     SUM(ti.quantity) as total_quantity
 FROM transactions t
 LEFT JOIN transaction_items ti ON t.id = ti.transaction_id
-WHERE t.user_id = (
+WHERE t.rider_id = (
     SELECT id FROM profiles 
     WHERE LOWER(full_name) LIKE '%rizki%hari%' 
     LIMIT 1
@@ -53,7 +53,7 @@ FROM transactions t
 JOIN transaction_items ti ON t.id = ti.transaction_id
 JOIN products p ON ti.product_id = p.id
 LEFT JOIN categories c ON p.category_id = c.id
-WHERE t.user_id = (
+WHERE t.rider_id = (
     SELECT id FROM profiles 
     WHERE LOWER(full_name) LIKE '%rizki%hari%' 
     LIMIT 1
@@ -74,7 +74,7 @@ SELECT
 FROM transactions t
 JOIN transaction_items ti ON t.id = ti.transaction_id
 JOIN products p ON ti.product_id = p.id
-WHERE t.user_id = (
+WHERE t.rider_id = (
     SELECT id FROM profiles 
     WHERE LOWER(full_name) LIKE '%rizki%hari%' 
     LIMIT 1
@@ -94,7 +94,7 @@ SELECT
 FROM transactions t
 JOIN transaction_items ti ON t.id = ti.transaction_id
 JOIN products p ON ti.product_id = p.id
-WHERE t.user_id = (
+WHERE t.rider_id = (
     SELECT id FROM profiles 
     WHERE LOWER(full_name) LIKE '%rizki%hari%' 
     LIMIT 1
@@ -134,7 +134,7 @@ salted_sold AS (
     FROM transactions t
     JOIN transaction_items ti ON t.id = ti.transaction_id
     JOIN products p ON ti.product_id = p.id
-    WHERE t.user_id = (SELECT id FROM rizki_user)
+    WHERE t.rider_id = (SELECT id FROM rizki_user)
     AND DATE(t.created_at) = CURRENT_DATE
     AND LOWER(p.name) LIKE '%salted%caramel%'
 ),
@@ -170,7 +170,7 @@ SELECT
     TO_CHAR(r.created_at, 'YYYY-MM-DD HH24:MI:SS') as created_at
 FROM returns r
 JOIN products p ON r.product_id = p.id
-WHERE r.user_id = (
+WHERE r.rider_id = (
     SELECT id FROM profiles 
     WHERE LOWER(full_name) LIKE '%rizki%hari%' 
     LIMIT 1
@@ -189,7 +189,7 @@ SELECT
     TO_CHAR(rj.created_at, 'YYYY-MM-DD HH24:MI:SS') as created_at
 FROM rejects rj
 JOIN products p ON rj.product_id = p.id
-WHERE rj.user_id = (
+WHERE rj.rider_id = (
     SELECT id FROM profiles 
     WHERE LOWER(full_name) LIKE '%rizki%hari%' 
     LIMIT 1
@@ -217,7 +217,7 @@ FROM transactions t
 JOIN transaction_items ti ON t.id = ti.transaction_id
 JOIN products p ON ti.product_id = p.id
 LEFT JOIN categories c ON p.category_id = c.id
-WHERE t.user_id = (
+WHERE t.rider_id = (
     SELECT id FROM profiles 
     WHERE LOWER(full_name) LIKE '%rizki%hari%' 
     LIMIT 1
