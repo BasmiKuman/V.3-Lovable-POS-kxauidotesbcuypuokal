@@ -40,11 +40,13 @@ interface RejectHistoryEntry {
 }
 
 export function RejectHistoryTab() {
-  const { data: rejectHistory = [], isLoading } = useQuery<RejectHistoryEntry[]>({
+  const { data: rejectHistory = [], isLoading, error: queryError } = useQuery<RejectHistoryEntry[]>({
     queryKey: ["reject-history"],
     queryFn: async () => {
+      console.log("🔍 Fetching reject history...");
+      
       const { data, error } = await supabase
-        .from("reject_history")
+        .from("reject_history" as any)
         .select(`
           *,
           products (
@@ -53,20 +55,43 @@ export function RejectHistoryTab() {
             categories (
               name
             )
-          ),
-          rider_profile:rider_id (
-            full_name,
-            avatar_url
-          ),
-          approver_profile:approved_by (
-            full_name
           )
         `)
         .order("approved_at", { ascending: false })
         .limit(100);
 
-      if (error) throw error;
-      return data as any;
+      if (error) {
+        console.error("❌ Error fetching reject_history:", error);
+        throw error;
+      }
+      
+      console.log("✅ Reject history fetched:", data?.length || 0, "records");
+
+      if (!data || data.length === 0) return [];
+
+      // Manually fetch profiles since foreign key relationships may not work with 'as any'
+      const riderIds = [...new Set(data.map((r: any) => r.rider_id))];
+      const approverIds = [...new Set(data.map((r: any) => r.approved_by))];
+      const allUserIds = [...new Set([...riderIds, ...approverIds])];
+
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("user_id, full_name, avatar_url")
+        .in("user_id", allUserIds);
+
+      const profileMap = new Map(profiles?.map(p => [p.user_id, p]) || []);
+
+      // Map profiles to reject history
+      return data.map((item: any) => ({
+        ...item,
+        rider_profile: {
+          full_name: profileMap.get(item.rider_id)?.full_name || "N/A",
+          avatar_url: profileMap.get(item.rider_id)?.avatar_url || null,
+        },
+        approver_profile: {
+          full_name: profileMap.get(item.approved_by)?.full_name || "N/A",
+        }
+      }));
     },
     refetchInterval: 30000, // Refresh every 30s
   });
@@ -84,6 +109,41 @@ export function RejectHistoryTab() {
         <CardHeader>
           <CardTitle>Loading...</CardTitle>
         </CardHeader>
+      </Card>
+    );
+  }
+
+  if (queryError) {
+    return (
+      <Card className="border-red-200">
+        <CardHeader>
+          <CardTitle className="text-red-600">Error</CardTitle>
+          <CardDescription className="text-red-500">
+            {queryError instanceof Error ? queryError.message : "Gagal memuat reject history"}
+          </CardDescription>
+        </CardHeader>
+      </Card>
+    );
+  }
+
+  if (rejectHistory.length === 0) {
+    return (
+      <Card className="border-red-200">
+        <CardHeader className="bg-red-50">
+          <CardTitle className="flex items-center gap-2 text-red-600">
+            <PackageX className="w-5 h-5" />
+            Riwayat Reject Produk Rusak
+          </CardTitle>
+          <CardDescription>
+            Belum ada reject history
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="pt-6">
+          <div className="text-center py-8 text-muted-foreground">
+            <PackageX className="w-16 h-16 mx-auto mb-4 opacity-20" />
+            <p className="text-sm">Belum ada produk yang direject</p>
+          </div>
+        </CardContent>
       </Card>
     );
   }

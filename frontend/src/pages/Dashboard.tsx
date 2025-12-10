@@ -616,7 +616,17 @@ export default function Dashboard() {
       }
 
       // 2. Save to reject_history (NOT warehouse stock)
-      const { error: historyError } = await supabase
+      console.log("💾 Saving to reject_history:", {
+        product_id: rejectItem.product_id,
+        rider_id: rejectItem.rider_id,
+        quantity: rejectItem.quantity,
+        notes: rejectItem.notes,
+        returned_at: rejectItem.returned_at,
+        approved_by: user.id,
+        status: "approved"
+      });
+
+      const { data: historyData, error: historyError } = await supabase
         .from("reject_history" as any)
         .insert({
           product_id: rejectItem.product_id,
@@ -626,9 +636,15 @@ export default function Dashboard() {
           returned_at: rejectItem.returned_at,
           approved_by: user.id,
           status: "approved"
-        });
+        })
+        .select();
 
-      if (historyError) throw historyError;
+      if (historyError) {
+        console.error("❌ Error saving to reject_history:", historyError);
+        throw historyError;
+      }
+      
+      console.log("✅ Reject history saved:", historyData);
 
       // 3. Delete from rejects table
       const { error: deleteRejectError } = await supabase
