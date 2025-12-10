@@ -4,6 +4,8 @@ import { BottomNav } from "@/components/BottomNav";
 import { LowStockAlert } from "@/components/LowStockAlert";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { BulkReturnTab } from "@/components/BulkReturnTab";
+import { RejectTab } from "@/components/RejectTab";
+import { RejectHistoryTab } from "@/components/RejectHistoryTab";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -84,6 +86,7 @@ export default function Products() {
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [pendingReturns, setPendingReturns] = useState<Set<string>>(new Set()); // Track products with pending returns
+  const [pendingRejects, setPendingRejects] = useState<Set<string>>(new Set()); // Track products with pending rejects
   const [productionDialogOpen, setProductionDialogOpen] = useState(false);
   const [selectedProductForProduction, setSelectedProductForProduction] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("products");
@@ -319,6 +322,18 @@ export default function Products() {
       if (!returnsError && pendingReturnsData) {
         const pendingProductIds = new Set(pendingReturnsData.map(r => r.product_id));
         setPendingReturns(pendingProductIds);
+      }
+
+      // Fetch pending rejects for this rider
+      const { data: pendingRejectsData, error: rejectsError } = await supabase
+        .from("rejects")
+        .select("product_id")
+        .eq("rider_id", user.id)
+        .eq("status", "pending");
+
+      if (!rejectsError && pendingRejectsData) {
+        const pendingRejectIds = new Set(pendingRejectsData.map(r => r.product_id));
+        setPendingRejects(pendingRejectIds);
       }
     } catch (error: any) {
       console.error("Gagal memuat stok rider:", error);
@@ -941,14 +956,15 @@ export default function Products() {
         {/* Rider View with Tabs */}
         {!isAdmin && (
           <Tabs value={riderActiveTab} onValueChange={setRiderActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="stock" className="text-xs sm:text-sm">
-                <Package className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                 Stok Saya
               </TabsTrigger>
               <TabsTrigger value="return" className="text-xs sm:text-sm">
-                <Undo2 className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                 Return
+              </TabsTrigger>
+              <TabsTrigger value="reject" className="text-xs sm:text-sm text-red-600">
+                Reject
               </TabsTrigger>
             </TabsList>
 
@@ -1003,6 +1019,14 @@ export default function Products() {
                 onReturnSuccess={refreshRiderStock}
               />
             </TabsContent>
+
+            <TabsContent value="reject" className="mt-4">
+              <RejectTab
+                riderStock={riderStock}
+                pendingRejects={pendingRejects}
+                onRejectSuccess={refreshRiderStock}
+              />
+            </TabsContent>
           </Tabs>
         )}
 
@@ -1016,18 +1040,18 @@ export default function Products() {
             />
 
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
+              <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="products" className="text-xs sm:text-sm">
-                  <Package className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                  Produk
+                  Gudang
                 </TabsTrigger>
                 <TabsTrigger value="production" className="text-xs sm:text-sm">
-                  <Factory className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                   Produksi
                 </TabsTrigger>
                 <TabsTrigger value="history" className="text-xs sm:text-sm">
-                  <Tag className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                   Riwayat
+                </TabsTrigger>
+                <TabsTrigger value="reject-history" className="text-xs sm:text-sm text-red-600">
+                  Reject
                 </TabsTrigger>
               </TabsList>
 
@@ -1142,6 +1166,10 @@ export default function Products() {
 
             <TabsContent value="history" className="mt-4">
               <ProductChangesHistory />
+            </TabsContent>
+
+            <TabsContent value="reject-history" className="mt-4">
+              <RejectHistoryTab />
             </TabsContent>
           </Tabs>
           </>
