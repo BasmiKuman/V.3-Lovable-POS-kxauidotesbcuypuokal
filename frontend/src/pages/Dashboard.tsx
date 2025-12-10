@@ -6,12 +6,13 @@ import { StatsCard } from "@/components/StatsCard";
 import { WeatherWidget } from "@/components/WeatherWidget";
 import RiderTrackingMap from "@/components/RiderTrackingMap";
 import { ReturnsAccordion } from "@/components/ReturnsAccordion";
+import { RejectsAccordion } from "@/components/RejectsAccordion";
 import { LeaderboardCard } from "@/components/LeaderboardCard";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { EnhancedCard } from "@/components/EnhancedCard";
 import { NotificationBadge } from "@/components/NotificationBadge";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { Package, TrendingUp, Users, ShoppingCart, Undo2, RefreshCw, Sparkles, Clock, AlertTriangle, Box } from "lucide-react";
+import { Package, TrendingUp, Users, ShoppingCart, Undo2, RefreshCw, Sparkles, Clock, AlertTriangle, Box, PackageX } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -37,12 +38,32 @@ interface ReturnRequest {
   };
 }
 
+interface RejectRequest {
+  id: string;
+  quantity: number;
+  notes: string | null;
+  returned_at: string;
+  product_id: string;
+  rider_id: string;
+  status?: "pending" | "approved" | "rejected";
+  products: {
+    name: string;
+    price: number;
+  };
+  profiles: {
+    full_name: string;
+  };
+}
+
 export default function Dashboard() {
   const navigate = useNavigate();
   const [isAdmin, setIsAdmin] = useState(false);
   const [returns, setReturns] = useState<ReturnRequest[]>([]);
+  const [rejects, setRejects] = useState<RejectRequest[]>([]);
   const [processingReturnId, setProcessingReturnId] = useState<string | null>(null);
+  const [processingRejectId, setProcessingRejectId] = useState<string | null>(null);
   const [removingReturnIds, setRemovingReturnIds] = useState<Set<string>>(new Set());
+  const [removingRejectIds, setRemovingRejectIds] = useState<Set<string>>(new Set());
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const isMobile = useIsMobile();
@@ -165,6 +186,57 @@ export default function Dashboard() {
         setReturns(returnsWithProfiles);
       } catch (error) {
         console.error("Error fetching returns:", error);
+      }
+    };
+
+    const fetchRejects = async () => {
+      try {
+        // First get rejects with pending status only
+        const { data: rejectsData, error: rejectsError } = await supabase
+          .from("rejects" as any)
+          .select(`
+            id,
+            quantity,
+            notes,
+            returned_at,
+            product_id,
+            rider_id,
+            status,
+            products (name, price)
+          `)
+          .eq("status", "pending")
+          .order("returned_at", { ascending: false });
+
+        if (rejectsError) throw rejectsError;
+
+        if (!rejectsData || rejectsData.length === 0) {
+          setRejects([]);
+          return;
+        }
+
+        // Get rider profiles
+        const riderIds = rejectsData.map(r => r.rider_id);
+        const { data: profilesData, error: profilesError } = await supabase
+          .from("profiles")
+          .select("user_id, full_name")
+          .in("user_id", riderIds);
+
+        if (profilesError) throw profilesError;
+
+        // Map profiles to rejects
+        const rejectsWithProfiles = rejectsData.map(rejectItem => {
+          const profile = profilesData?.find(p => p.user_id === rejectItem.rider_id);
+          return {
+            ...rejectItem,
+            profiles: {
+              full_name: profile?.full_name || "N/A"
+            }
+          };
+        });
+
+        setRejects(rejectsWithProfiles);
+      } catch (error) {
+        console.error("Error fetching rejects:", error);
       }
     };
 
@@ -320,6 +392,7 @@ export default function Dashboard() {
     checkRole();
     fetchStats();
     fetchReturns();
+    fetchRejects();
     fetchRecentActivities();
   }, []);
 
@@ -494,6 +567,140 @@ export default function Dashboard() {
     }
   };
 
+  const handleApproveReject = async (rejectItem: RejectRequest) => {
+    setProcessingRejectId(rejectItem.id);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      // IMPORTANT: For REJECT, we do NOT add back to warehouse stock
+      // Only reduce from rider stock
+
+      // 1. Get current rider stock
+      const { data: currentStock, error: fetchError } = await supabase
+        .from("rider_stock")
+        .select("quantity")
+        .eq("rider_id", rejectItem.rider_id)
+        .eq("product_id", rejectItem.product_id)
+        .maybeSingle();
+
+      if (fetchError) throw fetchError;
+
+      if (currentStock && currentStock.quantity >= rejectItem.quantity) {
+        // Reduce from rider_stock
+        const newQuantity = currentStock.quantity - rejectItem.quantity;
+        
+        if (newQuantity > 0) {
+          const { error: updateError } = await supabase
+            .from("rider_stock")
+            .update({ quantity: newQuantity })
+            .eq("rider_id", rejectItem.rider_id)
+            .eq("product_id", rejectItem.product_id);
+
+          if (updateError) throw updateError;
+        } else {
+          // Delete rider_stock row if quantity becomes 0
+          const { error: deleteError } = await supabase
+            .from("rider_stock")
+            .delete()
+            .eq("rider_id", rejectItem.rider_id)
+            .eq("product_id", rejectItem.product_id);
+
+          if (deleteError) throw deleteError;
+        }
+      } else {
+        console.log(
+          `ℹ️ Rider stock not found or insufficient for product ${rejectItem.product_id}. ` +
+          `This is normal if stock was already sold. Continuing with reject approval.`
+        );
+      }
+
+      // 2. Save to reject_history (NOT warehouse stock)
+      const { error: historyError } = await supabase
+        .from("reject_history" as any)
+        .insert({
+          product_id: rejectItem.product_id,
+          rider_id: rejectItem.rider_id,
+          quantity: rejectItem.quantity,
+          notes: rejectItem.notes,
+          returned_at: rejectItem.returned_at,
+          approved_by: user.id,
+          status: "approved"
+        });
+
+      if (historyError) throw historyError;
+
+      // 3. Delete from rejects table
+      const { error: deleteRejectError } = await supabase
+        .from("rejects" as any)
+        .delete()
+        .eq("id", rejectItem.id);
+
+      if (deleteRejectError) throw deleteRejectError;
+
+      toast.success("Reject berhasil dikonfirmasi (produk rusak tidak masuk gudang)");
+
+      // Add smooth removal animation
+      setRemovingRejectIds(prev => new Set(prev).add(rejectItem.id));
+      
+      // Wait for fade-out animation before removing from list
+      setTimeout(() => {
+        setRejects(prev => prev.filter(r => r.id !== rejectItem.id));
+        setRemovingRejectIds(prev => {
+          const next = new Set(prev);
+          next.delete(rejectItem.id);
+          return next;
+        });
+      }, 300); // Match CSS transition duration
+    } catch (error: any) {
+      toast.error("Gagal menyetujui reject: " + error.message);
+      console.error(error);
+    } finally {
+      setProcessingRejectId(null);
+    }
+  };
+
+  const handleRejectReject = async (rejectItem: RejectRequest) => {
+    setProcessingRejectId(rejectItem.id);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      // Save to reject history with rejected status
+      const { error: historyError } = await supabase
+        .from("reject_history" as any)
+        .insert({
+          product_id: rejectItem.product_id,
+          rider_id: rejectItem.rider_id,
+          quantity: rejectItem.quantity,
+          notes: rejectItem.notes,
+          returned_at: rejectItem.returned_at,
+          approved_by: user.id,
+          status: "rejected"
+        });
+
+      if (historyError) throw historyError;
+
+      // Delete from rejects table (rejected by admin)
+      const { error: deleteRejectError } = await supabase
+        .from("rejects" as any)
+        .delete()
+        .eq("id", rejectItem.id);
+
+      if (deleteRejectError) throw deleteRejectError;
+
+      toast.success("Reject ditolak");
+
+      // Refresh rejects list
+      setRejects(prev => prev.filter(r => r.id !== rejectItem.id));
+    } catch (error: any) {
+      toast.error("Gagal menolak reject: " + error.message);
+      console.error(error);
+    } finally {
+      setProcessingRejectId(null);
+    }
+  };
+
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
@@ -579,6 +786,47 @@ export default function Dashboard() {
           }));
 
           setReturns(enrichedReturns);
+        }
+
+        // Fetch rejects if admin
+        const { data: rejectsData, error: rejectsError } = await supabase
+          .from("rejects" as any)
+          .select(`
+            id,
+            quantity,
+            notes,
+            returned_at,
+            product_id,
+            rider_id,
+            status,
+            products (name, price)
+          `)
+          .eq("status", "pending")
+          .order("returned_at", { ascending: false });
+
+        if (rejectsError) throw rejectsError;
+
+        if (!rejectsData || rejectsData.length === 0) {
+          setRejects([]);
+        } else {
+          const rejectRiderIds = (rejectsData as any[]).map((r: any) => r.rider_id);
+          const { data: rejectProfilesData, error: rejectProfilesError } = await supabase
+            .from("profiles")
+            .select("user_id, full_name")
+            .in("user_id", rejectRiderIds);
+
+          if (rejectProfilesError) throw rejectProfilesError;
+
+          const rejectProfilesMap = new Map(rejectProfilesData?.map(p => [p.user_id, p.full_name]) || []);
+
+          const enrichedRejects = (rejectsData as any[]).map((rejectItem: any) => ({
+            ...rejectItem,
+            profiles: {
+              full_name: rejectProfilesMap.get(rejectItem.rider_id) || "Unknown",
+            },
+          }));
+
+          setRejects(enrichedRejects);
         }
       }
 
@@ -715,6 +963,32 @@ export default function Dashboard() {
               removingReturnIds={removingReturnIds}
               onApprove={handleApproveReturn}
               onReject={handleRejectReturn}
+            />
+          </EnhancedCard>
+        )}
+
+        {/* Reject Requests for Admin - Enhanced */}
+        {isAdmin && rejects.length > 0 && (
+          <EnhancedCard
+            title="Permintaan Reject"
+            description="Produk rusak/kadaluarsa dari rider"
+            icon={PackageX}
+            iconColor="destructive"
+            variant="glass"
+            className="animate-fade-in-up border-red-200 dark:border-red-900"
+            style={{ animationDelay: "550ms" } as any}
+            headerAction={
+              <NotificationBadge count={rejects.length} variant="destructive" pulse>
+                <div className="w-8 h-8" />
+              </NotificationBadge>
+            }
+          >
+            <RejectsAccordion
+              rejects={rejects}
+              processingRejectId={processingRejectId}
+              removingRejectIds={removingRejectIds}
+              onApprove={handleApproveReject}
+              onReject={handleRejectReject}
             />
           </EnhancedCard>
         )}

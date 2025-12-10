@@ -1,6 +1,6 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
-// Version: 1.1.13
+// Version: 1.1.14
 const config: CapacitorConfig = {
   appId: 'com.basmikuman.pos',
   appName: 'BK POS System',
