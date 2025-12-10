@@ -112,7 +112,7 @@ SELECT
     TO_CHAR(rs.updated_at, 'YYYY-MM-DD HH24:MI:SS') as terakhir_update
 FROM rider_stock rs
 JOIN products p ON rs.product_id = p.id
-WHERE rs.user_id = (
+WHERE rs.rider_id = (
     SELECT id FROM profiles 
     WHERE LOWER(full_name) LIKE '%rizki%hari%' 
     LIMIT 1
@@ -143,7 +143,7 @@ salted_stock AS (
         COALESCE(rs.quantity, 0) as sisa_stok
     FROM rider_stock rs
     JOIN products p ON rs.product_id = p.id
-    WHERE rs.user_id = (SELECT id FROM rizki_user)
+    WHERE rs.rider_id = (SELECT id FROM rizki_user)
     AND LOWER(p.name) LIKE '%salted%caramel%'
 )
 SELECT 
