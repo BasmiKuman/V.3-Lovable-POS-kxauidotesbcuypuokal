@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { MapPin, Shield, Eye, Clock, Settings2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface TermsAndConditionsProps {
   open: boolean;
@@ -42,19 +43,31 @@ export default function TermsAndConditions({
     }
   };
 
+  const toggleTerms = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setAgreeToTerms(!agreeToTerms);
+  };
+
+  const toggleGPS = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setAgreeToGPS(!agreeToGPS);
+  };
+
   return (
     <Dialog open={open} onOpenChange={(open) => !open && onDecline()}>
-      <DialogContent className="max-w-2xl max-h-[90vh]">
+      <DialogContent className="max-w-2xl max-h-[90vh] sm:max-h-[85vh]">
         <DialogHeader>
-          <DialogTitle className="text-2xl font-bold">
+          <DialogTitle className="text-xl sm:text-2xl font-bold">
             Syarat & Ketentuan Penggunaan
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-sm">
             Silakan baca dan setujui syarat & ketentuan berikut sebelum melanjutkan
           </DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="h-[400px] pr-4">
+        <ScrollArea className="h-[50vh] sm:h-[400px] pr-4">
           <div className="space-y-6">
             {/* General Terms */}
             <section>
@@ -187,35 +200,69 @@ export default function TermsAndConditions({
           </div>
         </ScrollArea>
 
-        <DialogFooter className="flex-col gap-4 sm:flex-col">
-          {/* Checkboxes */}
-          <div className="space-y-3 w-full">
-            <div className="flex items-start space-x-3">
+        <DialogFooter className="flex-col gap-4 sm:flex-col pt-2">
+          {/* Checkboxes with larger touch targets for mobile */}
+          <div className="space-y-4 w-full">
+            {/* Terms Checkbox */}
+            <div 
+              className={cn(
+                "flex items-start space-x-3 p-4 rounded-lg border-2 transition-all cursor-pointer",
+                "active:scale-[0.98] touch-manipulation",
+                agreeToTerms 
+                  ? "border-blue-500 bg-blue-50" 
+                  : "border-gray-300 bg-white hover:border-blue-400"
+              )}
+              onClick={toggleTerms}
+              role="checkbox"
+              aria-checked={agreeToTerms}
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setAgreeToTerms(!agreeToTerms);
+                }
+              }}
+            >
               <Checkbox
                 id="terms"
                 checked={agreeToTerms}
-                onCheckedChange={(checked) => setAgreeToTerms(checked as boolean)}
-                className="rounded-full mt-0.5 !h-4 !w-4 flex-shrink-0"
+                className="rounded mt-0.5 h-5 w-5 flex-shrink-0 pointer-events-none"
               />
               <label
-                htmlFor="terms"
-                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                className="text-sm font-medium leading-tight cursor-pointer select-none pointer-events-none flex-1"
               >
                 Saya telah membaca dan menyetujui{" "}
-                <span className="text-blue-600">Syarat & Ketentuan Umum</span>
+                <span className="text-blue-600 font-semibold">Syarat & Ketentuan Umum</span>
               </label>
             </div>
 
-            <div className="flex items-start space-x-3">
+            {/* GPS Checkbox */}
+            <div 
+              className={cn(
+                "flex items-start space-x-3 p-4 rounded-lg border-2 transition-all cursor-pointer",
+                "active:scale-[0.98] touch-manipulation",
+                agreeToGPS 
+                  ? "border-red-500 bg-red-50" 
+                  : "border-gray-300 bg-white hover:border-red-400"
+              )}
+              onClick={toggleGPS}
+              role="checkbox"
+              aria-checked={agreeToGPS}
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setAgreeToGPS(!agreeToGPS);
+                }
+              }}
+            >
               <Checkbox
                 id="gps"
                 checked={agreeToGPS}
-                onCheckedChange={(checked) => setAgreeToGPS(checked as boolean)}
-                className="rounded-full mt-0.5 !h-4 !w-4 flex-shrink-0"
+                className="rounded mt-0.5 h-5 w-5 flex-shrink-0 pointer-events-none"
               />
               <label
-                htmlFor="gps"
-                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                className="text-sm font-medium leading-tight cursor-pointer select-none pointer-events-none flex-1"
               >
                 Saya menyetujui{" "}
                 <span className="text-red-600 font-semibold">
@@ -228,18 +275,20 @@ export default function TermsAndConditions({
           </div>
 
           {/* Buttons */}
-          <div className="flex gap-2 w-full">
+          <div className="flex gap-3 w-full pt-2">
             <Button
               variant="outline"
               onClick={onDecline}
-              className="flex-1"
+              className="flex-1 h-12 text-base touch-manipulation active:scale-95 transition-transform"
+              type="button"
             >
               Tolak
             </Button>
             <Button
               onClick={handleAccept}
               disabled={!canAccept}
-              className="flex-1"
+              className="flex-1 h-12 text-base touch-manipulation active:scale-95 transition-transform disabled:opacity-50"
+              type="button"
             >
               Setuju & Lanjutkan
             </Button>
