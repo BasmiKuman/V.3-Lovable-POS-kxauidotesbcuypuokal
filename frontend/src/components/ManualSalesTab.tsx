@@ -423,6 +423,37 @@ export function ManualSalesTab() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
+      // PENTING: Auto-cancel pending returns dari rider untuk produk yang sama
+      // Karena admin sudah return manual, pending return rider harus dihapus
+      // untuk menghindari double pengurangan stock
+      const productIds = returnCart.map(item => item.product_id);
+      
+      const { data: pendingReturns, error: pendingError } = await supabase
+        .from("returns")
+        .select("id, product_id, quantity")
+        .eq("rider_id", returnRider)
+        .eq("status", "pending")
+        .in("product_id", productIds);
+
+      if (pendingError) {
+        console.error("Error checking pending returns:", pendingError);
+      } else if (pendingReturns && pendingReturns.length > 0) {
+        // Delete pending returns untuk produk yang sama
+        const { error: deletePendingError } = await supabase
+          .from("returns")
+          .delete()
+          .eq("rider_id", returnRider)
+          .eq("status", "pending")
+          .in("product_id", productIds);
+
+        if (deletePendingError) {
+          console.error("Error deleting pending returns:", deletePendingError);
+        } else {
+          console.log(`✅ Auto-deleted ${pendingReturns.length} pending returns (manual return by admin)`);
+          toast.info(`${pendingReturns.length} pending return dibatalkan otomatis`, { duration: 3000 });
+        }
+      }
+
       // Insert return products with auto-approve (since admin doing manual return)
       for (const item of returnCart) {
         const { error: returnError } = await supabase
