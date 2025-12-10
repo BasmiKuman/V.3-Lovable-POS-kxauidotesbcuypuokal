@@ -166,8 +166,8 @@ SELECT
     r.id,
     p.name as product_name,
     r.quantity,
-    r.status,
-    TO_CHAR(r.created_at, 'YYYY-MM-DD HH24:MI:SS') as created_at
+    'returned' as status,
+    TO_CHAR(r.returned_at, 'YYYY-MM-DD HH24:MI:SS') as timestamp
 FROM returns r
 JOIN products p ON r.product_id = p.id
 WHERE r.rider_id = (
@@ -175,7 +175,7 @@ WHERE r.rider_id = (
     WHERE LOWER(full_name) LIKE '%rizki%hari%' 
     LIMIT 1
 )
-AND DATE(r.created_at) = CURRENT_DATE
+AND DATE(r.returned_at) = CURRENT_DATE
 AND LOWER(p.name) LIKE '%salted%caramel%'
 
 UNION ALL
@@ -185,8 +185,8 @@ SELECT
     rj.id,
     p.name as product_name,
     rj.quantity,
-    'pending' as status,
-    TO_CHAR(rj.created_at, 'YYYY-MM-DD HH24:MI:SS') as created_at
+    rj.status,
+    TO_CHAR(rj.created_at, 'YYYY-MM-DD HH24:MI:SS') as timestamp
 FROM rejects rj
 JOIN products p ON rj.product_id = p.id
 WHERE rj.rider_id = (
