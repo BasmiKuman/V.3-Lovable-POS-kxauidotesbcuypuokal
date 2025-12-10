@@ -159,7 +159,11 @@ export default function RiderDashboard() {
         .select("user_id")
         .eq("role", "rider");
 
-      if (ridersError) console.error("Error fetching user_roles:", ridersError);
+      if (ridersError) {
+        console.error("❌ [RiderDashboard] Error fetching user_roles:", ridersError);
+      } else {
+        console.log("✅ [RiderDashboard] Found riders in user_roles:", allRiders?.length || 0);
+      }
       const riderRoleIds = (allRiders || []).map((r: any) => r.user_id);
 
       // STEP 2: Get ALL transactions for this month with items
@@ -170,9 +174,10 @@ export default function RiderDashboard() {
         .lte("created_at", monthEnd.toISOString());
 
       if (transError) {
-        console.error("Error fetching transactions:", transError);
+        console.error("❌ [RiderDashboard] Error fetching transactions:", transError);
         return [];
       }
+      console.log("✅ [RiderDashboard] Found transactions this month:", transactions?.length || 0);
 
       // Get transaction IDs
       const transactionIds = (transactions || []).map((t: any) => t.id).filter(Boolean);
@@ -242,7 +247,11 @@ export default function RiderDashboard() {
         .select("user_id, full_name, avatar_url")
         .in("user_id", unionIds.length > 0 ? unionIds : [""]);
 
-      if (profilesError) console.error("Error fetching profiles:", profilesError);
+      if (profilesError) {
+        console.error("❌ [RiderDashboard] Error fetching profiles:", profilesError);
+      } else {
+        console.log("✅ [RiderDashboard] Found profiles:", profiles?.length || 0);
+      }
       const profilesList = profiles || [];
 
       // STEP 8: Build leaderboard
@@ -253,6 +262,12 @@ export default function RiderDashboard() {
         total_cups: riderCups.get(profile.user_id) || 0,
         rank: 0,
       }));
+
+      console.log("✅ [RiderDashboard] Leaderboard entries built:", entries.length);
+      console.log("📊 [RiderDashboard] Leaderboard data:", entries.map(e => ({
+        name: e.rider_name,
+        cups: e.total_cups
+      })));
 
       // Sort by total cups descending
       entries.sort((a, b) => b.total_cups - a.total_cups);
