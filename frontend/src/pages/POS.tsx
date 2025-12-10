@@ -129,6 +129,7 @@ export default function POS() {
     const existingItem = cart.find((item) => item.product_id === product.product_id);
     
     if (existingItem) {
+      // Check if incrementing would exceed available stock
       if (existingItem.quantity >= product.quantity) {
         toast.error("Stok tidak mencukupi");
         return;
@@ -139,6 +140,11 @@ export default function POS() {
           : item
       ));
     } else {
+      // Check if product has stock before adding first time
+      if (product.quantity < 1) {
+        toast.error("Stok tidak mencukupi");
+        return;
+      }
       setCart([...cart, {
         product_id: product.product_id,
         name: product.products.name,
@@ -150,6 +156,19 @@ export default function POS() {
   };
 
   const updateCartQuantity = (productId: string, change: number) => {
+    // If incrementing, check stock availability
+    if (change > 0) {
+      const cartItem = cart.find(item => item.product_id === productId);
+      const riderProduct = riderStock.find(p => p.product_id === productId);
+      
+      if (cartItem && riderProduct) {
+        if (cartItem.quantity >= riderProduct.quantity) {
+          toast.error("Stok tidak mencukupi");
+          return;
+        }
+      }
+    }
+    
     setCart(cart.map((item) => {
       if (item.product_id === productId) {
         const newQuantity = item.quantity + change;
