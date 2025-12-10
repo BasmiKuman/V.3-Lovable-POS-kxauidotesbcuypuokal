@@ -62,8 +62,8 @@ SELECT
   p.name as product_name,
   c.name as category_name,
   ti.quantity,
-  ti.unit_price,
-  ti.subtotal,
+  p.price as product_price,
+  (ti.quantity * p.price) as calculated_subtotal,
   CASE 
     WHEN LOWER(c.name) IN ('add on', 'addon', 'add-on') THEN '❌ EXCLUDED (Add-On)'
     ELSE '✅ COUNTED as Cup'
