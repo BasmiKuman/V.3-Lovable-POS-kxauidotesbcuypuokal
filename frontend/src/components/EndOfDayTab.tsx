@@ -22,9 +22,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Save, Send, RotateCcw, AlertTriangle, CheckCircle, Loader2, FileText } from "lucide-react";
+import { Calendar, Save, Send, RotateCcw, AlertTriangle, CheckCircle, Loader2, FileText, Download } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import * as XLSX from "xlsx";
 
 type Rider = {
   id: string;
@@ -61,6 +62,7 @@ export default function EndOfDayTab() {
   const [status, setStatus] = useState<"draft" | "submitted">("draft");
   const [loading, setLoading] = useState(false);
   const [loadingData, setLoadingData] = useState(false);
+  const [reportDate, setReportDate] = useState(new Date().toISOString().split('T')[0]);
 
   useEffect(() => {
     loadRiders();
@@ -507,6 +509,184 @@ export default function EndOfDayTab() {
     toast.info("Form direset");
   };
 
+  const downloadExcelReport = async () => {
+    try {
+      setLoading(true);
+      toast.info("Generating Excel report...");
+
+      // Fetch all reports for selected date
+      const { data: reports, error: reportsError } = await supabase
+        .from("end_of_day_reports")
+        .select(`
+          id,
+          report_date,
+          status,
+          rider_id,
+          notes,
+          submitted_at,
+          end_of_day_items(
+            product_id,
+            distributed_quantity,
+            sold_quantity,
+            pos_quantity,
+            remaining_quantity,
+            adjustment_quantity,
+            products(name)
+          )
+        `)
+        .eq("report_date", reportDate)
+        .order("submitted_at", { ascending: false });
+
+      if (reportsError) throw reportsError;
+
+      if (!reports || reports.length === 0) {
+        toast.error(`Tidak ada laporan SO untuk tanggal ${format(new Date(reportDate), 'dd MMM yyyy')}`);
+        return;
+      }
+
+      // Get rider names
+      const riderIds = [...new Set(reports.map((r: any) => r.rider_id))];
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("user_id, full_name")
+        .in("user_id", riderIds);
+
+      const profileMap = new Map(profiles?.map(p => [p.user_id, p.full_name]) || []);
+
+      // Prepare Excel data
+      const excelData: any[] = [];
+
+      // Header row
+      excelData.push([
+        "LAPORAN STOCK OPNAME RIDER",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ]);
+      excelData.push([
+        `Tanggal: ${format(new Date(reportDate), 'dd MMMM yyyy')}`,
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ]);
+      excelData.push([]); // Empty row
+
+      // Process each rider
+      for (const report of reports) {
+        const riderName = profileMap.get(report.rider_id) || "Unknown";
+        const isApproved = report.status === "submitted";
+
+        // Rider header
+        excelData.push([`Rider: ${riderName}`, "", "", "", "", "", "", `Status: ${isApproved ? 'APPROVED' : 'BELUM APPROVED'}`]);
+        excelData.push([]); // Empty row
+
+        if (!isApproved) {
+          // If not approved, show message
+          excelData.push(["Status", "Belum ter Approved", "", "", "", "", "", ""]);
+          excelData.push([]); // Empty row
+          continue;
+        }
+
+        // Column headers
+        excelData.push([
+          "Produk",
+          "Stok Rider",
+          "POS Hari Ini",
+          "Sisa Stok",
+          "Terjual",
+          "Selisih",
+          "Catatan",
+          ""
+        ]);
+
+        // Product rows
+        let totalDistributed = 0;
+        let totalPOS = 0;
+        let totalSold = 0;
+        let totalAdjustment = 0;
+
+        for (const item of report.end_of_day_items) {
+          totalDistributed += item.distributed_quantity;
+          totalPOS += item.pos_quantity;
+          totalSold += item.sold_quantity;
+          totalAdjustment += item.adjustment_quantity;
+
+          excelData.push([
+            item.products.name,
+            item.distributed_quantity,
+            item.pos_quantity,
+            item.remaining_quantity,
+            item.sold_quantity,
+            item.adjustment_quantity > 0 ? `+${item.adjustment_quantity}` : item.adjustment_quantity,
+            "",
+            ""
+          ]);
+        }
+
+        // Totals
+        excelData.push([
+          "TOTAL",
+          totalDistributed,
+          totalPOS,
+          "",
+          totalSold,
+          totalAdjustment > 0 ? `+${totalAdjustment}` : totalAdjustment,
+          "",
+          ""
+        ]);
+
+        // Notes
+        if (report.notes) {
+          excelData.push([]);
+          excelData.push(["Catatan Rider:", report.notes, "", "", "", "", "", ""]);
+        }
+
+        excelData.push([]); // Empty row between riders
+        excelData.push([]); // Extra spacing
+      }
+
+      // Create workbook
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.aoa_to_sheet(excelData);
+
+      // Set column widths
+      ws['!cols'] = [
+        { wch: 25 }, // Produk
+        { wch: 12 }, // Stok Rider
+        { wch: 15 }, // POS Hari Ini
+        { wch: 12 }, // Sisa Stok
+        { wch: 10 }, // Terjual
+        { wch: 10 }, // Selisih
+        { wch: 30 }, // Catatan
+        { wch: 20 }  // Status
+      ];
+
+      // Add worksheet to workbook
+      XLSX.utils.book_append_sheet(wb, ws, "Stock Opname");
+
+      // Generate filename
+      const filename = `Stock-Opname-${format(new Date(reportDate), 'yyyy-MM-dd')}.xlsx`;
+
+      // Download
+      XLSX.writeFile(wb, filename);
+
+      toast.success(`Excel report berhasil didownload: ${filename}`);
+    } catch (error: any) {
+      console.error("Error downloading Excel:", error);
+      toast.error("Gagal generate Excel report: " + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const totalDistributed = products.reduce((sum, p) => sum + p.distributed, 0);
   const totalPOS = products.reduce((sum, p) => sum + p.pos, 0);
   const totalSold = products.reduce((sum, p) => sum + calculateSold(p.distributed, p.remaining), 0);
@@ -728,13 +908,40 @@ export default function EndOfDayTab() {
       {/* History Table */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="w-5 h-5" />
-            Riwayat Stock Opname
-          </CardTitle>
-          <p className="text-sm text-gray-500 mt-1">
-            Menampilkan 10 stock opname terakhir (Draft & Validated). Draft bisa dilanjutkan dengan memilih rider dan tanggal yang sama.
-          </p>
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="w-5 h-5" />
+                Riwayat Stock Opname
+              </CardTitle>
+              <p className="text-sm text-gray-500 mt-1">
+                Menampilkan 10 stock opname terakhir (Draft & Validated). Draft bisa dilanjutkan dengan memilih rider dan tanggal yang sama.
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+              <div className="flex items-center gap-2">
+                <Label className="text-sm whitespace-nowrap">Filter Tanggal:</Label>
+                <Input 
+                  type="date" 
+                  value={reportDate}
+                  onChange={(e) => setReportDate(e.target.value)}
+                  className="w-auto"
+                />
+              </div>
+              <Button 
+                onClick={downloadExcelReport}
+                disabled={loading}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                {loading ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Download className="w-4 h-4 mr-2" />
+                )}
+                Download Excel
+              </Button>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="rounded-md border overflow-x-auto">
