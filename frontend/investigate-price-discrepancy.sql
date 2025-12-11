@@ -20,7 +20,7 @@ ORDER BY full_name;
 -- ============================================
 SELECT 
     t.id as transaction_id,
-    TO_CHAR(t.created_at, 'HH24:MI:SS') as waktu,
+    t.created_at::time as waktu,
     t.subtotal,
     t.tax_amount,
     t.total_amount,
@@ -38,15 +38,15 @@ ORDER BY t.created_at ASC;
 -- ============================================
 SELECT 
     t.id as transaction_id,
-    TO_CHAR(t.created_at, 'HH24:MI:SS') as waktu,
+    t.created_at::time as waktu,
     p.name as product_name,
     ti.quantity,
     ti.price as harga_saat_transaksi,
     p.price as harga_produk_sekarang,
     (ti.quantity * ti.price) as subtotal_item,
     CASE 
-        WHEN ti.price != p.price THEN '⚠️ HARGA BEDA!'
-        ELSE '✓ OK'
+        WHEN ti.price != p.price THEN 'HARGA BEDA'
+        ELSE 'OK'
     END as status_harga
 FROM transactions t
 JOIN transaction_items ti ON t.id = ti.transaction_id
@@ -96,7 +96,7 @@ AND DATE(t.created_at) = CURRENT_DATE;
 -- ============================================
 SELECT 
     t.id as transaction_id,
-    TO_CHAR(t.created_at, 'HH24:MI:SS') as waktu,
+    t.created_at::time as waktu,
     p.name as product_name,
     ti.quantity,
     ti.price as harga_transaksi,
@@ -116,14 +116,14 @@ ORDER BY t.created_at ASC;
 -- ============================================
 SELECT 
     t.id,
-    TO_CHAR(t.created_at, 'HH24:MI:SS') as waktu,
+    t.created_at::time as waktu,
     t.subtotal,
     t.tax_amount,
     t.total_amount,
     (t.subtotal + t.tax_amount) as kalkulasi_ulang_total,
     CASE 
-        WHEN (t.subtotal + t.tax_amount) != t.total_amount THEN '⚠️ TAX SALAH!'
-        ELSE '✓ OK'
+        WHEN (t.subtotal + t.tax_amount) != t.total_amount THEN 'TAX SALAH'
+        ELSE 'OK'
     END as status_tax
 FROM transactions t
 WHERE t.rider_id = 'PASTE_USER_ID_ZULFIAN_DISINI'
@@ -155,12 +155,12 @@ manual AS (
     AND DATE(t.created_at) = CURRENT_DATE
 )
 SELECT 
-    s.total_sistem as "Total Sistem (dengan tax)",
-    i.total_items as "Total dari Items (harga saat transaksi)",
-    m.total_manual as "Total Manual (harga sekarang)",
-    (m.total_manual - i.total_items) as "Selisih (Manual - Items)",
+    s.total_sistem as total_sistem_dengan_tax,
+    i.total_items as total_dari_items,
+    m.total_manual as total_manual_harga_sekarang,
+    (m.total_manual - i.total_items) as selisih,
     CASE 
-        WHEN m.total_manual != i.total_items THEN '⚠️ HARGA PRODUK BERUBAH!'
-        ELSE '✓ Harga Konsisten'
-    END as "Diagnosis"
+        WHEN m.total_manual != i.total_items THEN 'HARGA PRODUK BERUBAH'
+        ELSE 'Harga Konsisten'
+    END as diagnosis
 FROM sistem s, items i, manual m;
