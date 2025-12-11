@@ -43,6 +43,7 @@ type HistoryRecord = {
   id: string;
   date: string;
   rider: string;
+  distributed: number;
   totalSold: number;
   pos: number;
   adjustment: number;
@@ -159,6 +160,7 @@ export default function EndOfDayTab() {
       const profileMap = new Map(profiles?.map(p => [p.user_id, p.full_name]) || []);
 
       const historyData: HistoryRecord[] = data.map((record: any) => {
+        const totalDistributed = record.end_of_day_items.reduce((sum: number, item: any) => sum + item.distributed_quantity, 0);
         const totalSold = record.end_of_day_items.reduce((sum: number, item: any) => sum + item.sold_quantity, 0);
         const totalPOS = record.end_of_day_items.reduce((sum: number, item: any) => sum + item.pos_quantity, 0);
         const totalAdjustment = record.end_of_day_items.reduce((sum: number, item: any) => sum + item.adjustment_quantity, 0);
@@ -167,6 +169,7 @@ export default function EndOfDayTab() {
           id: record.id,
           date: record.report_date,
           rider: profileMap.get(record.rider_id) || "Unknown",
+          distributed: totalDistributed,
           totalSold,
           pos: totalPOS,
           adjustment: totalAdjustment,
@@ -246,22 +249,22 @@ export default function EndOfDayTab() {
 
   const loadDistributedProducts = async () => {
     try {
-      // Get distributions for rider on selected date
-      const { data: distributions, error } = await supabase
-        .from("distributions")
+      // PERBAIKAN: Load dari rider_stock (saldo aktual) bukan hanya distribusi hari ini
+      // Ini untuk menangkap sisa stok kemarin yang belum di-return
+      const { data: riderStock, error: stockError } = await supabase
+        .from("rider_stock")
         .select(`
           product_id,
           quantity,
           products(id, name)
         `)
         .eq("rider_id", selectedRider)
-        .gte("distributed_at", `${selectedDate}T00:00:00`)
-        .lte("distributed_at", `${selectedDate}T23:59:59`);
+        .gt("quantity", 0);
 
-      if (error) throw error;
+      if (stockError) throw stockError;
 
-      if (!distributions || distributions.length === 0) {
-        toast.info("Tidak ada distribusi untuk rider ini pada tanggal tersebut");
+      if (!riderStock || riderStock.length === 0) {
+        toast.info("Tidak ada stock untuk rider ini");
         setProducts([]);
         setReportId(null);
         setStatus("draft");
@@ -269,37 +272,40 @@ export default function EndOfDayTab() {
         return;
       }
 
-      // Aggregate by product
-      const productMap = new Map<string, { name: string; quantity: number }>();
-      
-      distributions.forEach((dist: any) => {
-        const existing = productMap.get(dist.product_id);
-        if (existing) {
-          existing.quantity += dist.quantity;
-        } else {
-          productMap.set(dist.product_id, {
-            name: dist.products.name,
-            quantity: dist.quantity,
-          });
-        }
+      // Get distributions for today (to show as reference)
+      const { data: distributions } = await supabase
+        .from("distributions")
+        .select("product_id, quantity")
+        .eq("rider_id", selectedRider)
+        .gte("distributed_at", `${selectedDate}T00:00:00`)
+        .lte("distributed_at", `${selectedDate}T23:59:59`);
+
+      // Map distributions by product
+      const distributionMap = new Map<string, number>();
+      distributions?.forEach((dist: any) => {
+        const existing = distributionMap.get(dist.product_id) || 0;
+        distributionMap.set(dist.product_id, existing + dist.quantity);
       });
 
-      // Get POS quantities
+      // Get POS quantities for today
       const productsData = await Promise.all(
-        Array.from(productMap.entries()).map(async ([productId, productData]) => {
+        riderStock.map(async (stock: any) => {
           // @ts-ignore - New RPC function not in types yet
           const { data: posQuantity } = await supabase.rpc("get_pos_quantity", {
             p_rider_id: selectedRider,
-            p_product_id: productId,
+            p_product_id: stock.product_id,
             p_date: selectedDate,
           });
 
+          // Distributed today (0 if no distribution today)
+          const distributedToday = distributionMap.get(stock.product_id) || 0;
+
           return {
-            id: productId,
-            name: productData.name,
-            distributed: productData.quantity,
+            id: stock.product_id,
+            name: stock.products.name,
+            distributed: stock.quantity, // TOTAL STOK RIDER (dari rider_stock)
             pos: posQuantity || 0,
-            remaining: 0,
+            remaining: 0, // Will be input by admin
           };
         })
       );
@@ -621,16 +627,16 @@ export default function EndOfDayTab() {
               </div>
             )}
 
-            <div className="rounded-md border">
+            <div className="rounded-md border overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Produk</TableHead>
-                    <TableHead className="text-center">Distribusi</TableHead>
-                    <TableHead className="text-center">POS</TableHead>
-                    <TableHead className="text-center">Sisa Stok</TableHead>
-                    <TableHead className="text-center">Terjual</TableHead>
-                    <TableHead className="text-center">Selisih</TableHead>
+                    <TableHead className="whitespace-nowrap">Produk</TableHead>
+                    <TableHead className="text-center whitespace-nowrap" title="Total stok yang dimiliki rider (sisa kemarin + distribusi hari ini)">Stok Rider</TableHead>
+                    <TableHead className="text-center whitespace-nowrap" title="Transaksi yang tercatat di POS hari ini">POS Hari Ini</TableHead>
+                    <TableHead className="text-center whitespace-nowrap">Sisa Stok</TableHead>
+                    <TableHead className="text-center whitespace-nowrap">Terjual</TableHead>
+                    <TableHead className="text-center whitespace-nowrap">Selisih</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -721,22 +727,23 @@ export default function EndOfDayTab() {
           </p>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border">
+          <div className="rounded-md border overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Tanggal</TableHead>
-                  <TableHead>Rider</TableHead>
-                  <TableHead className="text-center">Total Terjual</TableHead>
-                  <TableHead className="text-center">POS</TableHead>
-                  <TableHead className="text-center">Adjustment</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead className="whitespace-nowrap">Tanggal</TableHead>
+                  <TableHead className="whitespace-nowrap">Rider</TableHead>
+                  <TableHead className="text-center whitespace-nowrap">Stok Rider</TableHead>
+                  <TableHead className="text-center whitespace-nowrap">Total Terjual</TableHead>
+                  <TableHead className="text-center whitespace-nowrap">POS</TableHead>
+                  <TableHead className="text-center whitespace-nowrap">Adjustment</TableHead>
+                  <TableHead className="whitespace-nowrap">Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {history.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                    <TableCell colSpan={7} className="text-center py-8 text-gray-500">
                       <div className="flex flex-col items-center gap-2">
                         <FileText className="w-8 h-8 text-gray-400" />
                         <p>Belum ada stock opname</p>
@@ -747,8 +754,9 @@ export default function EndOfDayTab() {
                 ) : (
                   history.map((record) => (
                     <TableRow key={record.id}>
-                      <TableCell>{format(new Date(record.date), 'dd MMM yyyy')}</TableCell>
-                      <TableCell className="font-medium">{record.rider}</TableCell>
+                      <TableCell className="whitespace-nowrap">{format(new Date(record.date), 'dd MMM yyyy')}</TableCell>
+                      <TableCell className="font-medium whitespace-nowrap">{record.rider}</TableCell>
+                      <TableCell className="text-center">{record.distributed}</TableCell>
                       <TableCell className="text-center font-semibold">{record.totalSold}</TableCell>
                       <TableCell className="text-center text-blue-600">{record.pos}</TableCell>
                       <TableCell className="text-center">
