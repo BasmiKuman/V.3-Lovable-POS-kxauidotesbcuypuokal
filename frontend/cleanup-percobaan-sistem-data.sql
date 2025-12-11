@@ -7,10 +7,11 @@
 -- CAUTION: This will delete ALL data for this user!
 -- ============================================
 
--- Step 1: Find the user_id for "percobaan sistem"
+-- Step 1: Set user_id for "percobaan sistem"
 DO $$
 DECLARE
-  v_user_id UUID;
+  v_user_id UUID := '9a04d367-2016-4212-a923-9bac493c72e2';
+  v_user_name TEXT;
   v_deleted_transactions INT;
   v_deleted_items INT;
   v_deleted_distributions INT;
@@ -20,18 +21,17 @@ DECLARE
   v_deleted_adjustments INT;
   v_deleted_product_changes INT;
 BEGIN
-  -- Get user_id from profiles
-  SELECT user_id INTO v_user_id
+  -- Verify user exists and get name
+  SELECT full_name INTO v_user_name
   FROM profiles
-  WHERE LOWER(full_name) = LOWER('percobaan sistem')
-  LIMIT 1;
+  WHERE user_id = v_user_id;
   
-  IF v_user_id IS NULL THEN
-    RAISE NOTICE 'User "percobaan sistem" tidak ditemukan!';
-    RETURN;
+  IF v_user_name IS NULL THEN
+    RAISE EXCEPTION 'User with ID % tidak ditemukan!', v_user_id;
   END IF;
   
-  RAISE NOTICE 'Found user_id: %', v_user_id;
+  RAISE NOTICE 'Target user_id: %', v_user_id;
+  RAISE NOTICE 'Target user name: %', v_user_name;
   RAISE NOTICE 'Starting cleanup for user: percobaan sistem';
   RAISE NOTICE '================================================';
   
@@ -93,7 +93,8 @@ BEGIN
   END;
   
   RAISE NOTICE '================================================';
-  RAISE NOTICE 'CLEANUP COMPLETED for user: percobaan sistem';
+  RAISE NOTICE 'CLEANUP COMPLETED for user: %', v_user_name;
+  RAISE NOTICE 'User ID: %', v_user_id;
   RAISE NOTICE 'Summary:';
   RAISE NOTICE '  - Transaction Items: %', v_deleted_items;
   RAISE NOTICE '  - Transactions: %', v_deleted_transactions;
@@ -114,27 +115,23 @@ END $$;
 
 -- Check remaining transactions for user
 SELECT COUNT(*) as remaining_transactions
-FROM transactions t
-JOIN profiles p ON t.rider_id = p.user_id
-WHERE LOWER(p.full_name) = LOWER('percobaan sistem');
+FROM transactions
+WHERE rider_id = '9a04d367-2016-4212-a923-9bac493c72e2';
 
 -- Check remaining distributions
 SELECT COUNT(*) as remaining_distributions
-FROM distributions d
-JOIN profiles p ON d.rider_id = p.user_id
-WHERE LOWER(p.full_name) = LOWER('percobaan sistem');
+FROM distributions
+WHERE rider_id = '9a04d367-2016-4212-a923-9bac493c72e2';
 
 -- Check remaining rider_stock
 SELECT COUNT(*) as remaining_rider_stock
-FROM rider_stock rs
-JOIN profiles p ON rs.rider_id = p.user_id
-WHERE LOWER(p.full_name) = LOWER('percobaan sistem');
+FROM rider_stock
+WHERE rider_id = '9a04d367-2016-4212-a923-9bac493c72e2';
 
 -- Check remaining end_of_day_reports
 SELECT COUNT(*) as remaining_eod_reports
-FROM end_of_day_reports eod
-JOIN profiles p ON eod.rider_id = p.user_id
-WHERE LOWER(p.full_name) = LOWER('percobaan sistem');
+FROM end_of_day_reports
+WHERE rider_id = '9a04d367-2016-4212-a923-9bac493c72e2';
 
 -- Summary: Show user info
 SELECT 
@@ -147,4 +144,4 @@ SELECT
   (SELECT COUNT(*) FROM end_of_day_reports WHERE rider_id = p.user_id) as eod_report_count
 FROM profiles p
 LEFT JOIN user_roles ur ON p.user_id = ur.user_id
-WHERE LOWER(p.full_name) = LOWER('percobaan sistem');
+WHERE p.user_id = '9a04d367-2016-4212-a923-9bac493c72e2';
