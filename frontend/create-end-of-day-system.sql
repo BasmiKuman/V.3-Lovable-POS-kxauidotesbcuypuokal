@@ -22,9 +22,9 @@ CREATE TABLE IF NOT EXISTS public.end_of_day_reports (
 );
 
 -- Indexes for performance
-CREATE INDEX idx_eod_reports_rider_date ON public.end_of_day_reports(rider_id, report_date);
-CREATE INDEX idx_eod_reports_status ON public.end_of_day_reports(status);
-CREATE INDEX idx_eod_reports_date ON public.end_of_day_reports(report_date DESC);
+CREATE INDEX IF NOT EXISTS idx_eod_reports_rider_date ON public.end_of_day_reports(rider_id, report_date);
+CREATE INDEX IF NOT EXISTS idx_eod_reports_status ON public.end_of_day_reports(status);
+CREATE INDEX IF NOT EXISTS idx_eod_reports_date ON public.end_of_day_reports(report_date DESC);
 
 -- Comments
 COMMENT ON TABLE public.end_of_day_reports IS 'Stores end-of-day stock count reports submitted by admin';
@@ -50,8 +50,8 @@ CREATE TABLE IF NOT EXISTS public.end_of_day_items (
 );
 
 -- Indexes for performance
-CREATE INDEX idx_eod_items_report ON public.end_of_day_items(report_id);
-CREATE INDEX idx_eod_items_product ON public.end_of_day_items(product_id);
+CREATE INDEX IF NOT EXISTS idx_eod_items_report ON public.end_of_day_items(report_id);
+CREATE INDEX IF NOT EXISTS idx_eod_items_product ON public.end_of_day_items(product_id);
 
 -- Comments
 COMMENT ON TABLE public.end_of_day_items IS 'Per-product breakdown of end-of-day stock count';
@@ -78,10 +78,10 @@ CREATE TABLE IF NOT EXISTS public.stock_adjustments (
 );
 
 -- Indexes for performance
-CREATE INDEX idx_stock_adj_report ON public.stock_adjustments(report_id);
-CREATE INDEX idx_stock_adj_transaction ON public.stock_adjustments(transaction_id);
-CREATE INDEX idx_stock_adj_rider ON public.stock_adjustments(rider_id);
-CREATE INDEX idx_stock_adj_date ON public.stock_adjustments(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_stock_adj_report ON public.stock_adjustments(report_id);
+CREATE INDEX IF NOT EXISTS idx_stock_adj_transaction ON public.stock_adjustments(transaction_id);
+CREATE INDEX IF NOT EXISTS idx_stock_adj_rider ON public.stock_adjustments(rider_id);
+CREATE INDEX IF NOT EXISTS idx_stock_adj_date ON public.stock_adjustments(created_at DESC);
 
 -- Comments
 COMMENT ON TABLE public.stock_adjustments IS 'Audit trail for stock adjustment transactions generated from end-of-day reports';
@@ -101,6 +101,7 @@ ALTER TABLE public.stock_adjustments ENABLE ROW LEVEL SECURITY;
 -- ============================================
 
 -- Super Admin: Full access
+DROP POLICY IF EXISTS "super_admin_end_of_day_reports_all" ON public.end_of_day_reports;
 CREATE POLICY "super_admin_end_of_day_reports_all"
 ON public.end_of_day_reports
 FOR ALL
@@ -114,6 +115,7 @@ USING (
 );
 
 -- Admin: Can create and view
+DROP POLICY IF EXISTS "admin_end_of_day_reports_insert" ON public.end_of_day_reports;
 CREATE POLICY "admin_end_of_day_reports_insert"
 ON public.end_of_day_reports
 FOR INSERT
@@ -126,6 +128,7 @@ WITH CHECK (
   )
 );
 
+DROP POLICY IF EXISTS "admin_end_of_day_reports_select" ON public.end_of_day_reports;
 CREATE POLICY "admin_end_of_day_reports_select"
 ON public.end_of_day_reports
 FOR SELECT
@@ -139,6 +142,7 @@ USING (
 );
 
 -- Admin: Can update own submissions (draft status only)
+DROP POLICY IF EXISTS "admin_end_of_day_reports_update" ON public.end_of_day_reports;
 CREATE POLICY "admin_end_of_day_reports_update"
 ON public.end_of_day_reports
 FOR UPDATE
@@ -158,6 +162,7 @@ USING (
 -- ============================================
 
 -- Admin: Can manage items for reports they have access to
+DROP POLICY IF EXISTS "admin_end_of_day_items_all" ON public.end_of_day_items;
 CREATE POLICY "admin_end_of_day_items_all"
 ON public.end_of_day_items
 FOR ALL
@@ -175,6 +180,7 @@ USING (
 -- ============================================
 
 -- Admin: Can view and create adjustments
+DROP POLICY IF EXISTS "admin_stock_adjustments_select" ON public.stock_adjustments;
 CREATE POLICY "admin_stock_adjustments_select"
 ON public.stock_adjustments
 FOR SELECT
@@ -187,6 +193,7 @@ USING (
   )
 );
 
+DROP POLICY IF EXISTS "admin_stock_adjustments_insert" ON public.stock_adjustments;
 CREATE POLICY "admin_stock_adjustments_insert"
 ON public.stock_adjustments
 FOR INSERT
