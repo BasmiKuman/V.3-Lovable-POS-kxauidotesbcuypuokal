@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { BottomNav } from "@/components/BottomNav";
 import { ManualSalesTab } from "@/components/ManualSalesTab";
+import EndOfDayTab from "@/components/EndOfDayTab";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -444,7 +445,7 @@ export default function Warehouse() {
         </div>
 
         <Tabs defaultValue="distribution" className="space-y-2 sm:space-y-4">
-          <TabsList className="grid w-full grid-cols-3 h-auto py-1">
+          <TabsList className="grid w-full grid-cols-4 h-auto py-1">
             <TabsTrigger value="distribution" className="text-xs sm:text-sm flex-col gap-0.5 h-auto py-1.5">
               <Send className="w-3 h-3 sm:w-4 sm:h-4" />
               <span className="hidden sm:inline">Distribusi</span>
@@ -456,6 +457,10 @@ export default function Warehouse() {
             <TabsTrigger value="manual-sales" className="text-xs sm:text-sm flex-col gap-0.5 h-auto py-1.5">
               <ClipboardList className="w-3 h-3 sm:w-4 sm:h-4" />
               <span className="hidden sm:inline">Penjualan</span>
+            </TabsTrigger>
+            <TabsTrigger value="end-of-day" className="text-xs sm:text-sm flex-col gap-0.5 h-auto py-1.5">
+              <Calendar className="w-3 h-3 sm:w-4 sm:h-4" />
+              <span className="hidden sm:inline">Stock Opname</span>
             </TabsTrigger>
           </TabsList>
 
@@ -1095,6 +1100,10 @@ export default function Warehouse() {
 
           <TabsContent value="manual-sales" className="space-y-4 sm:space-y-6">
             <ManualSalesTab />
+          </TabsContent>
+
+          <TabsContent value="end-of-day" className="space-y-4 sm:space-y-6">
+            <EndOfDayTab />
           </TabsContent>
         </Tabs>
       </div>
