@@ -28,7 +28,7 @@ SELECT
     COUNT(ti.id) as jumlah_item
 FROM transactions t
 LEFT JOIN transaction_items ti ON t.id = ti.transaction_id
-WHERE t.rider_id = 'PASTE_USER_ID_ZULFIAN_DISINI'
+WHERE t.rider_id = '48c98fe0-ad30-4868-aa00-b87f5c035861'
 AND DATE(t.created_at) = CURRENT_DATE
 GROUP BY t.id, t.created_at, t.subtotal, t.tax_amount, t.total_amount, t.payment_method
 ORDER BY t.created_at ASC;
@@ -51,7 +51,7 @@ SELECT
 FROM transactions t
 JOIN transaction_items ti ON t.id = ti.transaction_id
 JOIN products p ON ti.product_id = p.id
-WHERE t.rider_id = 'PASTE_USER_ID_ZULFIAN_DISINI'
+WHERE t.rider_id = '48c98fe0-ad30-4868-aa00-b87f5c035861'
 AND DATE(t.created_at) = CURRENT_DATE
 ORDER BY t.created_at ASC, p.name;
 
@@ -63,7 +63,7 @@ SELECT
     SUM(t.tax_amount) as total_tax,
     SUM(t.total_amount) as total_amount_sistem
 FROM transactions t
-WHERE t.rider_id = 'PASTE_USER_ID_ZULFIAN_DISINI'
+WHERE t.rider_id = '48c98fe0-ad30-4868-aa00-b87f5c035861'
 AND DATE(t.created_at) = CURRENT_DATE;
 
 -- ============================================
@@ -75,7 +75,7 @@ SELECT
     SUM(ti.quantity) as total_quantity
 FROM transactions t
 JOIN transaction_items ti ON t.id = ti.transaction_id
-WHERE t.rider_id = 'PASTE_USER_ID_ZULFIAN_DISINI'
+WHERE t.rider_id = '48c98fe0-ad30-4868-aa00-b87f5c035861'
 AND DATE(t.created_at) = CURRENT_DATE;
 
 -- ============================================
@@ -88,7 +88,7 @@ SELECT
 FROM transactions t
 JOIN transaction_items ti ON t.id = ti.transaction_id
 JOIN products p ON ti.product_id = p.id
-WHERE t.rider_id = 'PASTE_USER_ID_ZULFIAN_DISINI'
+WHERE t.rider_id = '48c98fe0-ad30-4868-aa00-b87f5c035861'
 AND DATE(t.created_at) = CURRENT_DATE;
 
 -- ============================================
@@ -106,7 +106,7 @@ SELECT
 FROM transactions t
 JOIN transaction_items ti ON t.id = ti.transaction_id
 JOIN products p ON ti.product_id = p.id
-WHERE t.rider_id = 'PASTE_USER_ID_ZULFIAN_DISINI'
+WHERE t.rider_id = '48c98fe0-ad30-4868-aa00-b87f5c035861'
 AND DATE(t.created_at) = CURRENT_DATE
 AND ti.price != p.price
 ORDER BY t.created_at ASC;
@@ -126,7 +126,7 @@ SELECT
         ELSE 'OK'
     END as status_tax
 FROM transactions t
-WHERE t.rider_id = 'PASTE_USER_ID_ZULFIAN_DISINI'
+WHERE t.rider_id = '48c98fe0-ad30-4868-aa00-b87f5c035861'
 AND DATE(t.created_at) = CURRENT_DATE
 ORDER BY t.created_at ASC;
 
@@ -136,14 +136,14 @@ ORDER BY t.created_at ASC;
 WITH sistem AS (
     SELECT SUM(t.total_amount) as total_sistem
     FROM transactions t
-    WHERE t.rider_id = 'PASTE_USER_ID_ZULFIAN_DISINI'
+    WHERE t.rider_id = '48c98fe0-ad30-4868-aa00-b87f5c035861'
     AND DATE(t.created_at) = CURRENT_DATE
 ),
 items AS (
     SELECT SUM(ti.quantity * ti.price) as total_items
     FROM transactions t
     JOIN transaction_items ti ON t.id = ti.transaction_id
-    WHERE t.rider_id = 'PASTE_USER_ID_ZULFIAN_DISINI'
+    WHERE t.rider_id = '48c98fe0-ad30-4868-aa00-b87f5c035861'
     AND DATE(t.created_at) = CURRENT_DATE
 ),
 manual AS (
@@ -151,7 +151,7 @@ manual AS (
     FROM transactions t
     JOIN transaction_items ti ON t.id = ti.transaction_id
     JOIN products p ON ti.product_id = p.id
-    WHERE t.rider_id = 'PASTE_USER_ID_ZULFIAN_DISINI'
+    WHERE t.rider_id = '48c98fe0-ad30-4868-aa00-b87f5c035861'
     AND DATE(t.created_at) = CURRENT_DATE
 )
 SELECT 

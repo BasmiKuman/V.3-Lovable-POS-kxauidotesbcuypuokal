@@ -192,6 +192,11 @@ export default function POS() {
       return;
     }
 
+    // Prevent double-click or race condition
+    if (processing) {
+      return;
+    }
+
     setProcessing(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
