@@ -140,6 +140,7 @@ export default function EndOfDayTab() {
           status,
           rider_id,
           end_of_day_items(
+            distributed_quantity,
             sold_quantity,
             pos_quantity,
             adjustment_quantity
@@ -477,8 +478,17 @@ export default function EndOfDayTab() {
         toast.success("Laporan submitted! Tidak ada adjustment yang diperlukan.");
       }
 
-      setStatus("submitted");
       loadHistory(); // Refresh history
+      
+      // Auto-reset form untuk lanjut ke rider berikutnya
+      setSelectedRider("");
+      setSelectedDate(new Date().toISOString().split('T')[0]);
+      setProducts([]);
+      setReportId(null);
+      setStatus("draft");
+      setNotes("");
+      
+      toast.info("Form direset. Silakan pilih rider berikutnya.", { duration: 3000 });
     } catch (error: any) {
       console.error("Error submitting report:", error);
       toast.error("Gagal submit laporan: " + error.message);
