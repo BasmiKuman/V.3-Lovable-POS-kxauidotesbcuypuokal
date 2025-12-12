@@ -300,19 +300,17 @@ export default function EndOfDayTab() {
             p_date: selectedDate,
           });
 
-          // Get starting stock (yesterday remaining + today distribution)
-          // @ts-ignore - New RPC function not in types yet
-          const { data: startingStock } = await supabase.rpc("get_rider_starting_stock", {
-            p_rider_id: selectedRider,
-            p_product_id: stock.product_id,
-            p_date: selectedDate,
-          });
+          // Calculate starting stock: Current Stock + POS (transactions reduce stock, so add them back)
+          // This gives us the stock the rider had at START of day
+          const currentStock = stock.quantity || 0;
+          const pos = posQuantity || 0;
+          const startingStock = currentStock + pos;
 
           return {
             id: stock.product_id,
             name: stock.products.name,
-            distributed: startingStock || 0, // STOK AWAL HARI (sisa kemarin + distribusi hari ini)
-            pos: posQuantity || 0,
+            distributed: startingStock, // STOK AWAL HARI = Stok Sekarang + Terjual Hari Ini
+            pos: pos,
             remaining: 0, // Will be input by admin
           };
         })
