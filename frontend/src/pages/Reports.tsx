@@ -869,6 +869,8 @@ export default function Reports() {
             "Tanggal": format(new Date(t.created_at), "dd/MM/yyyy HH:mm"),
             "Metode": t.payment_method || "-",
             "Subtotal": Number(t.subtotal),
+            "Diskon %": t.discount_percentage || 0,
+            "Potongan (Rp)": Number(t.discount_amount) || 0,
             "Pajak": Number(t.tax_amount),
             "Total": Number(t.total_amount),
             "Catatan": t.notes || "-"
@@ -876,7 +878,7 @@ export default function Reports() {
         });
 
         const riderSheet = XLSX.utils.json_to_sheet(riderData);
-        riderSheet['!cols'] = [{ wch: 25 }, { wch: 15 }, { wch: 12 }, { wch: 15 }, { wch: 18 }, { wch: 20 }];
+        riderSheet['!cols'] = [{ wch: 25 }, { wch: 15 }, { wch: 12 }, { wch: 10 }, { wch: 15 }, { wch: 12 }, { wch: 15 }, { wch: 20 }];
         
         // Sanitize sheet name (max 31 chars, no special chars)
         const sheetName = rider.full_name.substring(0, 28);
@@ -889,13 +891,15 @@ export default function Reports() {
         "Rider": t.rider?.full_name || "-",
         "Metode Pembayaran": t.payment_method || "-",
         "Subtotal": Number(t.subtotal),
+        "Diskon %": t.discount_percentage || 0,
+        "Potongan Diskon": Number(t.discount_amount) || 0,
         "Pajak": Number(t.tax_amount),
         "Total": Number(t.total_amount),
         "Catatan": t.notes || "-"
       }));
       
       const allTransactionsSheet = XLSX.utils.json_to_sheet(allTransactionsData);
-      allTransactionsSheet['!cols'] = [{ wch: 18 }, { wch: 20 }, { wch: 18 }, { wch: 15 }, { wch: 12 }, { wch: 15 }, { wch: 25 }];
+      allTransactionsSheet['!cols'] = [{ wch: 18 }, { wch: 20 }, { wch: 18 }, { wch: 15 }, { wch: 10 }, { wch: 15 }, { wch: 12 }, { wch: 15 }, { wch: 25 }];
       XLSX.utils.book_append_sheet(workbook, allTransactionsSheet, "Semua Transaksi");
 
       // 5. DETAIL ITEM SEMUA TRANSAKSI
@@ -1000,13 +1004,15 @@ export default function Reports() {
         "Metode Pembayaran": t.payment_method || "-",
         "Jumlah Item": t.transaction_items?.reduce((sum: number, item: any) => sum + item.quantity, 0) || 0,
         "Subtotal (Rp)": Number(t.subtotal),
+        "Diskon (%)": t.discount_percentage || 0,
+        "Potongan Diskon (Rp)": Number(t.discount_amount) || 0,
         "Pajak (Rp)": Number(t.tax_amount),
         "Total (Rp)": Number(t.total_amount),
         "Catatan": t.notes || "-"
       }));
       
       const transactionSheet = XLSX.utils.json_to_sheet(transactionData);
-      transactionSheet['!cols'] = [{ wch: 18 }, { wch: 18 }, { wch: 12 }, { wch: 15 }, { wch: 12 }, { wch: 15 }, { wch: 25 }];
+      transactionSheet['!cols'] = [{ wch: 18 }, { wch: 18 }, { wch: 12 }, { wch: 15 }, { wch: 10 }, { wch: 18 }, { wch: 12 }, { wch: 15 }, { wch: 25 }];
       XLSX.utils.book_append_sheet(workbook, transactionSheet, "Rincian Transaksi");
 
       // 4. DETAIL ITEM PER TRANSAKSI
@@ -1245,7 +1251,32 @@ export default function Reports() {
           });
         }
         
-        // Add transaction total
+        // Add transaction total with discount if applicable
+        if (t.discount_amount && Number(t.discount_amount) > 0) {
+          detailedTransactionsData.push([
+            {
+              content: `Subtotal`,
+              colSpan: 3,
+              styles: { halign: 'right', fontSize: 6.5 }
+            },
+            {
+              content: `Rp ${Number(t.subtotal).toLocaleString('id-ID')}`,
+              styles: { fontSize: 6.5 }
+            }
+          ]);
+          detailedTransactionsData.push([
+            {
+              content: `Diskon ${t.discount_percentage || 0}%`,
+              colSpan: 3,
+              styles: { halign: 'right', fontSize: 6.5, textColor: [231, 76, 60] }
+            },
+            {
+              content: `-Rp ${Number(t.discount_amount).toLocaleString('id-ID')}`,
+              styles: { fontSize: 6.5, textColor: [231, 76, 60] }
+            }
+          ]);
+        }
+        
         detailedTransactionsData.push([
           {
             content: 'TOTAL',
@@ -2156,8 +2187,13 @@ export default function Reports() {
                                     {formatCurrency(Number(transaction.total_amount))}
                                   </div>
                                   {!isMobile && (
-                                    <div className="text-xs text-muted-foreground mt-1">
-                                      Subtotal: {formatCurrency(Number(transaction.subtotal))}
+                                    <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
+                                      <div>Subtotal: {formatCurrency(Number(transaction.subtotal))}</div>
+                                      {transaction.discount_amount && Number(transaction.discount_amount) > 0 && (
+                                        <div className="text-red-600 dark:text-red-400">
+                                          Diskon {transaction.discount_percentage}%: -{formatCurrency(Number(transaction.discount_amount))}
+                                        </div>
+                                      )}
                                     </div>
                                   )}
                                 </div>
