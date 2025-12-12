@@ -271,15 +271,9 @@ export default function EndOfDayTab() {
 
       if (stockError) throw stockError;
 
-      // Filter out Add-On category
-      const filteredStock = riderStock?.filter((stock: any) => {
-        const categoryName = stock.products?.categories?.name || "";
-        return !categoryName.toLowerCase().includes("add") && 
-               !categoryName.toLowerCase().includes("addon") &&
-               !categoryName.toLowerCase().includes("add-on");
-      });
-
-      if (!filteredStock || filteredStock.length === 0) {
+      // Don't filter here - show ALL products in the table
+      // Category-based cup counting is handled in total calculations
+      if (!riderStock || riderStock.length === 0) {
         toast.info("Tidak ada stock untuk rider ini");
         setProducts([]);
         setReportId(null);
@@ -305,7 +299,7 @@ export default function EndOfDayTab() {
 
       // Get POS quantities for today
       const productsData = await Promise.all(
-        filteredStock.map(async (stock: any) => {
+        riderStock.map(async (stock: any) => {
           // @ts-ignore - New RPC function not in types yet
           const { data: posQuantity } = await supabase.rpc("get_pos_quantity", {
             p_rider_id: selectedRider,
