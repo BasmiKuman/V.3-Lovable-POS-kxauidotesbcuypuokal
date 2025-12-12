@@ -300,13 +300,18 @@ export default function EndOfDayTab() {
             p_date: selectedDate,
           });
 
-          // Distributed today (0 if no distribution today)
-          const distributedToday = distributionMap.get(stock.product_id) || 0;
+          // Get starting stock (yesterday remaining + today distribution)
+          // @ts-ignore - New RPC function not in types yet
+          const { data: startingStock } = await supabase.rpc("get_rider_starting_stock", {
+            p_rider_id: selectedRider,
+            p_product_id: stock.product_id,
+            p_date: selectedDate,
+          });
 
           return {
             id: stock.product_id,
             name: stock.products.name,
-            distributed: stock.quantity, // TOTAL STOK RIDER (dari rider_stock)
+            distributed: startingStock || 0, // STOK AWAL HARI (sisa kemarin + distribusi hari ini)
             pos: posQuantity || 0,
             remaining: 0, // Will be input by admin
           };
@@ -822,11 +827,11 @@ export default function EndOfDayTab() {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="whitespace-nowrap">Produk</TableHead>
-                    <TableHead className="text-center whitespace-nowrap" title="Total stok yang dimiliki rider (sisa kemarin + distribusi hari ini)">Stok Rider</TableHead>
+                    <TableHead className="text-center whitespace-nowrap" title="Stok awal hari: Sisa kemarin + Distribusi hari ini">Stok Awal Hari</TableHead>
                     <TableHead className="text-center whitespace-nowrap" title="Transaksi yang tercatat di POS hari ini">POS Hari Ini</TableHead>
-                    <TableHead className="text-center whitespace-nowrap">Sisa Stok</TableHead>
-                    <TableHead className="text-center whitespace-nowrap">Terjual</TableHead>
-                    <TableHead className="text-center whitespace-nowrap">Selisih</TableHead>
+                    <TableHead className="text-center whitespace-nowrap" title="Sisa stok yang dibawa pulang rider">Sisa Akhir Hari</TableHead>
+                    <TableHead className="text-center whitespace-nowrap" title="Stok Awal - Sisa Akhir">Terjual</TableHead>
+                    <TableHead className="text-center whitespace-nowrap" title="Terjual - POS (jika + berarti hilang, jika - berarti lebih)">Selisih</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
