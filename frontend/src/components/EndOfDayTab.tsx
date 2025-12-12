@@ -35,6 +35,7 @@ type Rider = {
 type ProductItem = {
   id: string;
   name: string;
+  category?: string;
   distributed: number;
   pos: number;
   remaining: number;
@@ -321,6 +322,7 @@ export default function EndOfDayTab() {
           return {
             id: stock.product_id,
             name: stock.products.name,
+            category: stock.products?.categories?.name || "Unknown",
             distributed: startingStock, // STOK AWAL HARI = Stok Sekarang + Terjual Hari Ini
             pos: pos,
             remaining: 0, // Will be input by admin
@@ -777,7 +779,7 @@ export default function EndOfDayTab() {
           <CardContent>
             <div className="space-y-3">
               <p className="text-sm text-muted-foreground italic">
-                * Hanya produk kategori <strong>Cup</strong> yang dihitung. Kategori <strong>Add-On</strong> tidak termasuk dalam perhitungan Stock Opname.
+                * Semua produk yang dibawa rider dihitung (Minuman, Syrup, dll). Hanya kategori <strong>Add-On</strong> (Whipped Cream, Extra Shot) yang tidak dihitung karena tidak dibawa pulang.
               </p>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
@@ -849,6 +851,7 @@ export default function EndOfDayTab() {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="whitespace-nowrap">Produk</TableHead>
+                    <TableHead className="text-center whitespace-nowrap">Kategori</TableHead>
                     <TableHead className="text-center whitespace-nowrap" title="Stok awal hari: Sisa kemarin + Distribusi hari ini">Stok Awal Hari</TableHead>
                     <TableHead className="text-center whitespace-nowrap" title="Transaksi yang tercatat di POS hari ini">POS Hari Ini</TableHead>
                     <TableHead className="text-center whitespace-nowrap" title="Sisa stok yang dibawa pulang rider">Sisa Akhir Hari</TableHead>
@@ -861,10 +864,18 @@ export default function EndOfDayTab() {
                     const sold = calculateSold(product.distributed, product.remaining);
                     const adjustment = calculateAdjustment(product.distributed, product.remaining, product.pos);
                     const hasError = product.remaining > product.distributed;
+                    const isCup = product.category?.toLowerCase().includes('cup') || 
+                                  product.category?.toLowerCase().includes('minuman') ||
+                                  product.category?.toLowerCase().includes('drink');
                     
                     return (
                       <TableRow key={product.id} className={hasError ? 'bg-red-50' : ''}>
                         <TableCell className="font-medium">{product.name}</TableCell>
+                        <TableCell className="text-center">
+                          <Badge variant="outline" className={isCup ? 'bg-blue-50' : 'bg-gray-50'}>
+                            {product.category || 'N/A'}
+                          </Badge>
+                        </TableCell>
                         <TableCell className="text-center">{product.distributed}</TableCell>
                         <TableCell className="text-center text-blue-600">{product.pos}</TableCell>
                         <TableCell className="text-center">
