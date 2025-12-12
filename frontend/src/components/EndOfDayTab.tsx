@@ -520,6 +520,108 @@ export default function EndOfDayTab() {
     toast.info("Form direset");
   };
 
+  const downloadBlankTemplate = () => {
+    try {
+      toast.info("Generating blank template...");
+
+      if (!selectedRider || products.length === 0) {
+        toast.error("Pilih rider dan tanggal terlebih dahulu untuk generate template");
+        return;
+      }
+
+      // Get rider name
+      const riderName = riders.find(r => r.id === selectedRider)?.name || "Unknown";
+
+      // Create workbook
+      const wb = XLSX.utils.book_new();
+      const wsData: any[][] = [];
+
+      // Header section
+      wsData.push(["KERTAS STOCK OPNAME (SO) RIDER"]);
+      wsData.push([]);
+      wsData.push(["Tanggal:", selectedDate]);
+      wsData.push(["Rider:", riderName]);
+      wsData.push([]);
+      wsData.push(["INSTRUKSI: Isi kolom 'Sisa Akhir Hari' dengan jumlah stok yang dibawa pulang rider"]);
+      wsData.push([]);
+
+      // Table header
+      wsData.push([
+        "Produk",
+        "Kategori",
+        "Stok Awal Hari",
+        "POS Hari Ini",
+        "Sisa Akhir Hari (ISI MANUAL)",
+        "Terjual (Otomatis)",
+        "Selisih (Otomatis)"
+      ]);
+
+      // Products data
+      products.forEach(product => {
+        const categoryLower = product.category?.toLowerCase() || '';
+        const isAddOn = categoryLower.includes('add') || 
+                        categoryLower.includes('addon') || 
+                        categoryLower.includes('add-on');
+        
+        wsData.push([
+          product.name + (isAddOn ? ' (tidak dihitung cup)' : ''),
+          product.category || 'N/A',
+          product.distributed,
+          product.pos,
+          "", // Blank untuk manual input
+          `=C${wsData.length + 1}-E${wsData.length + 1}`, // Formula Terjual = Stok Awal - Sisa
+          `=F${wsData.length + 1}-D${wsData.length + 1}` // Formula Selisih = Terjual - POS
+        ]);
+      });
+
+      // Add summary rows
+      const dataStartRow = 9;
+      const dataEndRow = dataStartRow + products.length - 1;
+      wsData.push([]);
+      wsData.push([
+        "TOTAL (non Add-On)",
+        "",
+        `=SUMIF(B${dataStartRow}:B${dataEndRow},"<>*Add*",C${dataStartRow}:C${dataEndRow})`,
+        `=SUMIF(B${dataStartRow}:B${dataEndRow},"<>*Add*",D${dataStartRow}:D${dataEndRow})`,
+        "",
+        `=SUMIF(B${dataStartRow}:B${dataEndRow},"<>*Add*",F${dataStartRow}:F${dataEndRow})`,
+        `=SUMIF(B${dataStartRow}:B${dataEndRow},"<>*Add*",G${dataStartRow}:G${dataEndRow})`
+      ]);
+
+      wsData.push([]);
+      wsData.push(["Catatan:"]);
+      wsData.push([""]);
+
+      // Create worksheet
+      const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+      // Styling
+      ws['!cols'] = [
+        { wch: 30 }, // Produk
+        { wch: 15 }, // Kategori
+        { wch: 15 }, // Stok Awal
+        { wch: 15 }, // POS
+        { wch: 25 }, // Sisa (untuk input)
+        { wch: 15 }, // Terjual
+        { wch: 15 }  // Selisih
+      ];
+
+      // Add worksheet to workbook
+      XLSX.utils.book_append_sheet(wb, ws, "Kertas SO");
+
+      // Generate filename
+      const filename = `Kertas-SO-${riderName.replace(/\s+/g, '-')}-${selectedDate}.xlsx`;
+
+      // Download
+      XLSX.writeFile(wb, filename);
+
+      toast.success(`Kertas SO berhasil didownload: ${filename}`);
+    } catch (error: any) {
+      console.error("Error downloading template:", error);
+      toast.error("Gagal generate kertas SO: " + error.message);
+    }
+  };
+
   const downloadExcelReport = async () => {
     try {
       setLoading(true);
@@ -781,7 +883,7 @@ export default function EndOfDayTab() {
 
       {/* Summary Card */}
       {selectedRider && products.length > 0 && !loadingData && (
-        <Card className="border-primary/20 bg-primary/5">
+        <Card className="border-primary/20 bg-primary/5 dark:bg-primary/10">
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg">Ringkasan Distribusi & POS Hari Ini</CardTitle>
@@ -805,22 +907,22 @@ export default function EndOfDayTab() {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">POS Tercatat</p>
-                  <p className="text-2xl font-bold text-blue-600">{totalPOS} cups</p>
+                  <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{totalPOS} cups</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Terjual (Calc)</p>
-                  <p className="text-2xl font-bold text-green-600">{totalSold} cups</p>
+                  <p className="text-2xl font-bold text-green-600 dark:text-green-400">{totalSold} cups</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Adjustment</p>
-                  <p className={`text-2xl font-bold ${totalAdjustment > 0 ? 'text-orange-600' : 'text-gray-600'}`}>
+                  <p className={`text-2xl font-bold ${totalAdjustment > 0 ? 'text-orange-600 dark:text-orange-400' : 'text-gray-600 dark:text-gray-400'}`}>
                     {totalAdjustment > 0 ? '+' : ''}{totalAdjustment} cups
                   </p>
                 </div>
               </div>
               {totalAdjustment > 0 && (
-                <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-lg">
-                  <p className="text-sm text-orange-800">
+                <div className="mt-3 p-3 bg-orange-50 dark:bg-orange-950 border border-orange-200 dark:border-orange-800 rounded-lg">
+                  <p className="text-sm text-orange-800 dark:text-orange-200">
                     ⚠️ <strong>Adjustment akan membuat transaksi otomatis</strong> setelah submit. Transaksi ini akan muncul di <strong>Tab Laporan</strong> dengan tipe "Stock Adjustment".
                   </p>
                 </div>
@@ -834,15 +936,26 @@ export default function EndOfDayTab() {
       {selectedRider && products.length > 0 && !loadingData && (
         <Card>
           <CardHeader>
-            <CardTitle>Input Sisa Stok</CardTitle>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <CardTitle>Input Sisa Stok</CardTitle>
+              <Button
+                onClick={downloadBlankTemplate}
+                variant="outline"
+                size="sm"
+                className="border-blue-500 text-blue-600 hover:bg-blue-50 dark:border-blue-400 dark:text-blue-400 dark:hover:bg-blue-950"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Download Kertas SO
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             {hasDiscrepancy && (
-              <div className="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-lg flex items-start gap-2">
-                <AlertTriangle className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" />
+              <div className="mb-4 p-3 bg-orange-50 dark:bg-orange-950 border border-orange-200 dark:border-orange-800 rounded-lg flex items-start gap-2">
+                <AlertTriangle className="w-5 h-5 text-orange-600 dark:text-orange-400 flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="font-semibold text-orange-900">Selisih Terdeteksi: {totalAdjustment} cups</p>
-                  <p className="text-sm text-orange-700">
+                  <p className="font-semibold text-orange-900 dark:text-orange-100">Selisih Terdeteksi: {totalAdjustment} cups</p>
+                  <p className="text-sm text-orange-700 dark:text-orange-300">
                     Sistem akan generate adjustment transaction untuk {totalAdjustment} cups yang tidak tercatat di POS.
                   </p>
                 </div>
@@ -850,14 +963,14 @@ export default function EndOfDayTab() {
             )}
             
             {status === "submitted" && (
-              <div className="mb-4 flex items-center gap-2 text-sm text-green-600 bg-green-50 p-3 rounded-lg">
+              <div className="mb-4 flex items-center gap-2 text-sm text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-950 p-3 rounded-lg">
                 <CheckCircle className="w-4 h-4" />
                 <span>✅ Laporan ini sudah di-submit dan adjustment transaction telah dibuat. Data tidak bisa diubah lagi.</span>
               </div>
             )}
             
             {status === "draft" && reportId && (
-              <div className="mb-4 flex items-center gap-2 text-sm text-blue-600 bg-blue-50 p-3 rounded-lg">
+              <div className="mb-4 flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950 p-3 rounded-lg">
                 <Save className="w-4 h-4" />
                 <span>📝 Draft ditemukan! Anda bisa melanjutkan mengisi atau mengubah data sebelum submit.</span>
               </div>
@@ -890,25 +1003,25 @@ export default function EndOfDayTab() {
                                   categoryLower.includes('drink');
                     
                     return (
-                      <TableRow key={product.id} className={`${hasError ? 'bg-red-50' : ''} ${isAddOn ? 'opacity-60' : ''}`}>
+                      <TableRow key={product.id} className={`${hasError ? 'bg-red-50 dark:bg-red-950' : ''} ${isAddOn ? 'opacity-60' : ''}`}>
                         <TableCell className="font-medium">
                           {product.name}
-                          {isAddOn && <span className="ml-2 text-xs text-gray-500">(tidak dihitung cup)</span>}
+                          {isAddOn && <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">(tidak dihitung cup)</span>}
                         </TableCell>
                         <TableCell className="text-center">
                           <Badge 
                             variant="outline" 
                             className={
-                              isAddOn ? 'bg-yellow-50 text-yellow-700 border-yellow-300' : 
-                              isCup ? 'bg-blue-50' : 
-                              'bg-gray-50'
+                              isAddOn ? 'bg-yellow-50 dark:bg-yellow-950 text-yellow-700 dark:text-yellow-300 border-yellow-300 dark:border-yellow-700' : 
+                              isCup ? 'bg-blue-50 dark:bg-blue-950' : 
+                              'bg-gray-50 dark:bg-gray-800'
                             }
                           >
                             {product.category || 'N/A'}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-center">{product.distributed}</TableCell>
-                        <TableCell className="text-center text-blue-600">{product.pos}</TableCell>
+                        <TableCell className="text-center text-blue-600 dark:text-blue-400">{product.pos}</TableCell>
                         <TableCell className="text-center">
                           <div className="flex items-center justify-center gap-1">
                             <Button
@@ -944,16 +1057,16 @@ export default function EndOfDayTab() {
                           </div>
                         </TableCell>
                         <TableCell className="text-center">
-                          <span className="font-semibold text-green-600">{sold}</span>
+                          <span className="font-semibold text-green-600 dark:text-green-400">{sold}</span>
                         </TableCell>
                         <TableCell className="text-center">
                           {adjustment === 0 ? (
-                            <Badge variant="outline" className="bg-green-50">
+                            <Badge variant="outline" className="bg-green-50 dark:bg-green-950">
                               <CheckCircle className="w-3 h-3 mr-1" />
                               0
                             </Badge>
                           ) : (
-                            <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-300">
+                            <Badge variant="outline" className="bg-orange-50 dark:bg-orange-950 text-orange-700 dark:text-orange-300 border-orange-300 dark:border-orange-700">
                               <AlertTriangle className="w-3 h-3 mr-1" />
                               +{adjustment}
                             </Badge>
@@ -1052,9 +1165,9 @@ export default function EndOfDayTab() {
               <TableBody>
                 {history.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-gray-500">
+                    <TableCell colSpan={7} className="text-center py-8 text-gray-500 dark:text-gray-400">
                       <div className="flex flex-col items-center gap-2">
-                        <FileText className="w-8 h-8 text-gray-400" />
+                        <FileText className="w-8 h-8 text-gray-400 dark:text-gray-600" />
                         <p>Belum ada stock opname</p>
                         <p className="text-sm">Mulai dengan memilih rider dan tanggal di atas</p>
                       </div>
@@ -1067,12 +1180,12 @@ export default function EndOfDayTab() {
                       <TableCell className="font-medium whitespace-nowrap">{record.rider}</TableCell>
                       <TableCell className="text-center">{record.distributed}</TableCell>
                       <TableCell className="text-center font-semibold">{record.totalSold}</TableCell>
-                      <TableCell className="text-center text-blue-600">{record.pos}</TableCell>
+                      <TableCell className="text-center text-blue-600 dark:text-blue-400">{record.pos}</TableCell>
                       <TableCell className="text-center">
                         {record.adjustment > 0 ? (
-                          <span className="text-orange-600">+{record.adjustment}</span>
+                          <span className="text-orange-600 dark:text-orange-400">+{record.adjustment}</span>
                         ) : (
-                          <span className="text-gray-600">0</span>
+                          <span className="text-gray-600 dark:text-gray-400">0</span>
                         )}
                       </TableCell>
                       <TableCell>
