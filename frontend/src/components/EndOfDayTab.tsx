@@ -22,7 +22,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Save, Send, RotateCcw, AlertTriangle, CheckCircle, Loader2, FileText, Download } from "lucide-react";
+import { Calendar, Save, Send, RotateCcw, AlertTriangle, CheckCircle, Loader2, FileText, Download, Plus, Minus } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import * as XLSX from "xlsx";
@@ -844,15 +844,38 @@ export default function EndOfDayTab() {
                         <TableCell className="text-center">{product.distributed}</TableCell>
                         <TableCell className="text-center text-blue-600">{product.pos}</TableCell>
                         <TableCell className="text-center">
-                          <Input
-                            type="number"
-                            min="0"
-                            max={product.distributed}
-                            value={product.remaining}
-                            onChange={(e) => updateRemaining(product.id, e.target.value)}
-                            className={`w-20 text-center ${hasError ? 'border-red-500' : ''}`}
-                            disabled={status === "submitted"}
-                          />
+                          <div className="flex items-center justify-center gap-1">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-8 w-8 p-0"
+                              onClick={() => updateRemaining(product.id, Math.max(0, product.remaining - 1).toString())}
+                              disabled={status === "submitted" || product.remaining <= 0}
+                            >
+                              <Minus className="h-4 w-4" />
+                            </Button>
+                            <Input
+                              type="number"
+                              min="0"
+                              max={product.distributed}
+                              value={product.remaining === 0 ? '' : product.remaining}
+                              onChange={(e) => updateRemaining(product.id, e.target.value)}
+                              placeholder="0"
+                              className={`w-16 text-center text-lg font-semibold ${hasError ? 'border-red-500' : ''}`}
+                              disabled={status === "submitted"}
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-8 w-8 p-0"
+                              onClick={() => updateRemaining(product.id, Math.min(product.distributed, product.remaining + 1).toString())}
+                              disabled={status === "submitted" || product.remaining >= product.distributed}
+                            >
+                              <Plus className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </TableCell>
                         <TableCell className="text-center">
                           <span className="font-semibold text-green-600">{sold}</span>
