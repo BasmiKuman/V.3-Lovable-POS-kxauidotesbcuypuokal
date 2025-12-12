@@ -704,10 +704,33 @@ export default function EndOfDayTab() {
     }
   };
 
-  const totalDistributed = products.reduce((sum, p) => sum + p.distributed, 0);
-  const totalPOS = products.reduce((sum, p) => sum + p.pos, 0);
-  const totalSold = products.reduce((sum, p) => sum + calculateSold(p.distributed, p.remaining), 0);
-  const totalAdjustment = products.reduce((sum, p) => sum + calculateAdjustment(p.distributed, p.remaining, p.pos), 0);
+  const totalDistributed = products
+    .filter(p => {
+      const cat = p.category?.toLowerCase() || '';
+      return !cat.includes('add') && !cat.includes('addon') && !cat.includes('add-on');
+    })
+    .reduce((sum, p) => sum + p.distributed, 0);
+  
+  const totalPOS = products
+    .filter(p => {
+      const cat = p.category?.toLowerCase() || '';
+      return !cat.includes('add') && !cat.includes('addon') && !cat.includes('add-on');
+    })
+    .reduce((sum, p) => sum + p.pos, 0);
+  
+  const totalSold = products
+    .filter(p => {
+      const cat = p.category?.toLowerCase() || '';
+      return !cat.includes('add') && !cat.includes('addon') && !cat.includes('add-on');
+    })
+    .reduce((sum, p) => sum + calculateSold(p.distributed, p.remaining), 0);
+  
+  const totalAdjustment = products
+    .filter(p => {
+      const cat = p.category?.toLowerCase() || '';
+      return !cat.includes('add') && !cat.includes('addon') && !cat.includes('add-on');
+    })
+    .reduce((sum, p) => sum + calculateAdjustment(p.distributed, p.remaining, p.pos), 0);
 
   const hasDiscrepancy = totalAdjustment !== 0;
 
@@ -779,7 +802,7 @@ export default function EndOfDayTab() {
           <CardContent>
             <div className="space-y-3">
               <p className="text-sm text-muted-foreground italic">
-                * Semua produk yang dibawa rider dihitung (Minuman, Syrup, dll). Hanya kategori <strong>Add-On</strong> (Whipped Cream, Extra Shot) yang tidak dihitung karena tidak dibawa pulang.
+                * Semua produk yang dibawa rider ditampilkan. <strong>Perhitungan "cups"</strong> hanya untuk produk kategori <strong>selain Add-On</strong>. Produk Add-On tetap muncul untuk tracking tapi tidak dihitung dalam total cups.
               </p>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
@@ -864,15 +887,29 @@ export default function EndOfDayTab() {
                     const sold = calculateSold(product.distributed, product.remaining);
                     const adjustment = calculateAdjustment(product.distributed, product.remaining, product.pos);
                     const hasError = product.remaining > product.distributed;
-                    const isCup = product.category?.toLowerCase().includes('cup') || 
-                                  product.category?.toLowerCase().includes('minuman') ||
-                                  product.category?.toLowerCase().includes('drink');
+                    const categoryLower = product.category?.toLowerCase() || '';
+                    const isAddOn = categoryLower.includes('add') || 
+                                    categoryLower.includes('addon') || 
+                                    categoryLower.includes('add-on');
+                    const isCup = categoryLower.includes('cup') || 
+                                  categoryLower.includes('minuman') ||
+                                  categoryLower.includes('drink');
                     
                     return (
-                      <TableRow key={product.id} className={hasError ? 'bg-red-50' : ''}>
-                        <TableCell className="font-medium">{product.name}</TableCell>
+                      <TableRow key={product.id} className={`${hasError ? 'bg-red-50' : ''} ${isAddOn ? 'opacity-60' : ''}`}>
+                        <TableCell className="font-medium">
+                          {product.name}
+                          {isAddOn && <span className="ml-2 text-xs text-gray-500">(tidak dihitung cup)</span>}
+                        </TableCell>
                         <TableCell className="text-center">
-                          <Badge variant="outline" className={isCup ? 'bg-blue-50' : 'bg-gray-50'}>
+                          <Badge 
+                            variant="outline" 
+                            className={
+                              isAddOn ? 'bg-yellow-50 text-yellow-700 border-yellow-300' : 
+                              isCup ? 'bg-blue-50' : 
+                              'bg-gray-50'
+                            }
+                          >
                             {product.category || 'N/A'}
                           </Badge>
                         </TableCell>
