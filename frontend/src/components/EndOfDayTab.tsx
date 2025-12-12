@@ -252,21 +252,33 @@ export default function EndOfDayTab() {
 
   const loadDistributedProducts = async () => {
     try {
-      // PERBAIKAN: Load dari rider_stock (saldo aktual) bukan hanya distribusi hari ini
-      // Ini untuk menangkap sisa stok kemarin yang belum di-return
+      // Get all products that rider has (including 0 quantity for complete tracking)
+      // Exclude Add-On category as they're not counted in cups
       const { data: riderStock, error: stockError } = await supabase
         .from("rider_stock")
         .select(`
           product_id,
           quantity,
-          products(id, name)
+          products(
+            id, 
+            name,
+            categories(name)
+          )
         `)
         .eq("rider_id", selectedRider)
-        .gt("quantity", 0);
+        .gte("quantity", 0); // Include 0 to show all products
 
       if (stockError) throw stockError;
 
-      if (!riderStock || riderStock.length === 0) {
+      // Filter out Add-On category
+      const filteredStock = riderStock?.filter((stock: any) => {
+        const categoryName = stock.products?.categories?.name || "";
+        return !categoryName.toLowerCase().includes("add") && 
+               !categoryName.toLowerCase().includes("addon") &&
+               !categoryName.toLowerCase().includes("add-on");
+      });
+
+      if (!filteredStock || filteredStock.length === 0) {
         toast.info("Tidak ada stock untuk rider ini");
         setProducts([]);
         setReportId(null);
@@ -292,7 +304,7 @@ export default function EndOfDayTab() {
 
       // Get POS quantities for today
       const productsData = await Promise.all(
-        riderStock.map(async (stock: any) => {
+        filteredStock.map(async (stock: any) => {
           // @ts-ignore - New RPC function not in types yet
           const { data: posQuantity } = await supabase.rpc("get_pos_quantity", {
             p_rider_id: selectedRider,
@@ -763,25 +775,37 @@ export default function EndOfDayTab() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div>
-                <p className="text-sm text-muted-foreground">Total Distribusi</p>
-                <p className="text-2xl font-bold">{totalDistributed} cups</p>
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground italic">
+                * Hanya produk kategori <strong>Cup</strong> yang dihitung. Kategori <strong>Add-On</strong> tidak termasuk dalam perhitungan Stock Opname.
+              </p>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Total Distribusi</p>
+                  <p className="text-2xl font-bold">{totalDistributed} cups</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">POS Tercatat</p>
+                  <p className="text-2xl font-bold text-blue-600">{totalPOS} cups</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Terjual (Calc)</p>
+                  <p className="text-2xl font-bold text-green-600">{totalSold} cups</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Adjustment</p>
+                  <p className={`text-2xl font-bold ${totalAdjustment > 0 ? 'text-orange-600' : 'text-gray-600'}`}>
+                    {totalAdjustment > 0 ? '+' : ''}{totalAdjustment} cups
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="text-sm text-muted-foreground">POS Tercatat</p>
-                <p className="text-2xl font-bold text-blue-600">{totalPOS} cups</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Terjual (Calc)</p>
-                <p className="text-2xl font-bold text-green-600">{totalSold} cups</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Adjustment</p>
-                <p className={`text-2xl font-bold ${totalAdjustment > 0 ? 'text-orange-600' : 'text-gray-600'}`}>
-                  {totalAdjustment > 0 ? '+' : ''}{totalAdjustment} cups
-                </p>
-              </div>
+              {totalAdjustment > 0 && (
+                <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                  <p className="text-sm text-orange-800">
+                    ⚠️ <strong>Adjustment akan membuat transaksi otomatis</strong> setelah submit. Transaksi ini akan muncul di <strong>Tab Laporan</strong> dengan tipe "Stock Adjustment".
+                  </p>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
