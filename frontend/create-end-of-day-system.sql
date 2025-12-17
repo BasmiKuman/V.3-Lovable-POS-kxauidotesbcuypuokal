@@ -289,7 +289,7 @@ BEGIN
   
   -- Only create transaction if there are adjustments
   IF v_subtotal > 0 THEN
-    -- Create adjustment transaction
+    -- Create adjustment transaction with payment_method = 'tunai' (default for adjustments)
     INSERT INTO transactions (
       rider_id,
       subtotal,
@@ -303,8 +303,8 @@ BEGIN
       v_subtotal,
       0,
       v_subtotal,
-      'Stock Adjustment',
-      'Auto-generated from end-of-day stock count'
+      'tunai',
+      'Stock Adjustment - Auto-generated from end-of-day stock count'
     )
     RETURNING id INTO v_transaction_id;
     
