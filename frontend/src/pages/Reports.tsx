@@ -604,14 +604,17 @@ export default function Reports() {
 
       toast.success("Transaksi berhasil diubah");
       
-      // Invalidate all queries to force complete refresh of transaction data, items, and cups
-      // This ensures transaction_items changes are reflected including total cups calculation
-      await queryClient.invalidateQueries();
-      
+      // Close dialog first
       setIsEditing(false);
       setEditDialogOpen(false);
       setEditReason("");
       setEditTransaction(null);
+      
+      // Force complete page reload to ensure all data refreshes
+      // Including transaction_items, cups count, and target status
+      setTimeout(() => {
+        window.location.reload();
+      }, 300);
     } catch (error: any) {
       console.error("Error editing transaction:", error);
       toast.error(`Gagal mengubah transaksi: ${error.message}`);
