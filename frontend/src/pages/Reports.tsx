@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { BarChart3, DollarSign, ShoppingCart, TrendingUp, Calendar, Download, Filter, ChevronDown, Users, FileText, Package, Trash2, AlertTriangle, Edit, X, Save } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format, startOfMonth, endOfMonth, startOfDay, endOfDay, startOfWeek, endOfWeek } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
@@ -32,6 +32,7 @@ import { Share } from '@capacitor/share';
 
 export default function Reports() {
   const isMobile = useIsMobile();
+  const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<string>("transactions");
   const [dateRange, setDateRange] = useState({
@@ -602,11 +603,17 @@ export default function Reports() {
       if (auditError) throw auditError;
 
       toast.success("Transaksi berhasil diubah");
-      window.location.reload();
+      
+      // Invalidate queries to refresh all data including cups count and items
+      await queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      
+      setIsEditing(false);
+      setEditDialogOpen(false);
+      setEditReason("");
+      setEditTransaction(null);
     } catch (error: any) {
       console.error("Error editing transaction:", error);
       toast.error(`Gagal mengubah transaksi: ${error.message}`);
-    } finally {
       setIsEditing(false);
       setEditDialogOpen(false);
       setEditReason("");
