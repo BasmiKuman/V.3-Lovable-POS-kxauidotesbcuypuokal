@@ -604,8 +604,9 @@ export default function Reports() {
 
       toast.success("Transaksi berhasil diubah");
       
-      // Invalidate queries to refresh all data including cups count and items
-      await queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      // Invalidate all queries to force complete refresh of transaction data, items, and cups
+      // This ensures transaction_items changes are reflected including total cups calculation
+      await queryClient.invalidateQueries();
       
       setIsEditing(false);
       setEditDialogOpen(false);
