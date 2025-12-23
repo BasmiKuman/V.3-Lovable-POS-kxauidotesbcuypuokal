@@ -279,7 +279,9 @@ export default function RiderDashboard() {
 
       return entries;
     },
-    refetchInterval: 30000, // Real-time: refresh every 30 seconds
+    refetchInterval: 10000, // Real-time: refresh every 10 seconds (faster for better UX)
+    refetchOnWindowFocus: true, // Refetch when window gains focus
+    staleTime: 5000, // Consider data stale after 5 seconds
   });
 
   // Update my rank when leaderboard changes

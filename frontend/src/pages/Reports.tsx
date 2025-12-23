@@ -2087,6 +2087,43 @@ export default function Reports() {
                   Top Filter
                 </Button>
               </div>
+              
+              {/* Custom Date Range Picker */}
+              <div className="flex items-center gap-2">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="flex-1 text-xs">
+                      <Calendar className="w-3 h-3 mr-1" />
+                      {format(historyDateRange.start, "dd/MM/yy", { locale: idLocale })}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarComponent
+                      mode="single"
+                      selected={historyDateRange.start}
+                      onSelect={(date) => date && setHistoryDateRange(prev => ({ ...prev, start: startOfDay(date) }))}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+                <span className="text-muted-foreground text-xs">s/d</span>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="flex-1 text-xs">
+                      <Calendar className="w-3 h-3 mr-1" />
+                      {format(historyDateRange.end, "dd/MM/yy", { locale: idLocale })}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarComponent
+                      mode="single"
+                      selected={historyDateRange.end}
+                      onSelect={(date) => date && setHistoryDateRange(prev => ({ ...prev, end: endOfDay(date) }))}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
             </div>
           </CardHeader>
           <CardContent>

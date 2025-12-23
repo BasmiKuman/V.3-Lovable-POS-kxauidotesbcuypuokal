@@ -22,9 +22,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Calendar, Save, Send, RotateCcw, AlertTriangle, CheckCircle, Loader2, FileText, Download, Plus, Minus } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { id as idLocale } from "date-fns/locale";
 import * as XLSX from "xlsx";
 
 type Rider = {
@@ -844,12 +847,26 @@ export default function EndOfDayTab() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Tanggal</Label>
-              <Input 
-                type="date" 
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                disabled={status === "submitted"}
-              />
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button 
+                    variant="outline" 
+                    className={`w-full justify-start text-left font-normal ${!selectedDate && "text-muted-foreground"}`}
+                    disabled={status === "submitted"}
+                  >
+                    <Calendar className="mr-2 h-4 w-4" />
+                    {selectedDate ? format(new Date(selectedDate), "dd MMM yyyy", { locale: idLocale }) : "Pilih tanggal"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <CalendarComponent
+                    mode="single"
+                    selected={selectedDate ? new Date(selectedDate) : undefined}
+                    onSelect={(date) => date && setSelectedDate(format(date, "yyyy-MM-dd"))}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
             <div className="space-y-2">
               <Label>Rider</Label>
