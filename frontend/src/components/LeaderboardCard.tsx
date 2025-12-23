@@ -25,6 +25,7 @@ export function LeaderboardCard({ currentUserId, showTitle = true }: Leaderboard
   const navigate = useNavigate();
   
   // Fetch leaderboard - ALL riders
+  // Using the SAME calculation logic as Reports.tsx for consistency
   const { data: leaderboard = [] } = useQuery<LeaderboardEntry[]>({
     queryKey: ["rider-leaderboard"],
     queryFn: async () => {
@@ -45,23 +46,45 @@ export function LeaderboardCard({ currentUserId, showTitle = true }: Leaderboard
       }
       const riderRoleIds = (allRiders || []).map((r: any) => r.user_id);
 
-      // STEP 2: Get ALL transactions for this month
-      const { data: transactions, error: transError } = await supabase
+      // STEP 2: Get ALL transactions for this month with full data
+      const { data: transactionsData, error: transError } = await supabase
         .from("transactions")
-        .select("id, rider_id, created_at")
+        .select("*")
         .gte("created_at", monthStart.toISOString())
-        .lte("created_at", monthEnd.toISOString());
+        .lte("created_at", monthEnd.toISOString())
+        .order("created_at", { ascending: false });
 
       if (transError) {
         console.error("❌ Error fetching transactions:", transError);
         return [];
       }
-      console.log("✅ Found transactions this month:", transactions?.length || 0);
+      
+      const transactions = transactionsData || [];
+      console.log("✅ Found transactions this month:", transactions.length);
 
       // Get transaction IDs
-      const transactionIds = (transactions || []).map((t: any) => t.id).filter(Boolean);
+      const transactionIds = transactions.map((t: any) => t.id).filter(Boolean);
+      
+      if (transactionIds.length === 0) {
+        console.log("⚠️ No transactions found for this month");
+        // Return riders with 0 cups
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("user_id, full_name, avatar_url, sales_target")
+          .in("user_id", riderRoleIds.length > 0 ? riderRoleIds : [""]);
+        
+        return (profiles || []).map((profile: any, index: number) => ({
+          rider_id: profile.user_id,
+          rider_name: profile.full_name,
+          rider_avatar: profile.avatar_url,
+          total_cups: 0,
+          sales_target: profile.sales_target || 30,
+          rank: index + 1,
+        }));
+      }
 
-      // STEP 3: Get ALL transaction items (batched to avoid URL length limits)
+      // STEP 3: Get ALL transaction items with product categories
+      // Using same query structure as Reports.tsx for consistency
       let allItems: any[] = [];
       const batchSize = 50;
       for (let i = 0; i < transactionIds.length; i += batchSize) {
@@ -70,16 +93,7 @@ export function LeaderboardCard({ currentUserId, showTitle = true }: Leaderboard
         
         const { data: batchItems, error: itemsError } = await supabase
           .from("transaction_items")
-          .select(`
-            transaction_id,
-            quantity,
-            products (
-              id,
-              categories (
-                name
-              )
-            )
-          `)
+          .select("*, products(name, sku, category_id, categories(name))")
           .in("transaction_id", batchIds);
           
         if (itemsError) {
@@ -89,38 +103,47 @@ export function LeaderboardCard({ currentUserId, showTitle = true }: Leaderboard
         if (batchItems) allItems = allItems.concat(batchItems);
       }
 
-      // STEP 4: Build map of transaction_id -> total cups (exclude Add On)
-      const transactionCups = new Map<string, number>();
-      (allItems || []).forEach((item: any) => {
+      console.log("✅ Fetched transaction items:", allItems.length);
+
+      // STEP 4: Build transaction -> items mapping
+      const transactionItemsMap = new Map<string, any[]>();
+      allItems.forEach((item: any) => {
         const transId = item.transaction_id;
-        const categoryName = item.products?.categories?.name?.toLowerCase() || '';
-        const isAddOn = categoryName === 'add on' || categoryName === 'addon' || categoryName === 'add-on';
-        
-        if (!isAddOn) {
-          const current = transactionCups.get(transId) || 0;
-          transactionCups.set(transId, current + (item.quantity || 0));
+        if (!transactionItemsMap.has(transId)) {
+          transactionItemsMap.set(transId, []);
         }
+        transactionItemsMap.get(transId)!.push(item);
       });
 
-      // STEP 5: Aggregate cups per rider
-      const riderCups = new Map<string, number>();
-      const transactionRiderIds = new Set<string>();
+      // STEP 5: Calculate cups per rider using SAME logic as Reports.tsx
+      // This matches the transactionsByRider calculation in Reports.tsx
+      const riderData = new Map<string, { cups: number; riderId: string }>();
       
-      (transactions || []).forEach((transaction: any) => {
+      transactions.forEach((transaction: any) => {
         const riderId = transaction.rider_id;
         if (!riderId) return;
         
-        transactionRiderIds.add(riderId);
-        const cups = transactionCups.get(transaction.id) || 0;
+        // Get transaction items for this transaction
+        const transactionItems = transactionItemsMap.get(transaction.id) || [];
         
-        if (cups > 0) {
-          const current = riderCups.get(riderId) || 0;
-          riderCups.set(riderId, current + cups);
+        // Calculate cups for this transaction (exclude Add On)
+        // EXACT same logic as Reports.tsx line 375-379
+        const transactionCups = transactionItems.reduce((sum: number, item: any) => {
+          const categoryName = item.products?.categories?.name?.toLowerCase() || '';
+          const isAddOn = categoryName === 'add on' || categoryName === 'addon' || categoryName === 'add-on';
+          return isAddOn ? sum : sum + (item.quantity || 0);
+        }, 0);
+        
+        // Aggregate to rider
+        if (!riderData.has(riderId)) {
+          riderData.set(riderId, { cups: 0, riderId });
         }
+        riderData.get(riderId)!.cups += transactionCups;
       });
 
-      // STEP 6: Union - riders from roles + riders seen in transactions
-      const unionIds = Array.from(new Set<string>([...riderRoleIds, ...Array.from(transactionRiderIds)]));
+      // STEP 6: Get unique rider IDs (from roles + from transactions)
+      const transactionRiderIds = Array.from(riderData.keys());
+      const unionIds = Array.from(new Set<string>([...riderRoleIds, ...transactionRiderIds]));
 
       // STEP 7: Fetch profiles for everyone (including sales_target)
       const { data: profiles, error: profilesError } = await supabase
@@ -136,14 +159,17 @@ export function LeaderboardCard({ currentUserId, showTitle = true }: Leaderboard
       const profilesList = profiles || [];
 
       // STEP 8: Build leaderboard
-      const entries: LeaderboardEntry[] = profilesList.map((profile: any) => ({
-        rider_id: profile.user_id,
-        rider_name: profile.full_name,
-        rider_avatar: profile.avatar_url,
-        total_cups: riderCups.get(profile.user_id) || 0,
-        sales_target: profile.sales_target || 30,
-        rank: 0,
-      }));
+      const entries: LeaderboardEntry[] = profilesList.map((profile: any) => {
+        const data = riderData.get(profile.user_id);
+        return {
+          rider_id: profile.user_id,
+          rider_name: profile.full_name,
+          rider_avatar: profile.avatar_url,
+          total_cups: data?.cups || 0,
+          sales_target: profile.sales_target || 30,
+          rank: 0,
+        };
+      });
 
       console.log("✅ Leaderboard entries built:", entries.length);
       console.log("📊 Leaderboard data:", entries.map(e => ({
