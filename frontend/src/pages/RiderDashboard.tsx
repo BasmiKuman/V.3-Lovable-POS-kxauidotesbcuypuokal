@@ -147,8 +147,12 @@ export default function RiderDashboard() {
 
     // Fetch leaderboard - ALL riders
   // Using the SAME calculation logic as Reports.tsx for consistency
+  // Query key includes month boundaries to ensure fresh data per month
+  const leaderboardMonthStart = startOfMonth(new Date());
+  const leaderboardMonthEnd = endOfMonth(new Date());
+  
   const { data: leaderboard = [] } = useQuery<LeaderboardEntry[]>({
-    queryKey: ["rider-leaderboard"],
+    queryKey: ["rider-leaderboard", leaderboardMonthStart.toISOString(), leaderboardMonthEnd.toISOString()],
     queryFn: async () => {
       const now = new Date();
       const monthStart = startOfMonth(now);
