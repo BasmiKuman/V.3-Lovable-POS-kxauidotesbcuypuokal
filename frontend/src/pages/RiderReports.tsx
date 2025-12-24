@@ -70,7 +70,7 @@ export default function RiderReports() {
   const totalCups = items.reduce((sum, item) => {
     const categoryName = (item.products as any)?.categories?.name?.toLowerCase() || '';
     const isAddOn = categoryName === 'add on' || categoryName === 'addon' || categoryName === 'add-on';
-    return isAddOn ? sum : sum + item.quantity;
+    return isAddOn ? sum : sum + (item.quantity || 0);
   }, 0);
   
   const totalTransactions = transactions.length;
