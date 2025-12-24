@@ -101,3 +101,64 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+
+user_problem_statement: |
+  Fix bug di bagian leaderboard halaman admin/super admin dan rider, leaderboard yang isinya tentang 
+  total penjualan cup (update setiap hari berdasarkan total penjualan) saat ini tidak sesuai dengan 
+  yang ada di laporan (riwayat transaksi per rider). Zulfian deski ramadhan harusnya totalnya 511 cup 
+  di leaderboard tidak sesuai. Total cup menghitung semua produk kecuali kategori add on.
+
+frontend:
+  - task: "Leaderboard cup calculation sync"
+    implemented: true
+    working: false
+    file: "frontend/src/components/LeaderboardCard.tsx, frontend/src/pages/RiderDashboard.tsx"
+    stuck_count: 1
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: false
+        agent: "user"
+        comment: "User reported leaderboard showing 544 cup for Zulfian but Riwayat Transaksi shows 510 cup"
+      - working: false
+        agent: "main"
+        comment: "First fix attempt - standardized query and calculation logic"
+      - working: false
+        agent: "user"
+        comment: "User reported Rizki Hari Saputra - ketika input penjualan, total cup malah berkurang"
+      - working: false
+        agent: "main"
+        comment: "Second fix - added query key with date params, reduced staleTime to 0, standardized quantity fallback (|| 0)"
+
+metadata:
+  created_by: "main_agent"
+  version: "1.0"
+  test_sequence: 1
+  run_ui: false
+
+test_plan:
+  current_focus:
+    - "Leaderboard cup calculation sync"
+  stuck_tasks:
+    - "Leaderboard cup calculation sync"
+  test_all: false
+  test_priority: "stuck_first"
+
+agent_communication:
+  - agent: "main"
+    message: |
+      Fixed leaderboard calculation issues:
+      1. Changed query key to include month start/end dates to prevent cache conflicts
+      2. Reduced staleTime to 0 and refetchInterval to 5000ms for real-time updates
+      3. Standardized quantity handling with (item.quantity || 0) fallback across all files
+      4. Aligned query structure between LeaderboardCard, RiderDashboard, and Reports.tsx
+      
+      Files modified:
+      - /app/frontend/src/components/LeaderboardCard.tsx
+      - /app/frontend/src/pages/RiderDashboard.tsx
+      - /app/frontend/src/pages/Reports.tsx
+      
+      User should test by:
+      1. Refresh the application
+      2. Compare Leaderboard cup count with Riwayat Transaksi per Rider (filter: Bulan Ini)
+      3. Input new transaction and verify cup count increases correctly
