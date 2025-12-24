@@ -30,11 +30,97 @@ export function LeaderboardCard({ currentUserId, showTitle = true }: Leaderboard
   const monthEnd = endOfMonth(now);
   
   // Fetch leaderboard - ALL riders
-  // Using the SAME calculation logic as Reports.tsx for consistency
-  // Query key includes month boundaries to ensure fresh data per month
+  // Using direct JOIN query like RiderReports.tsx for accurate cup counting
   const { data: leaderboard = [] } = useQuery<LeaderboardEntry[]>({
     queryKey: ["rider-leaderboard", monthStart.toISOString(), monthEnd.toISOString()],
     queryFn: async () => {
+      // STEP 1: Get ALL riders from user_roles
+      const { data: allRiders, error: ridersError } = await supabase
+        .from("user_roles")
+        .select("user_id")
+        .eq("role", "rider");
+
+      if (ridersError) {
+        console.error("❌ Error fetching user_roles:", ridersError);
+      }
+      const riderRoleIds = (allRiders || []).map((r: any) => r.user_id);
+
+      // STEP 2: For each rider, calculate cups using direct JOIN (like RiderReports.tsx)
+      // This ensures ALL transaction items are counted correctly
+      const riderCupsPromises = riderRoleIds.map(async (riderId: string) => {
+        // Use the same query structure as RiderReports.tsx - direct JOIN
+        const { data: items, error } = await supabase
+          .from("transaction_items")
+          .select("quantity, products(categories(name)), transactions!inner(rider_id, created_at)")
+          .eq("transactions.rider_id", riderId)
+          .gte("transactions.created_at", monthStart.toISOString())
+          .lte("transactions.created_at", monthEnd.toISOString());
+
+        if (error) {
+          console.error(`Error fetching items for rider ${riderId}:`, error);
+          return { riderId, cups: 0 };
+        }
+
+        // Calculate cups (exclude Add On) - same logic as RiderReports.tsx
+        const cups = (items || []).reduce((sum: number, item: any) => {
+          const categoryName = item.products?.categories?.name?.toLowerCase() || '';
+          const isAddOn = categoryName === 'add on' || categoryName === 'addon' || categoryName === 'add-on';
+          return isAddOn ? sum : sum + (item.quantity || 0);
+        }, 0);
+
+        return { riderId, cups };
+      });
+
+      const riderCupsResults = await Promise.all(riderCupsPromises);
+      
+      // Build rider cups map
+      const riderCupsMap = new Map<string, number>();
+      riderCupsResults.forEach(({ riderId, cups }) => {
+        riderCupsMap.set(riderId, cups);
+      });
+
+      // STEP 3: Fetch profiles for all riders
+      const { data: profiles, error: profilesError } = await supabase
+        .from("profiles")
+        .select("user_id, full_name, avatar_url, sales_target")
+        .in("user_id", riderRoleIds.length > 0 ? riderRoleIds : [""]);
+
+      if (profilesError) {
+        console.error("❌ Error fetching profiles:", profilesError);
+      }
+      const profilesList = profiles || [];
+
+      // STEP 4: Build leaderboard
+      const entries: LeaderboardEntry[] = profilesList.map((profile: any) => ({
+        rider_id: profile.user_id,
+        rider_name: profile.full_name,
+        rider_avatar: profile.avatar_url,
+        total_cups: riderCupsMap.get(profile.user_id) || 0,
+        sales_target: profile.sales_target || 30,
+        rank: 0,
+      }));
+
+      console.log("✅ Leaderboard entries built:", entries.length);
+      console.log("📊 Leaderboard data:", entries.map(e => ({
+        name: e.rider_name,
+        cups: e.total_cups
+      })));
+
+      // Sort by total cups descending
+      entries.sort((a, b) => b.total_cups - a.total_cups);
+
+      // Assign ranks
+      entries.forEach((entry, index) => {
+        entry.rank = index + 1;
+      });
+
+      return entries;
+    },
+    refetchInterval: 5000, // Refresh every 5 seconds for real-time updates
+    refetchOnWindowFocus: true, // Refetch when window gains focus
+    staleTime: 0, // Always consider data stale to ensure fresh data
+    gcTime: 1000, // Garbage collect cache quickly
+  });
 
       // STEP 1: Get ALL riders from user_roles
       const { data: allRiders, error: ridersError } = await supabase
