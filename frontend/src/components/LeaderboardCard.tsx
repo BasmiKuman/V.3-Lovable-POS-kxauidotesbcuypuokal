@@ -24,14 +24,17 @@ interface LeaderboardCardProps {
 export function LeaderboardCard({ currentUserId, showTitle = true }: LeaderboardCardProps) {
   const navigate = useNavigate();
   
+  // Get current month boundaries for query key
+  const now = new Date();
+  const monthStart = startOfMonth(now);
+  const monthEnd = endOfMonth(now);
+  
   // Fetch leaderboard - ALL riders
   // Using the SAME calculation logic as Reports.tsx for consistency
+  // Query key includes month boundaries to ensure fresh data per month
   const { data: leaderboard = [] } = useQuery<LeaderboardEntry[]>({
-    queryKey: ["rider-leaderboard"],
+    queryKey: ["rider-leaderboard", monthStart.toISOString(), monthEnd.toISOString()],
     queryFn: async () => {
-      const now = new Date();
-      const monthStart = startOfMonth(now);
-      const monthEnd = endOfMonth(now);
 
       // STEP 1: Get ALL riders from user_roles
       const { data: allRiders, error: ridersError } = await supabase
