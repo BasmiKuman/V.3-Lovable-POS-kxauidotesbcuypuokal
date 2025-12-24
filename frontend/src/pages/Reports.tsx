@@ -401,7 +401,7 @@ export default function Reports() {
       
       // Only count if NOT Add On
       if (!isAddOn) {
-        return sum + item.quantity;
+        return sum + (item.quantity || 0);
       }
       return sum;
     }, 0);
