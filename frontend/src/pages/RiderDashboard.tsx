@@ -146,19 +146,17 @@ export default function RiderDashboard() {
   });
 
     // Fetch leaderboard - ALL riders
-  // Using the SAME calculation logic as Reports.tsx for consistency
-  // Query key includes month boundaries to ensure fresh data per month
+  // Using direct JOIN query like RiderReports.tsx for accurate cup counting
   const leaderboardMonthStart = startOfMonth(new Date());
   const leaderboardMonthEnd = endOfMonth(new Date());
   
   const { data: leaderboard = [] } = useQuery<LeaderboardEntry[]>({
     queryKey: ["rider-leaderboard", leaderboardMonthStart.toISOString(), leaderboardMonthEnd.toISOString()],
     queryFn: async () => {
-      const now = new Date();
-      const monthStart = startOfMonth(now);
-      const monthEnd = endOfMonth(now);
+      const monthStart = leaderboardMonthStart;
+      const monthEnd = leaderboardMonthEnd;
 
-      // STEP 1: Get ALL riders from user_roles (may be empty)
+      // STEP 1: Get ALL riders from user_roles
       const { data: allRiders, error: ridersError } = await supabase
         .from("user_roles")
         .select("user_id")
@@ -166,58 +164,89 @@ export default function RiderDashboard() {
 
       if (ridersError) {
         console.error("❌ [RiderDashboard] Error fetching user_roles:", ridersError);
-      } else {
-        console.log("✅ [RiderDashboard] Found riders in user_roles:", allRiders?.length || 0);
       }
       const riderRoleIds = (allRiders || []).map((r: any) => r.user_id);
 
-      // STEP 2: Get ALL transactions for this month with full data
-      const { data: transactionsData, error: transError } = await supabase
-        .from("transactions")
-        .select("*")
-        .gte("created_at", monthStart.toISOString())
-        .lte("created_at", monthEnd.toISOString())
-        .order("created_at", { ascending: false });
-
-      if (transError) {
-        console.error("❌ [RiderDashboard] Error fetching transactions:", transError);
+      if (riderRoleIds.length === 0) {
+        console.log("⚠️ [RiderDashboard] No riders found");
         return [];
       }
-      
-      const transactions = transactionsData || [];
-      console.log("✅ [RiderDashboard] Found transactions this month:", transactions.length);
 
-      // Get transaction IDs
-      const transactionIds = transactions.map((t: any) => t.id).filter(Boolean);
-      
-      if (transactionIds.length === 0) {
-        console.log("⚠️ [RiderDashboard] No transactions found for this month");
-        // Return riders with 0 cups
-        const { data: profiles } = await supabase
-          .from("profiles")
-          .select("user_id, full_name, avatar_url")
-          .in("user_id", riderRoleIds.length > 0 ? riderRoleIds : [""]);
-        
-        return (profiles || []).map((profile: any, index: number) => ({
-          rider_id: profile.user_id,
-          rider_name: profile.full_name,
-          rider_avatar: profile.avatar_url,
-          total_cups: 0,
-          rank: index + 1,
-        }));
-      }
-
-      // STEP 3: Get ALL transaction items with product categories
-      // Using same query structure as Reports.tsx for consistency
-      let allItems: any[] = [];
-      const batchSize = 50;
-      for (let i = 0; i < transactionIds.length; i += batchSize) {
-        const batchIds = transactionIds.slice(i, i + batchSize);
-        if (batchIds.length === 0) continue;
-        
-        const { data: batchItems, error: itemsError } = await supabase
+      // STEP 2: For each rider, calculate cups using direct JOIN (like RiderReports.tsx)
+      // This ensures ALL transaction items are counted correctly without batching issues
+      const riderCupsPromises = riderRoleIds.map(async (riderId: string) => {
+        // Use the same query structure as RiderReports.tsx - direct JOIN
+        const { data: items, error } = await supabase
           .from("transaction_items")
-          .select("*, products(name, sku, category_id, categories(name))")
+          .select("quantity, products(categories(name)), transactions!inner(rider_id, created_at)")
+          .eq("transactions.rider_id", riderId)
+          .gte("transactions.created_at", monthStart.toISOString())
+          .lte("transactions.created_at", monthEnd.toISOString());
+
+        if (error) {
+          console.error(`Error fetching items for rider ${riderId}:`, error);
+          return { riderId, cups: 0 };
+        }
+
+        // Calculate cups (exclude Add On) - same logic as RiderReports.tsx
+        const cups = (items || []).reduce((sum: number, item: any) => {
+          const categoryName = item.products?.categories?.name?.toLowerCase() || '';
+          const isAddOn = categoryName === 'add on' || categoryName === 'addon' || categoryName === 'add-on';
+          return isAddOn ? sum : sum + (item.quantity || 0);
+        }, 0);
+
+        return { riderId, cups };
+      });
+
+      const riderCupsResults = await Promise.all(riderCupsPromises);
+      
+      // Build rider cups map
+      const riderCupsMap = new Map<string, number>();
+      riderCupsResults.forEach(({ riderId, cups }) => {
+        riderCupsMap.set(riderId, cups);
+      });
+
+      // STEP 3: Fetch profiles for all riders
+      const { data: profiles, error: profilesError } = await supabase
+        .from("profiles")
+        .select("user_id, full_name, avatar_url")
+        .in("user_id", riderRoleIds);
+
+      if (profilesError) {
+        console.error("❌ [RiderDashboard] Error fetching profiles:", profilesError);
+      }
+      const profilesList = profiles || [];
+
+      // STEP 4: Build leaderboard
+      const entries: LeaderboardEntry[] = profilesList.map((profile: any) => ({
+        rider_id: profile.user_id,
+        rider_name: profile.full_name,
+        rider_avatar: profile.avatar_url,
+        total_cups: riderCupsMap.get(profile.user_id) || 0,
+        rank: 0,
+      }));
+
+      console.log("✅ [RiderDashboard] Leaderboard entries built:", entries.length);
+      console.log("📊 [RiderDashboard] Leaderboard data:", entries.map(e => ({
+        name: e.rider_name,
+        cups: e.total_cups
+      })));
+
+      // Sort by total cups descending
+      entries.sort((a, b) => b.total_cups - a.total_cups);
+
+      // Assign ranks
+      entries.forEach((entry, index) => {
+        entry.rank = index + 1;
+      });
+
+      return entries;
+    },
+    refetchInterval: 5000, // Refresh every 5 seconds for real-time updates
+    refetchOnWindowFocus: true, // Refetch when window gains focus
+    staleTime: 0, // Always consider data stale to ensure fresh data
+    gcTime: 1000, // Garbage collect cache quickly
+  });
           .in("transaction_id", batchIds);
           
         if (itemsError) {
