@@ -375,7 +375,7 @@ export default function Reports() {
     const transactionCups = transaction.transaction_items?.reduce((sum: number, item: any) => {
       const categoryName = item.products?.categories?.name?.toLowerCase() || '';
       const isAddOn = categoryName === 'add on' || categoryName === 'addon' || categoryName === 'add-on';
-      return isAddOn ? sum : sum + item.quantity;
+      return isAddOn ? sum : sum + (item.quantity || 0);
     }, 0) || 0;
     
     acc[riderId].totalCups += transactionCups;
