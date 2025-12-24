@@ -45,8 +45,13 @@ export function LeaderboardCard({ currentUserId, showTitle = true }: Leaderboard
       }
       const riderRoleIds = (allRiders || []).map((r: any) => r.user_id);
 
+      if (riderRoleIds.length === 0) {
+        console.log("⚠️ No riders found");
+        return [];
+      }
+
       // STEP 2: For each rider, calculate cups using direct JOIN (like RiderReports.tsx)
-      // This ensures ALL transaction items are counted correctly
+      // This ensures ALL transaction items are counted correctly without batching issues
       const riderCupsPromises = riderRoleIds.map(async (riderId: string) => {
         // Use the same query structure as RiderReports.tsx - direct JOIN
         const { data: items, error } = await supabase
@@ -83,7 +88,7 @@ export function LeaderboardCard({ currentUserId, showTitle = true }: Leaderboard
       const { data: profiles, error: profilesError } = await supabase
         .from("profiles")
         .select("user_id, full_name, avatar_url, sales_target")
-        .in("user_id", riderRoleIds.length > 0 ? riderRoleIds : [""]);
+        .in("user_id", riderRoleIds);
 
       if (profilesError) {
         console.error("❌ Error fetching profiles:", profilesError);
@@ -99,166 +104,6 @@ export function LeaderboardCard({ currentUserId, showTitle = true }: Leaderboard
         sales_target: profile.sales_target || 30,
         rank: 0,
       }));
-
-      console.log("✅ Leaderboard entries built:", entries.length);
-      console.log("📊 Leaderboard data:", entries.map(e => ({
-        name: e.rider_name,
-        cups: e.total_cups
-      })));
-
-      // Sort by total cups descending
-      entries.sort((a, b) => b.total_cups - a.total_cups);
-
-      // Assign ranks
-      entries.forEach((entry, index) => {
-        entry.rank = index + 1;
-      });
-
-      return entries;
-    },
-    refetchInterval: 5000, // Refresh every 5 seconds for real-time updates
-    refetchOnWindowFocus: true, // Refetch when window gains focus
-    staleTime: 0, // Always consider data stale to ensure fresh data
-    gcTime: 1000, // Garbage collect cache quickly
-  });
-
-      // STEP 1: Get ALL riders from user_roles
-      const { data: allRiders, error: ridersError } = await supabase
-        .from("user_roles")
-        .select("user_id")
-        .eq("role", "rider");
-
-      if (ridersError) {
-        console.error("❌ Error fetching user_roles:", ridersError);
-      } else {
-        console.log("✅ Found riders in user_roles:", allRiders?.length || 0);
-      }
-      const riderRoleIds = (allRiders || []).map((r: any) => r.user_id);
-
-      // STEP 2: Get ALL transactions for this month with full data
-      const { data: transactionsData, error: transError } = await supabase
-        .from("transactions")
-        .select("*")
-        .gte("created_at", monthStart.toISOString())
-        .lte("created_at", monthEnd.toISOString())
-        .order("created_at", { ascending: false });
-
-      if (transError) {
-        console.error("❌ Error fetching transactions:", transError);
-        return [];
-      }
-      
-      const transactions = transactionsData || [];
-      console.log("✅ Found transactions this month:", transactions.length);
-
-      // Get transaction IDs
-      const transactionIds = transactions.map((t: any) => t.id).filter(Boolean);
-      
-      if (transactionIds.length === 0) {
-        console.log("⚠️ No transactions found for this month");
-        // Return riders with 0 cups
-        const { data: profiles } = await supabase
-          .from("profiles")
-          .select("user_id, full_name, avatar_url, sales_target")
-          .in("user_id", riderRoleIds.length > 0 ? riderRoleIds : [""]);
-        
-        return (profiles || []).map((profile: any, index: number) => ({
-          rider_id: profile.user_id,
-          rider_name: profile.full_name,
-          rider_avatar: profile.avatar_url,
-          total_cups: 0,
-          sales_target: profile.sales_target || 30,
-          rank: index + 1,
-        }));
-      }
-
-      // STEP 3: Get ALL transaction items with product categories
-      // Using same query structure as Reports.tsx for consistency
-      let allItems: any[] = [];
-      const batchSize = 50;
-      for (let i = 0; i < transactionIds.length; i += batchSize) {
-        const batchIds = transactionIds.slice(i, i + batchSize);
-        if (batchIds.length === 0) continue;
-        
-        const { data: batchItems, error: itemsError } = await supabase
-          .from("transaction_items")
-          .select("*, products(name, sku, category_id, categories(name))")
-          .in("transaction_id", batchIds);
-          
-        if (itemsError) {
-          console.error("Error fetching transaction_items (batch):", itemsError);
-          continue;
-        }
-        if (batchItems) allItems = allItems.concat(batchItems);
-      }
-
-      console.log("✅ Fetched transaction items:", allItems.length);
-
-      // STEP 4: Build transaction -> items mapping
-      const transactionItemsMap = new Map<string, any[]>();
-      allItems.forEach((item: any) => {
-        const transId = item.transaction_id;
-        if (!transactionItemsMap.has(transId)) {
-          transactionItemsMap.set(transId, []);
-        }
-        transactionItemsMap.get(transId)!.push(item);
-      });
-
-      // STEP 5: Calculate cups per rider using SAME logic as Reports.tsx
-      // This matches the transactionsByRider calculation in Reports.tsx
-      const riderData = new Map<string, { cups: number; riderId: string }>();
-      
-      transactions.forEach((transaction: any) => {
-        const riderId = transaction.rider_id;
-        if (!riderId) return;
-        
-        // Get transaction items for this transaction
-        const transactionItems = transactionItemsMap.get(transaction.id) || [];
-        
-        // Calculate cups for this transaction (exclude Add On)
-        // EXACT same logic as Reports.tsx line 375-379
-        const transactionCups = transactionItems.reduce((sum: number, item: any) => {
-          const categoryName = item.products?.categories?.name?.toLowerCase() || '';
-          const isAddOn = categoryName === 'add on' || categoryName === 'addon' || categoryName === 'add-on';
-          return isAddOn ? sum : sum + (item.quantity || 0);
-        }, 0);
-        
-        // Aggregate to rider
-        if (!riderData.has(riderId)) {
-          riderData.set(riderId, { cups: 0, riderId });
-        }
-        riderData.get(riderId)!.cups += transactionCups;
-      });
-
-      // STEP 6: Get unique rider IDs (from roles + from transactions)
-      const transactionRiderIds = Array.from(riderData.keys());
-      const unionIds = Array.from(new Set<string>([...riderRoleIds, ...transactionRiderIds]));
-
-      // STEP 7: Fetch profiles for everyone (including sales_target)
-      const { data: profiles, error: profilesError } = await supabase
-        .from("profiles")
-        .select("user_id, full_name, avatar_url, sales_target")
-        .in("user_id", unionIds.length > 0 ? unionIds : [""]);
-
-      if (profilesError) {
-        console.error("❌ Error fetching profiles:", profilesError);
-      } else {
-        console.log("✅ Found profiles:", profiles?.length || 0);
-      }
-      const profilesList = profiles || [];
-
-      // STEP 8: Build leaderboard
-      const entries: LeaderboardEntry[] = profilesList.map((profile: any) => {
-        const data = riderData.get(profile.user_id);
-        return {
-          rider_id: profile.user_id,
-          rider_name: profile.full_name,
-          rider_avatar: profile.avatar_url,
-          total_cups: data?.cups || 0,
-          sales_target: profile.sales_target || 30,
-          rank: 0,
-        };
-      });
 
       console.log("✅ Leaderboard entries built:", entries.length);
       console.log("📊 Leaderboard data:", entries.map(e => ({
