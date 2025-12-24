@@ -247,7 +247,7 @@ export default function Reports() {
         const categoryName = item.products?.categories?.name?.toLowerCase() || '';
         const isAddOn = categoryName === 'add on' || categoryName === 'addon' || categoryName === 'add-on';
         if (!isAddOn) {
-          return itemSum + item.quantity;
+          return itemSum + (item.quantity || 0);
         }
         return itemSum;
       }, 0) || 0;
