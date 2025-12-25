@@ -411,14 +411,27 @@ export default function Dashboard() {
 
       if (!product) throw new Error("Product not found");
 
+      const newWarehouseStock = product.stock_in_warehouse + returnItem.quantity;
+      
+      console.log(`📦 Return Approval - Updating Warehouse Stock`);
+      console.log(`   Product: ${returnItem.products.name}`);
+      console.log(`   Current warehouse stock: ${product.stock_in_warehouse}`);
+      console.log(`   Return quantity: ${returnItem.quantity}`);
+      console.log(`   New warehouse stock: ${newWarehouseStock}`);
+
       const { error: updateProductError } = await supabase
         .from("products")
         .update({
-          stock_in_warehouse: product.stock_in_warehouse + returnItem.quantity,
+          stock_in_warehouse: newWarehouseStock,
         })
         .eq("id", returnItem.product_id);
 
-      if (updateProductError) throw updateProductError;
+      if (updateProductError) {
+        console.error("❌ Error updating warehouse stock:", updateProductError);
+        throw updateProductError;
+      }
+      
+      console.log(`✅ Warehouse stock updated successfully`);
 
       // Update rider stock: deduct the returned quantity
       const { data: riderStock, error: riderStockError } = await supabase

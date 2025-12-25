@@ -525,21 +525,28 @@ export function ManualSalesTab() {
           throw new Error(`Gagal mengambil data produk: ${productError.message}`);
         }
 
-        if (productData) {
-          const newWarehouseStock = productData.stock_in_warehouse + item.quantity;
-          
-          const { error: updateError } = await supabase
-            .from("products")
-            .update({ stock_in_warehouse: newWarehouseStock })
-            .eq("id", item.product_id);
-
-          if (updateError) {
-            console.error("Error updating warehouse stock:", updateError);
-            throw new Error(`Gagal update stock gudang: ${updateError.message}`);
-          }
-
-          console.log(`✅ Stock gudang updated: ${item.product_id} from ${productData.stock_in_warehouse} to ${newWarehouseStock}`);
+        if (!productData) {
+          throw new Error(`Produk tidak ditemukan: ${item.product_id}`);
         }
+
+        const newWarehouseStock = productData.stock_in_warehouse + item.quantity;
+        
+        console.log(`📦 Updating warehouse stock for product ${item.product_id}:`);
+        console.log(`   Current warehouse stock: ${productData.stock_in_warehouse}`);
+        console.log(`   Return quantity: ${item.quantity}`);
+        console.log(`   New warehouse stock: ${newWarehouseStock}`);
+        
+        const { error: updateError } = await supabase
+          .from("products")
+          .update({ stock_in_warehouse: newWarehouseStock })
+          .eq("id", item.product_id);
+
+        if (updateError) {
+          console.error("❌ Error updating warehouse stock:", updateError);
+          throw new Error(`Gagal update stock gudang: ${updateError.message}`);
+        }
+
+        console.log(`✅ Stock gudang updated successfully: ${item.product_id} from ${productData.stock_in_warehouse} to ${newWarehouseStock}`);
 
         // Insert ke return_history untuk log (agar admin return juga tercatat)
         const { error: historyError } = await supabase
